@@ -1,0 +1,12 @@
+import os
+import sys
+sys.path.append('../../build_core/tools/scons')
+from javastatus import JavaStatus
+Import('env')
+
+# AllJoyn Java status codes
+JavaStatus('org/alljoyn/bus/Status')
+
+# AllJoyn Java binding
+main_classes = env.Java('$CLASSDIR', '.', JAVACLASSPATH=os.environ.get('CLASSPATH'))
+env.Jar('$JARDIR/alljoyn.jar', main_classes)

@@ -1,0 +1,9 @@
+.sconsign.dblite
+build
+inc
+*~
+bin
+gen
+libs
+.settings
+TEST*
