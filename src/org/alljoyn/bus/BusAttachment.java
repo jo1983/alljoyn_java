@@ -310,7 +310,7 @@ public class BusAttachment {
      * @return OK if successful
      */
     public Status connect() {
-        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=bluebus");
+        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
         if (address != null) {
             Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener,
                                     keyStoreFileName);

@@ -48,7 +48,7 @@ public class AllJoynProxyObjTest extends TestCase {
     private String address;
 
     public void setUp() throws Exception {
-        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=bluebus");
+        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
         bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
         assertEquals(Status.OK, bus.connect());
         dbus = bus.getDBusProxyObj();
