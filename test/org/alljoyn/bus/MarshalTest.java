@@ -1819,26 +1819,15 @@ public class MarshalTest extends TestCase {
     public void testArraySizes() throws Exception {
         InferredTypesInterface proxy = remoteObj.getInterface(InferredTypesInterface.class);
 
-        // There exists a hard-coded limit of 256 * 1024 elements in an array
-        int k = 256;
+        // There exists a hard-coded limit of k bytes in an array
+        int k = 67108864;
 
-        byte[] ay = new byte[k * 1024];
+        byte[] ay = new byte[k];
         assertArrayEquals(ay, proxy.ByteArray(ay));
-        ay = new byte[k * 1024 + 1];
+        ay = new byte[k + 1];
         boolean thrown = false;
         try {
             assertArrayEquals(ay, proxy.ByteArray(ay));
-        } catch (MarshalBusException ex) {
-            thrown = true;
-        }
-        assertEquals(true, thrown);
-
-        double[] ad = new double[k * 1024];
-        assertArrayEquals(ad, proxy.DoubleArray(ad), 0.001);
-        ad = new double[k * 1024 + 1];
-        thrown = false;
-        try {
-            assertArrayEquals(ad, proxy.DoubleArray(ad), 0.001);
         } catch (MarshalBusException ex) {
             thrown = true;
         }

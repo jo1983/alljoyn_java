@@ -25,6 +25,7 @@
   <target name="test" depends="test-init">
     <junit fork="yes" printsummary="false" errorProperty="test.failed" failureProperty="test.failed">
       <jvmarg value="-Xcheck:jni" />
+      <jvmarg value="-Xmx512m" />
       <jvmarg value="-Dorg.alljoyn.bus.address=${org.alljoyn.bus.address}" />
       <sysproperty key="java.library.path" path="${dist}/lib"/>
       <classpath refid="test.classpath" />
