@@ -79,8 +79,8 @@ public class AllJoynProxyObjTest extends TestCase {
 
     public void testConnectDisconnect() throws Exception {
         daemon = new AllJoynDaemon();
-        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.address()));
-        assertEquals(AllJoynProxyObj.DisconnectResult.Success, alljoyn.Disconnect(daemon.address()));
+        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
+        assertEquals(AllJoynProxyObj.DisconnectResult.Success, alljoyn.Disconnect(daemon.remoteAddress()));
     }
 
     public void testAdvertiseNameCancelAdvertiseName() throws Exception {

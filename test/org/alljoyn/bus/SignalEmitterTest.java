@@ -122,7 +122,7 @@ public class SignalEmitterTest extends TestCase {
         /* Set up another daemon to receive the global broadcast signal. */
         AllJoynDaemon daemon = new AllJoynDaemon();
         AllJoynProxyObj alljoyn = bus.getAllJoynProxyObj();
-        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.address()));
+        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
 
         System.setProperty("org.alljoyn.bus.address", daemon.address());
         BusAttachment otherConn = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
@@ -142,7 +142,7 @@ public class SignalEmitterTest extends TestCase {
 
         otherConn.deregisterSignalHandler(this, getClass().getMethod("signalHandler", String.class));
         otherConn.disconnect();
-        alljoyn.Disconnect(daemon.address());
+        alljoyn.Disconnect(daemon.remoteAddress());
         daemon.stop();
     }
 }

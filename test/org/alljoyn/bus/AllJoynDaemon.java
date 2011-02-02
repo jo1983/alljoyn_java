@@ -23,6 +23,7 @@ import java.io.IOException;
 
 public class AllJoynDaemon {
     private String daemonAddress;
+    private String daemonRemoteAddress;
     private Process daemon;
     private String pid;
     private Thread errorReader;
@@ -53,11 +54,12 @@ public class AllJoynDaemon {
 
     public AllJoynDaemon() {
         daemonAddress = "unix:abstract=AllJoynDaemonTest";
+        daemonRemoteAddress = "tcp:addr=127.0.0.1,port=5343";
         if ("The Android Project".equals(System.getProperty("java.vendor"))) {
             return;
         }
         try {
-            String address = "BUS_SERVER_ADDRESSES=" + daemonAddress + ";tcp:addr=0.0.0.0,port=5343";
+            String address = "BUS_SERVER_ADDRESSES=" + daemonAddress + ";" + daemonRemoteAddress;
             daemon = Runtime.getRuntime().exec("bbdaemon", new String[] { address });
             errorReader = new StreamReader(daemon.getErrorStream());
             inputReader = new StreamReader(daemon.getInputStream());
@@ -89,5 +91,9 @@ public class AllJoynDaemon {
 
     public String address() {
         return daemonAddress;
+    }
+
+    public String remoteAddress() {
+        return daemonRemoteAddress;
     }
 }

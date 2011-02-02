@@ -117,13 +117,13 @@ public class ProxyBusObjectTest extends TestCase {
         assertEquals(AllJoynProxyObj.AdvertiseNameResult.Success, otherBus.getAllJoynProxyObj().AdvertiseName(name));
 
         proxyObj = bus.getProxyBusObject(name, "/simple", new Class[] { SimpleInterface.class });
-        assertEquals(Status.OK, proxyObj.connect(daemon.address(), 5 * 1000));
+        assertEquals(Status.OK, proxyObj.connect(daemon.remoteAddress(), 5 * 1000));
     }
 
     public void testConnectTimeout() throws Exception {
         proxyObj = bus.getProxyBusObject("org.alljoyn.bus.ProxyBusObjectTest.unknown", 
                                          "/simple", new Class[] { SimpleInterface.class });
-        assertEquals(Status.TIMEOUT, proxyObj.connect(daemon.address(), 1 * 1000));
+        assertEquals(Status.TIMEOUT, proxyObj.connect(daemon.remoteAddress(), 1 * 1000));
     }
 
     public void testConnectDisconnect() throws Exception {
@@ -134,7 +134,7 @@ public class ProxyBusObjectTest extends TestCase {
         proxyObj = bus.getProxyBusObject(name, "/simple", new Class[] { SimpleInterface.class });
         SimpleInterface proxy = proxyObj.getInterface(SimpleInterface.class);
         for (int i = 0; i < 10; ++i) {
-            assertEquals(Status.OK, proxyObj.connect(daemon.address()));
+            assertEquals(Status.OK, proxyObj.connect(daemon.remoteAddress()));
             assertEquals("ping", proxy.Ping("ping"));
             proxyObj.disconnect();
         }
@@ -144,7 +144,7 @@ public class ProxyBusObjectTest extends TestCase {
         proxyObj = bus.getProxyBusObject(name, "/simple", new Class[] { SimpleInterface.class });
         new Thread(new Runnable() {
                 public void run() {
-                    assertEquals(Status.CANCELLED, proxyObj.connect(daemon.address(), 10 * 1000));
+                    assertEquals(Status.CANCELLED, proxyObj.connect(daemon.remoteAddress(), 10 * 1000));
                 }
             }).start();
         Thread.currentThread().sleep(1 * 1000);
@@ -159,9 +159,9 @@ public class ProxyBusObjectTest extends TestCase {
 
         // Connect two proxy objects
         proxyObj = bus.getProxyBusObject(name, "/simple", new Class[] { SimpleInterface.class });
-        assertEquals(Status.OK, proxyObj.connect(daemon.address()));
+        assertEquals(Status.OK, proxyObj.connect(daemon.remoteAddress()));
         ProxyBusObject proxyObj2 = bus.getProxyBusObject(name, "/simple", new Class[] { SimpleInterface.class });
-        assertEquals(Status.OK, proxyObj2.connect(daemon.address()));
+        assertEquals(Status.OK, proxyObj2.connect(daemon.remoteAddress()));
 
         // Verify they're both operating
         assertEquals("ping", proxyObj.getInterface(SimpleInterface.class).Ping("ping"));
