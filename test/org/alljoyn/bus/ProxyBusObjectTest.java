@@ -208,34 +208,4 @@ public class ProxyBusObjectTest extends TestCase {
         }
         assertTrue(thrown);
     }
-
-    private boolean Methods;
-    private boolean Methodi;
-
-    public class MultiMethod implements MultiMethodInterfaceA, MultiMethodInterfaceB,
-                                        BusObject {
-        public void Method(String str) { Methods = true; };
-        public void Method(int i) { Methodi = true; };
-    };
-
-    public void testMultiMethod() throws Exception {
-        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, 
-                     bus.getDBusProxyObj().RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS));
-
-        MultiMethod service = new MultiMethod();
-        assertEquals(Status.OK, bus.registerBusObject(service, "/multimethod"));
-
-        proxyObj = bus.getProxyBusObject(name, "/multimethod", new Class[] { MultiMethodInterfaceA.class, 
-                                                                             MultiMethodInterfaceB.class });
-        
-        Methods = Methodi = false;
-        proxyObj.getInterface(MultiMethodInterfaceA.class).Method("str");
-        assertEquals(true, Methods);
-        assertEquals(false, Methodi);
-        
-        Methods = Methodi = false;
-        proxyObj.getInterface(MultiMethodInterfaceB.class).Method(10);
-        assertEquals(false, Methods);
-        assertEquals(true, Methodi);
-    }    
 }

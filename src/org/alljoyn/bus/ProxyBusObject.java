@@ -24,10 +24,6 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * A bus object that exists and is managed by some other connection to
@@ -75,7 +71,7 @@ public class ProxyBusObject {
         this.objPath = objPath;
         create(busAttachment, busName, objPath);
         replyTimeoutMsecs = 25000;
-        proxy = Proxy.newProxyInstance(busInterfaces[0].getClassLoader(), busInterfaces, new Handler());
+        proxy = Proxy.newProxyInstance(getClass().getClassLoader(), busInterfaces, new Handler());
     }
 
     /** Allocate native resources. */
@@ -112,152 +108,66 @@ public class ProxyBusObject {
     /** The invocation handler for the bus interfaces. */
     private class Handler implements InvocationHandler {
 
-        private class Invocation {
-            public Method method;
-
-            public boolean isMethod;
-            public boolean isGet;
-
-            public String inputSig;
-            public String outSig;
-
-            public String interfaceName;
-            public String methodName;
-
-            public Type genericReturnType;
-            public Class<?> returnType;
-
-            public Invocation(Method method) throws BusException {
-                this.method = method;
-                if (method.getAnnotation(BusProperty.class) != null) {
-                    this.isGet = method.getName().startsWith("get");
-                    this.outSig = InterfaceDescription.getPropertySig(method);
-                } else {
-                    this.isMethod = true;
-                    this.outSig = InterfaceDescription.getOutSig(method);
-                    this.inputSig = InterfaceDescription.getInputSig(method);
-                }
-                this.interfaceName = InterfaceDescription.getName(method.getDeclaringClass());
-                this.methodName = InterfaceDescription.getName(method);
-                this.genericReturnType = method.getGenericReturnType();
-                this.returnType = method.getReturnType();
-            }
-        };
-
-        private Map<String, List<Invocation>> invocationCache;
-
-        public Handler() {
-            this.invocationCache = new HashMap<String, List<Invocation>>();
-        }
-
         public Object invoke(Object proxy, Method method, Object[] args) throws BusException {
-            /*
-             * Some notes on performance.
-             *
-             * Reflection is very expensive.  So first pass at optimization is to cache the
-             * reflection calls that lookup names and annotations the first time the method is
-             * invoked.
-             *
-             * Using a Method as a HashMap key is expensive.  Using method.getName() as the key
-             * is less expensive.  But method names may not be unique (they can be overloaded), so
-             * need to fall back to Method.equals if more than one method with the same name exists.
-             */
-            Invocation invocation = null;
-            String methodName = method.getName();
-            List<Invocation> invocationList = invocationCache.get(methodName);
-            if (invocationList != null) {
-                if (invocationList.size() == 1) {
-                    /* The fast path. */
-                    invocation = invocationList.get(0);
-                } else {
-                    /* The slow path.  Two Java methods exist with the same name for this proxy. */
-                    for (Invocation i : invocationList) {
-                        if (method.equals(i.method)) {
-                            invocation = i;
-                            break;
-                        }
-                    }
-                    if (invocation == null) {
-                        invocation = new Invocation(method);
-                        invocationList.add(invocation);
-                    }
-                }
-            } else {
-                /* 
-                 * The very slow path.  The first time a proxy method is invoked. 
-                 *
-                 * Walk through all the methods looking for ones that match the invoked method name.
-                 * This creates a list of all the cached invocation information that we'll use later
-                 * on the next method call.
-                 */
-                invocationList = new ArrayList<Invocation>();
-                for (Class<?> i : proxy.getClass().getInterfaces()) {
-                    for (Method m : i.getMethods()) {
-                        if (methodName.equals(m.getName())) {
-                            Invocation in = new Invocation(m);
-                            invocationList.add(in);
-                            if (method.equals(in.method)) {
-                                invocation = in;
+            for (Class<?> i : proxy.getClass().getInterfaces()) {
+                for (Method m : i.getMethods()) {
+                    if (method.getName().equals(m.getName())) {
+                        Object value = null;
+                        String outSig = null;
+                        if (m.getAnnotation(BusProperty.class) != null) {
+                            outSig = InterfaceDescription.getPropertySig(m);
+                            if (m.getName().startsWith("get")) {
+                                Variant v = getProperty(bus, 
+                                                        InterfaceDescription.getName(i),
+                                                        InterfaceDescription.getName(m));
+                                value = v.getObject(m.getGenericReturnType());
+                            } else {
+                                setProperty(bus,
+                                            InterfaceDescription.getName(i),
+                                            InterfaceDescription.getName(m),
+                                            InterfaceDescription.getPropertySig(m),
+                                            args[0]);
                             }
+                        } else {
+                            outSig = InterfaceDescription.getOutSig(m);
+                            value = methodCall(bus,
+                                               InterfaceDescription.getName(i),
+                                               InterfaceDescription.getName(m),
+                                               InterfaceDescription.getInputSig(m),
+                                               m.getGenericReturnType(),
+                                               args,
+                                               replyTimeoutMsecs,
+                                               flags);
                         }
+                        /* 
+                         * The JNI layer can't perform complete type checking (at least not easily),
+                         * so this extra code is here.  The conditions below are taken from the
+                         * InvocationHandler documentation.
+                         */
+                        boolean doThrow = false;
+                        Class<?> returnType = m.getReturnType();
+                        if (value == null) {
+                            doThrow = returnType.isPrimitive() && !returnType.isAssignableFrom(Void.TYPE);
+                        } else if (returnType.isPrimitive()) {
+                            if ((returnType.isAssignableFrom(Byte.TYPE) && !(value instanceof Byte))
+                                || (returnType.isAssignableFrom(Short.TYPE) && !(value instanceof Short))
+                                || (returnType.isAssignableFrom(Integer.TYPE) &&  !(value instanceof Integer))
+                                || (returnType.isAssignableFrom(Long.TYPE) && !(value instanceof Long))
+                                || (returnType.isAssignableFrom(Double.TYPE) && !(value instanceof Double))
+                                || (returnType.isAssignableFrom(Boolean.TYPE) && !(value instanceof Boolean))) {
+                                doThrow = true;
+                            }
+                        } else if (!returnType.isAssignableFrom(value.getClass())) {
+                            doThrow = true;
+                        }
+                        if (doThrow) {
+                            throw new MarshalBusException("cannot marshal '" + outSig + "' into " + returnType);
+                        }
+                        return value;
                     }
                 }
-                if (invocation == null) {
-                    throw new BusException("No such method: " + method);
-                }
-                invocationCache.put(methodName, invocationList);
             }
-
-            Object value = null;
-            if (invocation.isMethod) {
-                value = methodCall(bus,
-                                   invocation.interfaceName,
-                                   invocation.methodName,
-                                   invocation.inputSig,
-                                   invocation.genericReturnType,
-                                   args,
-                                   replyTimeoutMsecs,
-                                   flags);
-            } else {
-                if (invocation.isGet) {
-                    Variant v = getProperty(bus, 
-                                            invocation.interfaceName,
-                                            invocation.methodName);
-                    value = v.getObject(invocation.genericReturnType);
-                } else {
-                    setProperty(bus,
-                                invocation.interfaceName,
-                                invocation.methodName,
-                                invocation.outSig,
-                                args[0]);
-                }
-            }
-
-            /* 
-             * The JNI layer can't perform complete type checking (at least not easily),
-             * so this extra code is here.  The conditions below are taken from the
-             * InvocationHandler documentation.
-             */
-            boolean doThrow = false;
-            Class<?> returnType = invocation.returnType;
-            if (value == null) {
-                doThrow = returnType.isPrimitive() && !returnType.isAssignableFrom(Void.TYPE);
-            } else if (returnType.isPrimitive()) {
-                if ((returnType.isAssignableFrom(Byte.TYPE) && !(value instanceof Byte))
-                    || (returnType.isAssignableFrom(Short.TYPE) && !(value instanceof Short))
-                    || (returnType.isAssignableFrom(Integer.TYPE) &&  !(value instanceof Integer))
-                    || (returnType.isAssignableFrom(Long.TYPE) && !(value instanceof Long))
-                    || (returnType.isAssignableFrom(Double.TYPE) && !(value instanceof Double))
-                    || (returnType.isAssignableFrom(Boolean.TYPE) && !(value instanceof Boolean))) {
-                    doThrow = true;
-                }
-            } else if (!returnType.isAssignableFrom(value.getClass())) {
-                doThrow = true;
-            }
-            if (doThrow) {
-                throw new MarshalBusException("cannot marshal '" + invocation.outSig + "' into " + returnType);
-            }
-            return value;
+            throw new BusException("No such method: " + method);
         }
     }
 
