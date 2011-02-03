@@ -1,18 +1,18 @@
 /******************************************************************************
  * Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
- * 
+ *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
- * 
+ *
  *        http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
- * 
+ *
  ******************************************************************************/
 #include <jni.h>
 #include <stdio.h>
@@ -39,7 +39,7 @@ using namespace ajn;
 // TODO: Cache IDs - not sure if the non java/lang ones are valid all the time
 
 /** The cached JVM pointer, valid across all contexts. */
-static JavaVM *jvm = NULL;
+static JavaVM* jvm = NULL;
 
 /** java/lang cached items - these are guaranteed to be loaded at all times. */
 static jclass CLS_Object = NULL;
@@ -67,18 +67,18 @@ static jmethodID MID_MsgArg_unmarshal_array = NULL;
 /**
  * @return The JNIEnv pointer valid in the calling context.
  */
-static JNIEnv *GetEnv(jint *result = 0)
+static JNIEnv* GetEnv(jint* result = 0)
 {
-    JNIEnv *env;
-    jint ret = jvm->GetEnv((void **)&env, JNI_VERSION_1_2);
+    JNIEnv* env;
+    jint ret = jvm->GetEnv((void**)&env, JNI_VERSION_1_2);
     if (result) {
-	*result = ret;
+        *result = ret;
     }
     if (JNI_EDETACHED == ret) {
 #if defined(QCC_OS_ANDROID)
-	ret = jvm->AttachCurrentThread(&env, NULL);
+        ret = jvm->AttachCurrentThread(&env, NULL);
 #else
-	ret = jvm->AttachCurrentThread((void **)&env, NULL);
+        ret = jvm->AttachCurrentThread((void**)&env, NULL);
 #endif
     }
     assert(JNI_OK == ret);
@@ -88,36 +88,35 @@ static JNIEnv *GetEnv(jint *result = 0)
 static void DeleteEnv(jint result)
 {
     if (JNI_EDETACHED == result) {
-	jvm->DetachCurrentThread();
+        jvm->DetachCurrentThread();
     }
 }
 
-JNIEXPORT jint JNICALL 
-JNI_OnLoad(JavaVM *vm, 
-	   void *reserved)
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
+                                  void* reserved)
 {
     QCC_UseOSLogging(true);
     jvm = vm;
-    JNIEnv *env;
-    if (jvm->GetEnv((void **)&env, JNI_VERSION_1_2)) {
-	return JNI_ERR;
+    JNIEnv* env;
+    if (jvm->GetEnv((void**)&env, JNI_VERSION_1_2)) {
+        return JNI_ERR;
     } else {
-	jclass clazz;
-	clazz = env->FindClass("java/lang/Object");
-	if (!clazz) {
-	    return JNI_ERR;
-	}
-	CLS_Object = (jclass)env->NewGlobalRef(clazz);
-	MID_Object_equals = env->GetMethodID(CLS_Object, "equals", "(Ljava/lang/Object;)Z");
-	if (!MID_Object_equals) {
-	    return JNI_ERR;
-	}
+        jclass clazz;
+        clazz = env->FindClass("java/lang/Object");
+        if (!clazz) {
+            return JNI_ERR;
+        }
+        CLS_Object = (jclass)env->NewGlobalRef(clazz);
+        MID_Object_equals = env->GetMethodID(CLS_Object, "equals", "(Ljava/lang/Object;)Z");
+        if (!MID_Object_equals) {
+            return JNI_ERR;
+        }
 
-	clazz = env->FindClass("java/lang/String");
-	if (!clazz) {
-	    return JNI_ERR;
-	}
-	CLS_String = (jclass)env->NewGlobalRef(clazz);
+        clazz = env->FindClass("java/lang/String");
+        if (!clazz) {
+            return JNI_ERR;
+        }
+        CLS_String = (jclass)env->NewGlobalRef(clazz);
 
         /** org/alljoyn/bus */
         clazz = env->FindClass("org/alljoyn/bus/BusException");
@@ -149,22 +148,22 @@ JNI_OnLoad(JavaVM *vm,
             return JNI_ERR;
         }
         CLS_MsgArg = (jclass)env->NewGlobalRef(clazz);
-        MID_MsgArg_marshal = env->GetStaticMethodID(CLS_MsgArg, "marshal", 
+        MID_MsgArg_marshal = env->GetStaticMethodID(CLS_MsgArg, "marshal",
                                                     "(JLjava/lang/String;Ljava/lang/Object;)V");
         if (!MID_MsgArg_marshal) {
             return JNI_ERR;
         }
-        MID_MsgArg_marshal_array = env->GetStaticMethodID(CLS_MsgArg, "marshal", 
+        MID_MsgArg_marshal_array = env->GetStaticMethodID(CLS_MsgArg, "marshal",
                                                           "(JLjava/lang/String;[Ljava/lang/Object;)V");
         if (!MID_MsgArg_marshal_array) {
             return JNI_ERR;
         }
-        MID_MsgArg_unmarshal = env->GetStaticMethodID(CLS_MsgArg, "unmarshal", 
+        MID_MsgArg_unmarshal = env->GetStaticMethodID(CLS_MsgArg, "unmarshal",
                                                       "(JLjava/lang/reflect/Type;)Ljava/lang/Object;");
         if (!MID_MsgArg_unmarshal) {
             return JNI_ERR;
         }
-        MID_MsgArg_unmarshal_array = env->GetStaticMethodID(CLS_MsgArg, "unmarshal", 
+        MID_MsgArg_unmarshal_array = env->GetStaticMethodID(CLS_MsgArg, "unmarshal",
                                                             "(Ljava/lang/reflect/Method;J)[Ljava/lang/Object;");
         if (!MID_MsgArg_unmarshal_array) {
             return JNI_ERR;
@@ -195,32 +194,32 @@ JNI_OnLoad(JavaVM *vm,
         }
         CLS_BusAttachment = (jclass)env->NewGlobalRef(clazz);
 
-	return JNI_VERSION_1_2;
+        return JNI_VERSION_1_2;
     }
 }
 
 /**
  * Wrap local references to ensure proper release.
  */
-template<class T> class JLocalRef {
-public:
-    JLocalRef() : jobj(NULL) {}
-    JLocalRef(const T &obj) : jobj(obj) {}
+template <class T> class JLocalRef {
+  public:
+    JLocalRef() : jobj(NULL) { }
+    JLocalRef(const T& obj) : jobj(obj) { }
     ~JLocalRef() { if (jobj) GetEnv()->DeleteLocalRef(jobj); }
-    JLocalRef &operator=(T obj) 
+    JLocalRef& operator=(T obj)
     {
-	if (jobj) GetEnv()->DeleteLocalRef(jobj);
-	jobj = obj; 
-	return *this; 
+        if (jobj) GetEnv()->DeleteLocalRef(jobj);
+        jobj = obj;
+        return *this;
     }
     operator T() { return jobj; }
-    T move() 
+    T move()
     {
-	T ret = jobj; 
-	jobj = NULL; 
-	return ret;
+        T ret = jobj;
+        jobj = NULL;
+        return ret;
     }
-private:
+  private:
     T jobj;
 };
 
@@ -228,22 +227,22 @@ private:
  * Scoped JNIEnv pointer to ensure proper release.
  */
 class JScopedEnv {
-public:
+  public:
     JScopedEnv();
     ~JScopedEnv();
-    JNIEnv *operator->() { return env; }
-private:
-    JNIEnv *env;
+    JNIEnv* operator->() { return env; }
+  private:
+    JNIEnv* env;
     jint detached;
 };
 
 JScopedEnv::JScopedEnv()
-  : env(GetEnv(&detached)) 
+    : env(GetEnv(&detached))
 {
 }
 
 JScopedEnv::~JScopedEnv()
-{ 
+{
     /* Clear any pending exceptions before detaching. */
     {
         JLocalRef<jthrowable> ex = env->ExceptionOccurred();
@@ -252,7 +251,7 @@ JScopedEnv::~JScopedEnv()
             env->CallStaticVoidMethod(CLS_BusException, MID_BusException_log, (jthrowable)ex);
         }
     }
-    DeleteEnv(detached); 
+    DeleteEnv(detached);
 }
 
 /**
@@ -261,51 +260,51 @@ JScopedEnv::~JScopedEnv()
  * caller after constructing the JString.
  */
 class JString {
-public:
+  public:
     JString(jstring s);
     ~JString();
-    const char *c_str() { return str; }
-private:
+    const char* c_str() { return str; }
+  private:
     jstring jstr;
-    const char *str;
+    const char* str;
 };
 
 JString::JString(jstring s)
-    : jstr(s), str(jstr ? GetEnv()->GetStringUTFChars(jstr, NULL) : NULL) 
+    : jstr(s), str(jstr ? GetEnv()->GetStringUTFChars(jstr, NULL) : NULL)
 {
 }
 
 JString::~JString()
-{ 
-    if (str) GetEnv()->ReleaseStringUTFChars(jstr, str); 
+{
+    if (str) GetEnv()->ReleaseStringUTFChars(jstr, str);
 }
 
-static void Throw(const char *name, const char *msg)
+static void Throw(const char* name, const char* msg)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     JLocalRef<jclass> clazz = env->FindClass(name);
     if (clazz) {
         env->ThrowNew(clazz, msg);
     }
 }
 
-static void ThrowErrorReplyBusException(const char *name, const char *message)
+static void ThrowErrorReplyBusException(const char* name, const char* message)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     JLocalRef<jstring> jname = env->NewStringUTF(name);
     if (!jname) {
-	return;
+        return;
     }
     JLocalRef<jstring> jmessage = env->NewStringUTF(message);
     if (!jmessage) {
-	return;
+        return;
     }
-    jmethodID mid = env->GetMethodID(CLS_ErrorReplyBusException, "<init>", 
+    jmethodID mid = env->GetMethodID(CLS_ErrorReplyBusException, "<init>",
                                      "(Ljava/lang/String;Ljava/lang/String;)V");
-    JLocalRef<jthrowable> jexc = (jthrowable)env->NewObject(CLS_ErrorReplyBusException, mid, 
+    JLocalRef<jthrowable> jexc = (jthrowable)env->NewObject(CLS_ErrorReplyBusException, mid,
                                                             (jstring)jname, (jstring)jmessage);
     if (jexc) {
-	env->Throw(jexc);
+        env->Throw(jexc);
     }
 }
 
@@ -313,18 +312,18 @@ static void ThrowErrorReplyBusException(const char *name, const char *message)
  * @return The handle value as a pointer.  NULL is a valid value, so
  *         exceptions must be checked for explicitly by the caller.
  */
-static void *GetHandle(jobject jobj)
+static void* GetHandle(jobject jobj)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (!jobj) {
-	Throw("java/lang/NullPointerException", "failed to get native handle on null object");
-	return NULL;
+        Throw("java/lang/NullPointerException", "failed to get native handle on null object");
+        return NULL;
     }
     JLocalRef<jclass> clazz = env->GetObjectClass(jobj);
     jfieldID fid = env->GetFieldID(clazz, "handle", "J");
-    void *handle = NULL;
+    void* handle = NULL;
     if (fid) {
-	handle = (void *)env->GetLongField(jobj, fid);
+        handle = (void*)env->GetLongField(jobj, fid);
     }
     return handle;
 }
@@ -332,17 +331,17 @@ static void *GetHandle(jobject jobj)
 /**
  * May throw an exception.
  */
-static void SetHandle(jobject jobj, void *handle)
+static void SetHandle(jobject jobj, void* handle)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (!jobj) {
-	Throw("java/lang/NullPointerException", "failed to set native handle on null object");
-	return;
+        Throw("java/lang/NullPointerException", "failed to set native handle on null object");
+        return;
     }
     JLocalRef<jclass> clazz = env->GetObjectClass(jobj);
     jfieldID fid = env->GetFieldID(clazz, "handle", "J");
     if (fid) {
-	env->SetLongField(jobj, fid, (jlong)handle);
+        env->SetLongField(jobj, fid, (jlong)handle);
     }
 }
 
@@ -351,59 +350,59 @@ static void SetHandle(jobject jobj, void *handle)
  */
 static jobject JStatus(QStatus status)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jmethodID mid = env->GetStaticMethodID(CLS_Status, "create", "(I)Lorg/alljoyn/bus/Status;");
     if (!mid) {
-	return NULL;
+        return NULL;
     }
     return env->CallStaticObjectMethod(CLS_Status, mid, status);
 }
 
-/* 
- * class org_alljoyn_bus_BusAttachment 
+/*
+ * class org_alljoyn_bus_BusAttachment
  */
 
 class MessageContext {
-public:
+  public:
     static Message GetMessage();
-    MessageContext(const Message &msg);
+    MessageContext(const Message& msg);
     ~MessageContext();
-private:
-    static map<Thread *, Message> messages;
+  private:
+    static map<Thread*, Message> messages;
     Mutex lock;
 };
 
-map<Thread *, Message> MessageContext::messages;
+map<Thread*, Message> MessageContext::messages;
 
-Message MessageContext::GetMessage() 
+Message MessageContext::GetMessage()
 {
-    map<Thread *, Message>::iterator it = messages.find(Thread::GetThread());
+    map<Thread*, Message>::iterator it = messages.find(Thread::GetThread());
     assert(messages.end() != it);
     return it->second;
 }
 
-MessageContext::MessageContext(const Message &msg) 
+MessageContext::MessageContext(const Message& msg)
 {
     lock.Lock();
-    messages.insert(pair<Thread *, Message>(Thread::GetThread(), msg));
+    messages.insert(pair<Thread*, Message>(Thread::GetThread(), msg));
     lock.Unlock();
 }
 
-MessageContext::~MessageContext() 
+MessageContext::~MessageContext()
 {
     lock.Lock();
-    map<Thread *, Message>::iterator it = messages.find(Thread::GetThread());
+    map<Thread*, Message>::iterator it = messages.find(Thread::GetThread());
     messages.erase(it);
     lock.Unlock();
 }
 
 class JKeyStoreListener : public KeyStoreListener {
-public:
+  public:
     JKeyStoreListener(jobject jlistener);
     ~JKeyStoreListener();
-    QStatus LoadRequest(KeyStore &keyStore);
-    QStatus StoreRequest(KeyStore &keyStore);
-private:
+    QStatus LoadRequest(KeyStore& keyStore);
+    QStatus StoreRequest(KeyStore& keyStore);
+  private:
     jweak jkeyStoreListener;
     jmethodID MID_getKeys;
     jmethodID MID_getPassword;
@@ -414,7 +413,7 @@ private:
 JKeyStoreListener::JKeyStoreListener(jobject jlistener)
     : jkeyStoreListener(NULL)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jkeyStoreListener = (jweak)env->NewGlobalRef(jlistener);
     if (!jkeyStoreListener) {
         return;
@@ -440,13 +439,13 @@ JKeyStoreListener::JKeyStoreListener(jobject jlistener)
 
 JKeyStoreListener::~JKeyStoreListener()
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (jkeyStoreListener) {
         env->DeleteGlobalRef(jkeyStoreListener);
     }
 }
 
-QStatus JKeyStoreListener::LoadRequest(KeyStore &keyStore) 
+QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
 {
     JScopedEnv env;
     JLocalRef<jbyteArray> jarray = (jbyteArray)env->CallObjectMethod(jkeyStoreListener, MID_getKeys);
@@ -456,11 +455,11 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore &keyStore)
     String source;
     if (jarray) {
         jsize len = env->GetArrayLength(jarray);
-        jbyte *jelements = env->GetByteArrayElements(jarray, NULL);
+        jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
         if (!jelements) {
             return ER_FAIL;
         }
-        source = String((const char *)jelements, len);
+        source = String((const char*)jelements, len);
         env->ReleaseByteArrayElements(jarray, jelements, JNI_ABORT);
     }
     /*
@@ -473,12 +472,12 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore &keyStore)
     if (env->ExceptionCheck() || !jpasswordChar) {
         return ER_FAIL;
     }
-    JLocalRef<jbyteArray> jpassword = (jbyteArray)env->CallStaticObjectMethod(CLS_BusAttachment, MID_encode, 
+    JLocalRef<jbyteArray> jpassword = (jbyteArray)env->CallStaticObjectMethod(CLS_BusAttachment, MID_encode,
                                                                               (jcharArray)jpasswordChar);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
-    jchar *passwordChar = env->GetCharArrayElements(jpasswordChar, NULL);
+    jchar* passwordChar = env->GetCharArrayElements(jpasswordChar, NULL);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
@@ -487,17 +486,17 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore &keyStore)
     if (!jpassword) {
         return ER_FAIL;
     }
-    jbyte *password = env->GetByteArrayElements(jpassword, NULL);
+    jbyte* password = env->GetByteArrayElements(jpassword, NULL);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
-    QStatus status = LoadKeys(keyStore, source, String((const char *)password, env->GetArrayLength(jpassword)));
+    QStatus status = LoadKeys(keyStore, source, String((const char*)password, env->GetArrayLength(jpassword)));
     memset(password, 0, env->GetArrayLength(jpassword) * sizeof(jbyte));
     env->ReleaseByteArrayElements(jpassword, password, 0);
     return status;
 }
 
-QStatus JKeyStoreListener::StoreRequest(KeyStore &keyStore) 
+QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
 {
     String sink;
     QStatus status = StoreKeys(keyStore, sink);
@@ -509,7 +508,7 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore &keyStore)
     if (!jarray) {
         return ER_FAIL;
     }
-    env->SetByteArrayRegion(jarray, 0, sink.size(), (jbyte *)sink.data());
+    env->SetByteArrayRegion(jarray, 0, sink.size(), (jbyte*)sink.data());
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
@@ -521,15 +520,15 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore &keyStore)
 }
 
 class JAuthListener : public AuthListener {
-public:
+  public:
     JAuthListener(jobject jlistener);
     ~JAuthListener();
-    bool RequestCredentials(const char* authMechanism, uint16_t authCount, const char *userName,
-                            uint16_t credMask, Credentials &credentials);
-    bool VerifyCredentials(const char *authMechanism, const Credentials &credentials);
+    bool RequestCredentials(const char* authMechanism, uint16_t authCount, const char* userName,
+                            uint16_t credMask, Credentials& credentials);
+    bool VerifyCredentials(const char* authMechanism, const Credentials& credentials);
     void SecurityViolation(QStatus status, const Message& msg);
-    void AuthenticationComplete(const char *authMechanism, bool success);
-private:
+    void AuthenticationComplete(const char* authMechanism, bool success);
+  private:
     jweak jauthListener;
     jmethodID MID_requestCredentials;
     jmethodID MID_verifyCredentials;
@@ -540,13 +539,13 @@ private:
 JAuthListener::JAuthListener(jobject jlistener)
     : jauthListener(NULL)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jauthListener = (jweak)env->NewGlobalRef(jlistener);
     if (!jauthListener) {
         return;
     }
     JLocalRef<jclass> clazz = env->GetObjectClass(jauthListener);
-    MID_requestCredentials = env->GetMethodID(clazz, "requestCredentials", 
+    MID_requestCredentials = env->GetMethodID(clazz, "requestCredentials",
                                               "(Ljava/lang/String;ILjava/lang/String;I)Lorg/alljoyn/bus/AuthListener$Credentials;");
     if (!MID_requestCredentials) {
         return;
@@ -567,14 +566,14 @@ JAuthListener::JAuthListener(jobject jlistener)
 
 JAuthListener::~JAuthListener()
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (jauthListener) {
         env->DeleteGlobalRef(jauthListener);
     }
 }
 
-bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authCount, const char *userName,
-                                       uint16_t credMask, Credentials &credentials)
+bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authCount, const char* userName,
+                                       uint16_t credMask, Credentials& credentials)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
@@ -585,8 +584,8 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authC
     if (env->ExceptionCheck()) {
         return false;
     }
-    JLocalRef<jobject> jcredentials = env->CallObjectMethod(jauthListener, MID_requestCredentials, 
-                                                            (jstring)jauthMechanism, authCount, 
+    JLocalRef<jobject> jcredentials = env->CallObjectMethod(jauthListener, MID_requestCredentials,
+                                                            (jstring)jauthMechanism, authCount,
                                                             (jstring)juserName, credMask);
     if (env->ExceptionCheck()) {
         return false;
@@ -605,11 +604,11 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authC
         return false;
     }
     if (jpassword) {
-        jbyte *password = env->GetByteArrayElements(jpassword, NULL);
+        jbyte* password = env->GetByteArrayElements(jpassword, NULL);
         if (env->ExceptionCheck()) {
             return false;
         }
-        credentials.SetPassword(String((const char *)password, env->GetArrayLength(jpassword)));
+        credentials.SetPassword(String((const char*)password, env->GetArrayLength(jpassword)));
         memset(password, 0, env->GetArrayLength(jpassword) * sizeof(jbyte));
         env->ReleaseByteArrayElements(jpassword, password, 0);
     }
@@ -660,11 +659,11 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authC
         return false;
     }
     if (jlogonEntry) {
-        jbyte *logonEntry = env->GetByteArrayElements(jlogonEntry, NULL);
+        jbyte* logonEntry = env->GetByteArrayElements(jlogonEntry, NULL);
         if (env->ExceptionCheck()) {
             return false;
         }
-        credentials.SetLogonEntry(String((const char *)logonEntry, env->GetArrayLength(jlogonEntry)));
+        credentials.SetLogonEntry(String((const char*)logonEntry, env->GetArrayLength(jlogonEntry)));
         memset(logonEntry, 0, env->GetArrayLength(jlogonEntry) * sizeof(jbyte));
         env->ReleaseByteArrayElements(jlogonEntry, logonEntry, 0);
     }
@@ -675,20 +674,20 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authC
     return true;
 }
 
-bool JAuthListener::VerifyCredentials(const char *authMechanism, const Credentials &credentials)
+bool JAuthListener::VerifyCredentials(const char* authMechanism, const Credentials& credentials)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
     if (env->ExceptionCheck()) {
         return false;
     }
-    JLocalRef<jstring> juserName = credentials.IsSet(AuthListener::CRED_USER_NAME) ? 
-        env->NewStringUTF(credentials.GetUserName().c_str()) : NULL;
+    JLocalRef<jstring> juserName = credentials.IsSet(AuthListener::CRED_USER_NAME) ?
+                                   env->NewStringUTF(credentials.GetUserName().c_str()) : NULL;
     if (env->ExceptionCheck()) {
         return false;
     }
-    JLocalRef<jstring> jcert = credentials.IsSet(AuthListener::CRED_CERT_CHAIN) ? 
-        env->NewStringUTF(credentials.GetCertChain().c_str()) : NULL;
+    JLocalRef<jstring> jcert = credentials.IsSet(AuthListener::CRED_CERT_CHAIN) ?
+                               env->NewStringUTF(credentials.GetCertChain().c_str()) : NULL;
     if (env->ExceptionCheck()) {
         return false;
     }
@@ -700,7 +699,7 @@ bool JAuthListener::VerifyCredentials(const char *authMechanism, const Credentia
     return acceptable;
 }
 
-void JAuthListener::SecurityViolation(QStatus status, const Message &msg)
+void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
 {
     JScopedEnv env;
     MessageContext context(msg);
@@ -711,7 +710,7 @@ void JAuthListener::SecurityViolation(QStatus status, const Message &msg)
     env->CallVoidMethod(jauthListener, MID_securityViolation, (jobject)jstatus);
 }
 
-void JAuthListener::AuthenticationComplete(const char *authMechanism, bool success)
+void JAuthListener::AuthenticationComplete(const char* authMechanism, bool success)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
@@ -722,26 +721,26 @@ void JAuthListener::AuthenticationComplete(const char *authMechanism, bool succe
 }
 
 class JBusObject : public BusObject {
-public:
-    JBusObject(BusAttachment &bus, const char *path, jobject jobj);
+  public:
+    JBusObject(BusAttachment& bus, const char* path, jobject jobj);
     ~JBusObject();
     bool IsSameObject(jobject jobj);
     QStatus AddInterfaces(jobjectArray jbusInterfaces);
     void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
-    QStatus Signal(const char *destination, const char *ifaceName, const char *signalName, const MsgArg *args, 
+    QStatus Signal(const char* destination, const char* ifaceName, const char* signalName, const MsgArg* args,
                    size_t numArgs, uint32_t timeToLive, uint8_t flags);
-    QStatus Get(const char *ifcName, const char *propName, MsgArg& val);
-    QStatus Set(const char *ifcName, const char *propName, MsgArg& val);
+    QStatus Get(const char* ifcName, const char* propName, MsgArg& val);
+    QStatus Set(const char* ifcName, const char* propName, MsgArg& val);
     String GenerateIntrospection(bool deep = false, size_t indent = 0) const;
     void ObjectRegistered();
     void ObjectDeregistered();
-private:
+  private:
     struct Property {
-	String signature;
-	jobject jget;
-	jobject jset;
+        String signature;
+        jobject jget;
+        jobject jset;
     };
     typedef map<String, jobject> JMethod;
     typedef map<String, Property> JProperty;
@@ -753,43 +752,43 @@ private:
     JProperty properties;
 };
 
-JBusObject::JBusObject(BusAttachment &bus, const char *path, jobject jobj)
+JBusObject::JBusObject(BusAttachment& bus, const char* path, jobject jobj)
     : BusObject(bus, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_deregistered(NULL)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jbusObj = (jweak)env->NewGlobalRef(jobj);
     if (!jbusObj) {
-	return;
+        return;
     }
     if (env->IsInstanceOf(jbusObj, CLS_IntrospectionListener)) {
-	JLocalRef<jclass> clazz = env->GetObjectClass(jbusObj);
-	MID_generateIntrospection = env->GetMethodID(clazz, "generateIntrospection", "(ZI)Ljava/lang/String;");
-	if (!MID_generateIntrospection) {
-	    return;
-	}
+        JLocalRef<jclass> clazz = env->GetObjectClass(jbusObj);
+        MID_generateIntrospection = env->GetMethodID(clazz, "generateIntrospection", "(ZI)Ljava/lang/String;");
+        if (!MID_generateIntrospection) {
+            return;
+        }
     }
     if (env->IsInstanceOf(jbusObj, CLS_BusObjectListener)) {
-	JLocalRef<jclass> clazz = env->GetObjectClass(jbusObj);
-	MID_registered = env->GetMethodID(clazz, "registered", "()V");
-	if (!MID_registered) {
-	    return;
-	}
-	MID_deregistered = env->GetMethodID(clazz, "deregistered", "()V");
-	if (!MID_deregistered) {
-	    return;
-	}
+        JLocalRef<jclass> clazz = env->GetObjectClass(jbusObj);
+        MID_registered = env->GetMethodID(clazz, "registered", "()V");
+        if (!MID_registered) {
+            return;
+        }
+        MID_deregistered = env->GetMethodID(clazz, "deregistered", "()V");
+        if (!MID_deregistered) {
+            return;
+        }
     }
 }
 
 JBusObject::~JBusObject()
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     for (JMethod::const_iterator method = methods.begin(); method != methods.end(); ++method) {
-	env->DeleteGlobalRef(method->second);
+        env->DeleteGlobalRef(method->second);
     }
     for (JProperty::const_iterator property = properties.begin(); property != properties.end(); ++property) {
-	env->DeleteGlobalRef(property->second.jget);
-	env->DeleteGlobalRef(property->second.jset);
+        env->DeleteGlobalRef(property->second.jget);
+        env->DeleteGlobalRef(property->second.jset);
     }
     if (jbusObj) {
         env->DeleteGlobalRef(jbusObj);
@@ -805,141 +804,141 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
 {
     QStatus status;
 
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jsize len = env->GetArrayLength(jbusInterfaces);
     for (jsize i = 0; i < len; ++i) {
-	JLocalRef<jobject> jbusInterface = env->GetObjectArrayElement(jbusInterfaces, i);
-	if (env->ExceptionCheck()) {
-	    return ER_FAIL;
-	}
-	const InterfaceDescription *intf = (const InterfaceDescription *)GetHandle(jbusInterface);
-	if (env->ExceptionCheck()) {
-	    return ER_FAIL;
-	}
-	assert(intf);
-	status = AddInterface(*intf);
-	if (ER_OK != status) {
-	    return status;
-	}
+        JLocalRef<jobject> jbusInterface = env->GetObjectArrayElement(jbusInterfaces, i);
+        if (env->ExceptionCheck()) {
+            return ER_FAIL;
+        }
+        const InterfaceDescription* intf = (const InterfaceDescription*)GetHandle(jbusInterface);
+        if (env->ExceptionCheck()) {
+            return ER_FAIL;
+        }
+        assert(intf);
+        status = AddInterface(*intf);
+        if (ER_OK != status) {
+            return status;
+        }
 
-	size_t numMembs = intf->GetMembers(NULL);
-	const InterfaceDescription::Member **membs = new const InterfaceDescription::Member *[numMembs];
-	if (!membs) {
-	    return ER_OUT_OF_MEMORY;
-	}
-	intf->GetMembers(membs, numMembs);
-	for (size_t m = 0; m < numMembs; ++m) {
-	    if (MESSAGE_METHOD_CALL == membs[m]->memberType) {
-		status = AddMethodHandler(membs[m], 
+        size_t numMembs = intf->GetMembers(NULL);
+        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member *[numMembs];
+        if (!membs) {
+            return ER_OUT_OF_MEMORY;
+        }
+        intf->GetMembers(membs, numMembs);
+        for (size_t m = 0; m < numMembs; ++m) {
+            if (MESSAGE_METHOD_CALL == membs[m]->memberType) {
+                status = AddMethodHandler(membs[m],
                                           static_cast<MessageReceiver::MethodHandler>(&JBusObject::MethodHandler));
-		if (ER_OK != status) {
-		    break;
-		}
-		JLocalRef<jstring> jname = env->NewStringUTF(membs[m]->name.c_str());
-		if (!jname) {
-		    status = ER_FAIL;
-		    break;
-		}
-		JLocalRef<jclass> clazz = env->GetObjectClass(jbusInterface);
-		jmethodID mid = env->GetMethodID(clazz, "getMember", 
-						 "(Ljava/lang/String;)Ljava/lang/reflect/Method;");
-		if (!mid) {
-		    status = ER_FAIL;
-		    break;
-		}
-		JLocalRef<jobject> jmethod = env->CallObjectMethod(jbusInterface, mid, (jstring)jname);
-		if (env->ExceptionCheck()) {
-		    status = ER_FAIL;
-		    break;
-		}
-		if (!jmethod) {
-		    status = ER_BUS_INTERFACE_NO_SUCH_MEMBER;
-		    break;
-		}
-		jobject jref = env->NewGlobalRef(jmethod);
-		if (!jref) {
-		    status = ER_FAIL;
-		    break;
-		}
-		String key = intf->GetName() + membs[m]->name;
-		methods.insert(pair<String, jobject>(key, jref));
-	    }
-	}
-	delete [] membs;
-	membs = NULL;
-	if (ER_OK != status) {
-	    return status;
-	}
+                if (ER_OK != status) {
+                    break;
+                }
+                JLocalRef<jstring> jname = env->NewStringUTF(membs[m]->name.c_str());
+                if (!jname) {
+                    status = ER_FAIL;
+                    break;
+                }
+                JLocalRef<jclass> clazz = env->GetObjectClass(jbusInterface);
+                jmethodID mid = env->GetMethodID(clazz, "getMember",
+                                                 "(Ljava/lang/String;)Ljava/lang/reflect/Method;");
+                if (!mid) {
+                    status = ER_FAIL;
+                    break;
+                }
+                JLocalRef<jobject> jmethod = env->CallObjectMethod(jbusInterface, mid, (jstring)jname);
+                if (env->ExceptionCheck()) {
+                    status = ER_FAIL;
+                    break;
+                }
+                if (!jmethod) {
+                    status = ER_BUS_INTERFACE_NO_SUCH_MEMBER;
+                    break;
+                }
+                jobject jref = env->NewGlobalRef(jmethod);
+                if (!jref) {
+                    status = ER_FAIL;
+                    break;
+                }
+                String key = intf->GetName() + membs[m]->name;
+                methods.insert(pair<String, jobject>(key, jref));
+            }
+        }
+        delete [] membs;
+        membs = NULL;
+        if (ER_OK != status) {
+            return status;
+        }
 
-	size_t numProps = intf->GetProperties(NULL);
-	const InterfaceDescription::Property **props = new const InterfaceDescription::Property *[numProps];
-	if (!props) {
-	    return ER_OUT_OF_MEMORY;
-	}
-	intf->GetProperties(props, numProps);
-	for (size_t p = 0; p < numProps; ++p) {
-	    Property property;
-	    property.signature = props[p]->signature;
+        size_t numProps = intf->GetProperties(NULL);
+        const InterfaceDescription::Property** props = new const InterfaceDescription::Property *[numProps];
+        if (!props) {
+            return ER_OUT_OF_MEMORY;
+        }
+        intf->GetProperties(props, numProps);
+        for (size_t p = 0; p < numProps; ++p) {
+            Property property;
+            property.signature = props[p]->signature;
 
-	    JLocalRef<jstring> jname = env->NewStringUTF(props[p]->name.c_str());
-	    if (!jname) {
-		status = ER_FAIL;
-		break;
-	    }
-	    JLocalRef<jclass> clazz = env->GetObjectClass(jbusInterface);
-	    jmethodID mid = env->GetMethodID(clazz, "getProperty", 
-					     "(Ljava/lang/String;)[Ljava/lang/reflect/Method;");
-	    if (!mid) {
-		status = ER_FAIL;
-		break;
-	    }
-	    JLocalRef<jobjectArray> jmethods = (jobjectArray)env->CallObjectMethod(jbusInterface, mid, 
-										   (jstring)jname);
-	    if (env->ExceptionCheck()) {
-		status = ER_FAIL;
-		break;
-	    }
-	    if (!jmethods) {
-		status = ER_BUS_NO_SUCH_PROPERTY;
-		break;
-	    }
-	    JLocalRef<jobject> jget = env->GetObjectArrayElement(jmethods, 0);
-	    if (env->ExceptionCheck()) {
-		status = ER_FAIL;
-		break;
-	    }
-	    if (jget) {
-		property.jget = env->NewGlobalRef(jget);
-		if (!property.jget) {
-		    status = ER_FAIL;
-		    break;
-		}
-	    } else {
-		property.jget = NULL;
-	    }
-	    JLocalRef<jobject> jset = env->GetObjectArrayElement(jmethods, 1);
-	    if (env->ExceptionCheck()) {
-		status = ER_FAIL;
-		break;
-	    }
-	    if (jset) {
-		property.jset = env->NewGlobalRef(jset);
-		if (!property.jset) {
-		    status = ER_FAIL;
-		    break;
-		}
-	    } else {
-		property.jset = NULL;
-	    }
-	    
-	    String key = intf->GetName() + props[p]->name;
-	    properties.insert(pair<String, Property>(key, property));
-	}
-	delete [] props;
-	props = NULL;
-	if (ER_OK != status) {
-	    return status;
-	}
+            JLocalRef<jstring> jname = env->NewStringUTF(props[p]->name.c_str());
+            if (!jname) {
+                status = ER_FAIL;
+                break;
+            }
+            JLocalRef<jclass> clazz = env->GetObjectClass(jbusInterface);
+            jmethodID mid = env->GetMethodID(clazz, "getProperty",
+                                             "(Ljava/lang/String;)[Ljava/lang/reflect/Method;");
+            if (!mid) {
+                status = ER_FAIL;
+                break;
+            }
+            JLocalRef<jobjectArray> jmethods = (jobjectArray)env->CallObjectMethod(jbusInterface, mid,
+                                                                                   (jstring)jname);
+            if (env->ExceptionCheck()) {
+                status = ER_FAIL;
+                break;
+            }
+            if (!jmethods) {
+                status = ER_BUS_NO_SUCH_PROPERTY;
+                break;
+            }
+            JLocalRef<jobject> jget = env->GetObjectArrayElement(jmethods, 0);
+            if (env->ExceptionCheck()) {
+                status = ER_FAIL;
+                break;
+            }
+            if (jget) {
+                property.jget = env->NewGlobalRef(jget);
+                if (!property.jget) {
+                    status = ER_FAIL;
+                    break;
+                }
+            } else {
+                property.jget = NULL;
+            }
+            JLocalRef<jobject> jset = env->GetObjectArrayElement(jmethods, 1);
+            if (env->ExceptionCheck()) {
+                status = ER_FAIL;
+                break;
+            }
+            if (jset) {
+                property.jset = env->NewGlobalRef(jset);
+                if (!property.jset) {
+                    status = ER_FAIL;
+                    break;
+                }
+            } else {
+                property.jset = NULL;
+            }
+
+            String key = intf->GetName() + props[p]->name;
+            properties.insert(pair<String, Property>(key, property));
+        }
+        delete [] props;
+        props = NULL;
+        if (ER_OK != status) {
+            return status;
+        }
     }
 
     return ER_OK;
@@ -954,9 +953,9 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
  * @return the marshalled MsgArg or NULL if the marshalling failed.  This will
  *         be the same as @param arg if marshalling succeeded.
  */
-static MsgArg *Marshal(const char *signature, jobject jarg, MsgArg *arg)
+static MsgArg* Marshal(const char* signature, jobject jarg, MsgArg* arg)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     JLocalRef<jstring> jsignature = env->NewStringUTF(signature);
     if (!jsignature) {
         return NULL;
@@ -979,9 +978,9 @@ static MsgArg *Marshal(const char *signature, jobject jarg, MsgArg *arg)
  *         marshalling failed.  This will be the same as @param arg if
  *         marshalling succeeded.
  */
-static MsgArg *Marshal(const char *signature, jobjectArray jargs, MsgArg *arg)
+static MsgArg* Marshal(const char* signature, jobjectArray jargs, MsgArg* arg)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     JLocalRef<jstring> jsignature = env->NewStringUTF(signature);
     if (!jsignature) {
         return NULL;
@@ -1000,9 +999,9 @@ static MsgArg *Marshal(const char *signature, jobjectArray jargs, MsgArg *arg)
  * @param[in] jtype the Type of the Object to unmarshal into
  * @return the unmarshalled Java Object
  */
-static jobject Unmarshal(const MsgArg *arg, jobject jtype)
+static jobject Unmarshal(const MsgArg* arg, jobject jtype)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jobject jarg = env->CallStaticObjectMethod(CLS_MsgArg, MID_MsgArg_unmarshal, (jlong)arg, jtype);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -1018,15 +1017,15 @@ static jobject Unmarshal(const MsgArg *arg, jobject jtype)
  * @param[in] jmethod the Method that will be invoked with the returned Object[]
  * @param[out] junmarshalled the unmarshalled Java Object[]
  */
-static QStatus Unmarshal(const MsgArg *args, size_t numArgs, jobject jmethod, 
-                         JLocalRef<jobjectArray> &junmarshalled)
+static QStatus Unmarshal(const MsgArg* args, size_t numArgs, jobject jmethod,
+                         JLocalRef<jobjectArray>& junmarshalled)
 {
     MsgArg arg(ALLJOYN_STRUCT);
-    arg.v_struct.members = (MsgArg *)args;
+    arg.v_struct.members = (MsgArg*)args;
     arg.v_struct.numMembers = numArgs;
-    JNIEnv *env = GetEnv();
-    junmarshalled = (jobjectArray)env->CallStaticObjectMethod(CLS_MsgArg, MID_MsgArg_unmarshal_array, 
-                                                              jmethod, (jlong)&arg);
+    JNIEnv* env = GetEnv();
+    junmarshalled = (jobjectArray)env->CallStaticObjectMethod(CLS_MsgArg, MID_MsgArg_unmarshal_array,
+                                                              jmethod, (jlong) & arg);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
@@ -1040,9 +1039,9 @@ static QStatus Unmarshal(const MsgArg *args, size_t numArgs, jobject jmethod,
  * @param[in] jmethod the Method that will be invoked with the returned Object[]
  * @param[out] junmarshalled the unmarshalled Java Objects
  */
-static QStatus Unmarshal(Message &msg, jobject jmethod, JLocalRef<jobjectArray> &junmarshalled)
+static QStatus Unmarshal(Message& msg, jobject jmethod, JLocalRef<jobjectArray>& junmarshalled)
 {
-    const MsgArg *args;
+    const MsgArg* args;
     size_t numArgs;
     msg->GetArgs(numArgs, args);
     return Unmarshal(args, numArgs, jmethod, junmarshalled);
@@ -1071,9 +1070,9 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
         MethodReply(member, msg, status);
         return;
     }
-    
+
     JLocalRef<jclass> clazz = env->GetObjectClass(method->second);
-    jmethodID mid = env->GetMethodID(clazz, "invoke", 
+    jmethodID mid = env->GetMethodID(clazz, "invoke",
                                      "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
         MethodReply(member, msg, ER_FAIL);
@@ -1087,7 +1086,7 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
     MethodReply(member, msg, jreply);
 }
 
-QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Message& msg, QStatus status)
+QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status)
 {
     if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
         return ER_OK;
@@ -1096,25 +1095,25 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Mess
     }
 }
 
-QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Message& msg, jobject jreply)
+QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply)
 {
     if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
         if (!jreply) {
             return ER_OK;
         } else {
-            QCC_LogError(ER_BUS_BAD_HDR_FLAGS, 
-                         ("Method %s is annotated as 'no reply' but value returned, replying anyway", 
+            QCC_LogError(ER_BUS_BAD_HDR_FLAGS,
+                         ("Method %s is annotated as 'no reply' but value returned, replying anyway",
                           member->name.c_str()));
         }
     }
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     MsgArg replyArgs;
     QStatus status;
     uint8_t completeTypes = SignatureUtils::CountCompleteTypes(member->returnSignature.c_str());
     if (jreply) {
         JLocalRef<jobjectArray> jreplyArgs;
         if (completeTypes > 1) {
-            jmethodID mid = env->GetStaticMethodID(CLS_Signature, "structArgs", 
+            jmethodID mid = env->GetStaticMethodID(CLS_Signature, "structArgs",
                                                    "(Ljava/lang/Object;)[Ljava/lang/Object;");
             if (!mid) {
                 return MethodReply(member, msg, ER_FAIL);
@@ -1124,7 +1123,7 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Mess
                 return MethodReply(member, msg, ER_FAIL);
             }
         } else {
-            /* 
+            /*
              * Create Object[] out of the invoke() return value to reuse
              * marshalling code in Marshal() for the reply message.
              */
@@ -1147,7 +1146,7 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Mess
         QCC_LogError(ER_BUS_BAD_VALUE, (errorMessage.c_str()));
         status = BusObject::MethodReply(msg, "org.alljoyn.bus.BusException", errorMessage.c_str());
     } else {
-        status = BusObject::MethodReply(msg, (MsgArg *)NULL, 0);
+        status = BusObject::MethodReply(msg, (MsgArg*)NULL, 0);
     }
     if (ER_OK != status) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
@@ -1155,59 +1154,59 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Mess
     return status;
 }
 
-QStatus JBusObject::Signal(const char *destination, const char *ifaceName, const char *signalName, 
-                           const MsgArg *args, size_t numArgs, uint32_t timeToLive, uint8_t flags)
+QStatus JBusObject::Signal(const char* destination, const char* ifaceName, const char* signalName,
+                           const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags)
 {
-    const InterfaceDescription *intf = bus.GetInterface(ifaceName);
+    const InterfaceDescription* intf = bus.GetInterface(ifaceName);
     if (!intf) {
-	return ER_BUS_OBJECT_NO_SUCH_INTERFACE;
+        return ER_BUS_OBJECT_NO_SUCH_INTERFACE;
     }
-    const InterfaceDescription::Member *signal = intf->GetMember(signalName);
+    const InterfaceDescription::Member* signal = intf->GetMember(signalName);
     if (!signal) {
-	return ER_BUS_OBJECT_NO_SUCH_MEMBER;
+        return ER_BUS_OBJECT_NO_SUCH_MEMBER;
     }
     return BusObject::Signal(destination, *signal, args, numArgs, timeToLive, flags);
 }
 
-QStatus JBusObject::Get(const char *ifcName, const char *propName, MsgArg& val)
+QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
 {
     JScopedEnv env;
     String key = String(ifcName) + propName;
     JProperty::const_iterator property = properties.find(key);
     if (properties.end() == property) {
-	return ER_BUS_NO_SUCH_PROPERTY;
+        return ER_BUS_NO_SUCH_PROPERTY;
     }
     if (!property->second.jget) {
-	return ER_BUS_PROPERTY_ACCESS_DENIED;
+        return ER_BUS_PROPERTY_ACCESS_DENIED;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(property->second.jget);
-    jmethodID mid = env->GetMethodID(clazz, "invoke", 
-				     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+    jmethodID mid = env->GetMethodID(clazz, "invoke",
+                                     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
-	return ER_FAIL;
+        return ER_FAIL;
     }
     JLocalRef<jobject> jvalue = env->CallObjectMethod(property->second.jget, mid, jbusObj, NULL);
     if (env->ExceptionCheck()) {
-	return ER_FAIL;
+        return ER_FAIL;
     }
     if (!Marshal(property->second.signature.c_str(), (jobject)jvalue, &val)) {
-	return ER_FAIL;
+        return ER_FAIL;
     }
 
     return ER_OK;
 }
 
-QStatus JBusObject::Set(const char *ifcName, const char *propName, MsgArg& val)
+QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
 {
     JScopedEnv env;
     String key = String(ifcName) + propName;
     JProperty::const_iterator property = properties.find(key);
     if (properties.end() == property) {
-	return ER_BUS_NO_SUCH_PROPERTY;
+        return ER_BUS_NO_SUCH_PROPERTY;
     }
     if (!property->second.jset) {
-	return ER_BUS_PROPERTY_ACCESS_DENIED;
+        return ER_BUS_PROPERTY_ACCESS_DENIED;
     }
 
     JLocalRef<jobjectArray> jvalue;
@@ -1217,14 +1216,14 @@ QStatus JBusObject::Set(const char *ifcName, const char *propName, MsgArg& val)
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(property->second.jset);
-    jmethodID mid = env->GetMethodID(clazz, "invoke", 
+    jmethodID mid = env->GetMethodID(clazz, "invoke",
                                      "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
-	return ER_FAIL;
+        return ER_FAIL;
     }
     env->CallObjectMethod(property->second.jset, mid, jbusObj, (jobjectArray)jvalue);
     if (env->ExceptionCheck()) {
-	return ER_FAIL;
+        return ER_FAIL;
     }
 
     return ER_OK;
@@ -1233,8 +1232,8 @@ QStatus JBusObject::Set(const char *ifcName, const char *propName, MsgArg& val)
 String JBusObject::GenerateIntrospection(bool deep, size_t indent) const
 {
     if (NULL != MID_generateIntrospection) {
-	JScopedEnv env;
-	JLocalRef<jstring> jintrospection = (jstring)env->CallObjectMethod(jbusObj, MID_generateIntrospection, deep, indent);
+        JScopedEnv env;
+        JLocalRef<jstring> jintrospection = (jstring)env->CallObjectMethod(jbusObj, MID_generateIntrospection, deep, indent);
         if (env->ExceptionCheck()) {
             return BusObject::GenerateIntrospection(deep, indent);
         }
@@ -1251,8 +1250,8 @@ void JBusObject::ObjectRegistered()
 {
     BusObject::ObjectRegistered();
     if (NULL != MID_registered) {
-	JScopedEnv env;
-	env->CallVoidMethod(jbusObj, MID_registered);
+        JScopedEnv env;
+        env->CallVoidMethod(jbusObj, MID_registered);
     }
 }
 
@@ -1260,23 +1259,23 @@ void JBusObject::ObjectDeregistered()
 {
     BusObject::ObjectDeregistered();
     if (NULL != MID_registered) {
-	JScopedEnv env;
-	env->CallVoidMethod(jbusObj, MID_deregistered);
+        JScopedEnv env;
+        env->CallVoidMethod(jbusObj, MID_deregistered);
     }
 }
 
 class JSignalHandler : public MessageReceiver {
-public:
+  public:
     JSignalHandler(jobject jobj, jobject jmethod);
     ~JSignalHandler();
     bool IsSameObject(jobject jobj, jobject jmethod);
-    QStatus Register(BusAttachment &bus, const char *ifaceName, const char *signalName, const char *srcPath);
-    void Deregister(BusAttachment &bus);
-    void SignalHandler(const InterfaceDescription::Member* member, const char* sourcePath, Message& msg);    
-private:
+    QStatus Register(BusAttachment& bus, const char* ifaceName, const char* signalName, const char* srcPath);
+    void Deregister(BusAttachment& bus);
+    void SignalHandler(const InterfaceDescription::Member* member, const char* sourcePath, Message& msg);
+  private:
     jweak jsignalHandler;
     jobject jmethod;
-    const InterfaceDescription::Member *member;
+    const InterfaceDescription::Member* member;
     String source;
     String rule;
 };
@@ -1284,14 +1283,14 @@ private:
 JSignalHandler::JSignalHandler(jobject jobj, jobject jmeth)
     : jsignalHandler(NULL), jmethod(NULL), member(NULL)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     jsignalHandler = (jweak)env->NewGlobalRef(jobj);
     jmethod = env->NewGlobalRef(jmeth);
 }
 
 JSignalHandler::~JSignalHandler()
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (jmethod) {
         env->DeleteGlobalRef(jmethod);
     }
@@ -1302,57 +1301,57 @@ JSignalHandler::~JSignalHandler()
 
 bool JSignalHandler::IsSameObject(jobject jobj, jobject jmeth)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     return env->IsSameObject(jsignalHandler, jobj) && env->CallBooleanMethod(jmethod, MID_Object_equals, jmeth);
 }
 
-QStatus JSignalHandler::Register(BusAttachment &bus, const char *ifaceName, const char *signalName, 
-                                 const char *srcPath)
+QStatus JSignalHandler::Register(BusAttachment& bus, const char* ifaceName, const char* signalName,
+                                 const char* srcPath)
 {
-    const InterfaceDescription *intf = bus.GetInterface(ifaceName);
+    const InterfaceDescription* intf = bus.GetInterface(ifaceName);
     if (!intf) {
-	return ER_BUS_NO_SUCH_INTERFACE;
+        return ER_BUS_NO_SUCH_INTERFACE;
     }
     member = intf->GetMember(signalName);
     if (!member) {
-	return ER_BUS_INTERFACE_NO_SUCH_MEMBER;
+        return ER_BUS_INTERFACE_NO_SUCH_MEMBER;
     }
     source = srcPath;
-    QStatus status = bus.RegisterSignalHandler(this, 
-                                               static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler), 
-                                               member, 
+    QStatus status = bus.RegisterSignalHandler(this,
+                                               static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler),
+                                               member,
                                                source.c_str());
     if (ER_OK == status) {
-	rule = "type='signal',interface='" + String(ifaceName) + "',member='" + String(signalName) + "'";
+        rule = "type='signal',interface='" + String(ifaceName) + "',member='" + String(signalName) + "'";
         if (!source.empty()) {
             rule += ",path='" + source + "'";
         }
-	MsgArg arg("s", rule.c_str());
-	Message reply(bus);
-	const ProxyBusObject &dbusObj = bus.GetDBusProxyObj();
-	status = dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "AddMatch", &arg, 1, reply);
+        MsgArg arg("s", rule.c_str());
+        Message reply(bus);
+        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
+        status = dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "AddMatch", &arg, 1, reply);
     }
     return status;
 }
 
-void JSignalHandler::Deregister(BusAttachment &bus)
+void JSignalHandler::Deregister(BusAttachment& bus)
 {
     if (member) {
-	MsgArg arg("s", rule.c_str());
-	Message reply(bus);
-	const ProxyBusObject &dbusObj = bus.GetDBusProxyObj();
-	dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "RemoveMatch", &arg, 1, reply);
+        MsgArg arg("s", rule.c_str());
+        Message reply(bus);
+        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
+        dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "RemoveMatch", &arg, 1, reply);
 
-	bus.UnRegisterSignalHandler(this, 
+        bus.UnRegisterSignalHandler(this,
                                     static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler),
-                                    member, 
+                                    member,
                                     source.c_str());
     }
 }
 
-void JSignalHandler::SignalHandler(const InterfaceDescription::Member* member, 
-				   const char* sourcePath, 
-				   Message& msg)
+void JSignalHandler::SignalHandler(const InterfaceDescription::Member* member,
+                                   const char* sourcePath,
+                                   Message& msg)
 {
     JScopedEnv env;
     MessageContext context(msg);
@@ -1364,47 +1363,47 @@ void JSignalHandler::SignalHandler(const InterfaceDescription::Member* member,
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jmethod);
-    jmethodID mid = env->GetMethodID(clazz, "invoke", 
+    jmethodID mid = env->GetMethodID(clazz, "invoke",
                                      "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
-	return;
+        return;
     }
     env->CallObjectMethod(jmethod, mid, jsignalHandler, (jobjectArray)jargs);
 }
 
 class _Bus : public BusAttachment {
-public:
-    static JBusObject *GetBusObject(jobject jbusObject);
+  public:
+    static JBusObject* GetBusObject(jobject jbusObject);
 
-    _Bus(const char *applicationName, bool allowRemoteMessages);
-    QStatus Connect(const char *connectArgs, jobject jkeyStoreListener, const char *authMechanisms, 
-                    jobject jauthListener, const char *keyStoreFileName);
-    void Disconnect(const char *connectArgs);
-    QStatus EnablePeerSecurity(const char *authMechanisms, jobject jauthListener, const char *keyStoreFileName);
-    QStatus RegisterBusObject(const char *objPath, jobject jbusObject, jobjectArray jbusInterfaces);
+    _Bus(const char* applicationName, bool allowRemoteMessages);
+    QStatus Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
+                    jobject jauthListener, const char* keyStoreFileName);
+    void Disconnect(const char* connectArgs);
+    QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName);
+    QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces);
     void DeregisterBusObject(jobject jbusObject);
-    QStatus RegisterSignalHandler(const char *ifaceName, const char *signalName, 
-                                  jobject jsignalHandler, jobject jmethod, const char *srcPath);
+    QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
+                                  jobject jsignalHandler, jobject jmethod, const char* srcPath);
     void DeregisterSignalHandler(jobject jsignalHandler, jobject jmethod);
 
-private:
-    static vector<JBusObject *> busObjs;
+  private:
+    static vector<JBusObject*> busObjs;
 
-    JKeyStoreListener *keyStoreListener;
-    JAuthListener *authListener;
-    vector<JSignalHandler *> signalHandlers;
+    JKeyStoreListener* keyStoreListener;
+    JAuthListener* authListener;
+    vector<JSignalHandler*> signalHandlers;
 };
 
-vector<JBusObject *> _Bus::busObjs;
+vector<JBusObject*> _Bus::busObjs;
 
-_Bus::_Bus(const char *applicationName, bool allowRemoteMessages)
+_Bus::_Bus(const char* applicationName, bool allowRemoteMessages)
     : BusAttachment(applicationName, allowRemoteMessages), keyStoreListener(NULL), authListener(NULL)
 {
 }
 
-JBusObject *_Bus::GetBusObject(jobject jbusObject)
+JBusObject* _Bus::GetBusObject(jobject jbusObject)
 {
-    for (vector<JBusObject *>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
+    for (vector<JBusObject*>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
         if ((*it)->IsSameObject(jbusObject)) {
             return (*it);
         }
@@ -1412,10 +1411,10 @@ JBusObject *_Bus::GetBusObject(jobject jbusObject)
     return NULL;
 }
 
-QStatus _Bus::Connect(const char *connectArgs, jobject jkeyStoreListener, const char *authMechanisms, 
-                      jobject jauthListener, const char *keyStoreFileName)
+QStatus _Bus::Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
+                      jobject jauthListener, const char* keyStoreFileName)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     QStatus status = Start();
     if (ER_OK != status) {
         goto exit;
@@ -1440,14 +1439,14 @@ QStatus _Bus::Connect(const char *connectArgs, jobject jkeyStoreListener, const 
 
     status = BusAttachment::Connect(connectArgs);
 
- exit:
+    exit :
     if (ER_OK != status) {
         Disconnect(connectArgs);
     }
     return status;
 }
 
-void _Bus::Disconnect(const char *connectArgs)
+void _Bus::Disconnect(const char* connectArgs)
 {
     if (IsConnected()) {
         QStatus status = BusAttachment::Disconnect(connectArgs);
@@ -1469,9 +1468,9 @@ void _Bus::Disconnect(const char *connectArgs)
     keyStoreListener = NULL;
 }
 
-QStatus _Bus::EnablePeerSecurity(const char *authMechanisms, jobject jauthListener, const char *keyStoreFileName)
+QStatus _Bus::EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (!authMechanisms || !IsStarted()) {
         return ER_OK;
     }
@@ -1490,19 +1489,19 @@ QStatus _Bus::EnablePeerSecurity(const char *authMechanisms, jobject jauthListen
     return status;
 }
 
-QStatus _Bus::RegisterBusObject(const char *objPath, jobject jbusObject, jobjectArray jbusInterfaces)
+QStatus _Bus::RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces)
 {
-    JNIEnv *env = GetEnv();
+    JNIEnv* env = GetEnv();
     if (GetBusObject(jbusObject)) {
         return ER_BUS_OBJ_ALREADY_EXISTS;
     }
-    JBusObject *busObj = new JBusObject(*this, objPath, jbusObject);
+    JBusObject* busObj = new JBusObject(*this, objPath, jbusObject);
     QStatus status = busObj->AddInterfaces(jbusInterfaces);
     if (env->ExceptionCheck()) {
-	status = ER_FAIL;
+        status = ER_FAIL;
     }
     if (ER_OK == status) {
-	status = BusAttachment::RegisterBusObject(*busObj); 
+        status = BusAttachment::RegisterBusObject(*busObj);
     }
     if (ER_OK == status) {
         busObjs.push_back(busObj);
@@ -1514,10 +1513,10 @@ QStatus _Bus::RegisterBusObject(const char *objPath, jobject jbusObject, jobject
 
 void _Bus::DeregisterBusObject(jobject jbusObject)
 {
-    JBusObject *busObj = GetBusObject(jbusObject);
+    JBusObject* busObj = GetBusObject(jbusObject);
     if (busObj) {
         BusAttachment::DeregisterBusObject(*busObj);
-        for (vector<JBusObject *>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
+        for (vector<JBusObject*>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
             if ((*it)->IsSameObject(jbusObject)) {
                 delete (*it);
                 busObjs.erase(it);
@@ -1527,10 +1526,10 @@ void _Bus::DeregisterBusObject(jobject jbusObject)
     }
 }
 
-QStatus _Bus::RegisterSignalHandler(const char *ifaceName, const char *signalName,
-                                    jobject jsignalHandler, jobject jmethod, const char *srcPath)
+QStatus _Bus::RegisterSignalHandler(const char* ifaceName, const char* signalName,
+                                    jobject jsignalHandler, jobject jmethod, const char* srcPath)
 {
-    JSignalHandler *signalHandler = new JSignalHandler(jsignalHandler, jmethod);
+    JSignalHandler* signalHandler = new JSignalHandler(jsignalHandler, jmethod);
     QStatus status = signalHandler->Register(*this, ifaceName, signalName, srcPath);
     if (ER_OK == status) {
         signalHandlers.push_back(signalHandler);
@@ -1542,7 +1541,7 @@ QStatus _Bus::RegisterSignalHandler(const char *ifaceName, const char *signalNam
 
 void _Bus::DeregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
 {
-    for (vector<JSignalHandler *>::iterator it = signalHandlers.begin(); it != signalHandlers.end(); ++it) {
+    for (vector<JSignalHandler*>::iterator it = signalHandlers.begin(); it != signalHandlers.end(); ++it) {
         if ((*it)->IsSameObject(jsignalHandler, jmethod)) {
             (*it)->Deregister(*this);
             delete (*it);
@@ -1558,57 +1557,54 @@ void _Bus::DeregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
  */
 typedef ManagedObj<_Bus> Bus;
 
-/* 
+/*
  * class org_alljoyn_bus_BusAttachment
  */
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusAttachment_create(JNIEnv *env, 
-					      jobject thiz,
-                                              jstring japplicationName,
-                                              jboolean allowRemoteMessages)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env,
+                                                                 jobject thiz,
+                                                                 jstring japplicationName,
+                                                                 jboolean allowRemoteMessages)
 {
     JString applicationName(japplicationName);
     if (env->ExceptionCheck()) {
         return;
     }
-    const char *name = applicationName.c_str();
-    Bus *bus = new Bus(name, allowRemoteMessages);
+    const char* name = applicationName.c_str();
+    Bus* bus = new Bus(name, allowRemoteMessages);
     if (!bus) {
-	Throw("java/lang/OutOfMemoryError", NULL);
+        Throw("java/lang/OutOfMemoryError", NULL);
     }
     if (!env->ExceptionCheck()) {
         SetHandle(thiz, bus);
     }
     if (env->ExceptionCheck()) {
-	delete bus;
+        delete bus;
     }
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv *env, 
-					       jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
+                                                                  jobject thiz)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (!bus) {
-	return;
+        return;
     }
     delete bus;
     SetHandle(thiz, NULL);
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv *env, 
-					       jobject thiz, 
-					       jstring jconnectArgs,
-                                               jobject jkeyStoreListener,
-                                               jstring jauthMechanisms,
-                                               jobject jauthListener,
-                                               jstring jkeyStoreFileName)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env,
+                                                                     jobject thiz,
+                                                                     jstring jconnectArgs,
+                                                                     jobject jkeyStoreListener,
+                                                                     jstring jauthMechanisms,
+                                                                     jobject jauthListener,
+                                                                     jstring jkeyStoreFileName)
 {
     JString connectArgs(jconnectArgs);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString authMechanisms(jauthMechanisms);
     if (env->ExceptionCheck()) {
@@ -1618,12 +1614,12 @@ Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv *env,
     if (env->ExceptionCheck()) {
         return NULL;
     }
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
     assert(bus);
-    QStatus status = (*bus)->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(), 
+    QStatus status = (*bus)->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
                                      jauthListener, keyStoreFileName.c_str());
     if (env->ExceptionCheck()) {
         return NULL;
@@ -1632,42 +1628,40 @@ Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv *env,
     }
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv *env, 
-						  jobject thiz, 
-						  jstring jconnectArgs)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env,
+                                                                     jobject thiz,
+                                                                     jstring jconnectArgs)
 {
     JString connectArgs(jconnectArgs);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(bus);
     (*bus)->Disconnect(connectArgs.c_str());
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(JNIEnv *env, 
-                                                          jobject thiz, 
-                                                          jstring jauthMechanisms,
-                                                          jobject jauthListener,
-                                                          jstring jkeyStoreFileName)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(JNIEnv* env,
+                                                                                jobject thiz,
+                                                                                jstring jauthMechanisms,
+                                                                                jobject jauthListener,
+                                                                                jstring jkeyStoreFileName)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(bus);
     JString authMechanisms(jauthMechanisms);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString keyStoreFileName(jkeyStoreFileName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     QStatus status = (*bus)->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str());
     if (env->ExceptionCheck()) {
@@ -1677,329 +1671,316 @@ Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(JNIEnv *env,
     }
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_BusAttachment_registerBusObject(JNIEnv *env, 
-                                                         jobject thiz, 
-                                                         jstring jobjPath,
-                                                         jobject jbusObject,
-                                                         jobjectArray jbusInterfaces)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(JNIEnv* env,
+                                                                               jobject thiz,
+                                                                               jstring jobjPath,
+                                                                               jobject jbusObject,
+                                                                               jobjectArray jbusInterfaces)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(bus);
     JString objPath(jobjPath);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     QStatus status = (*bus)->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusAttachment_deregisterBusObject(JNIEnv *env, 
-                                                           jobject thiz, 
-                                                           jobject jbusObject)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterBusObject(JNIEnv* env,
+                                                                              jobject thiz,
+                                                                              jobject jbusObject)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(bus);
-    (*bus)->DeregisterBusObject(jbusObject); 
+    (*bus)->DeregisterBusObject(jbusObject);
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_BusAttachment_registerNativeSignalHandler(JNIEnv *env, 
-                                                                   jobject thiz, 
-                                                                   jstring jifaceName, 
-                                                                   jstring jsignalName,
-                                                                   jobject jsignalHandler,
-                                                                   jobject jmethod,
-                                                                   jstring jsource)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSignalHandler(JNIEnv* env,
+                                                                                         jobject thiz,
+                                                                                         jstring jifaceName,
+                                                                                         jstring jsignalName,
+                                                                                         jobject jsignalHandler,
+                                                                                         jobject jmethod,
+                                                                                         jstring jsource)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(bus);
     JString ifaceName(jifaceName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString signalName(jsignalName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString source(jsource);
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
-    const char *srcPath = NULL;
+    const char* srcPath = NULL;
     if (source.c_str() && source.c_str()[0]) {
         srcPath = source.c_str();
     }
-    QStatus status = (*bus)->RegisterSignalHandler(ifaceName.c_str(), signalName.c_str(), 
+    QStatus status = (*bus)->RegisterSignalHandler(ifaceName.c_str(), signalName.c_str(),
                                                    jsignalHandler, jmethod, srcPath);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusAttachment_deregisterSignalHandler(JNIEnv *env, 
-                                                               jobject thiz, 
-                                                               jobject jsignalHandler,
-                                                               jobject jmethod)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterSignalHandler(JNIEnv* env,
+                                                                                  jobject thiz,
+                                                                                  jobject jsignalHandler,
+                                                                                  jobject jmethod)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(bus);
     (*bus)->DeregisterSignalHandler(jsignalHandler, jmethod);
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEnv *env,
-                                                     jobject thiz)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEnv* env,
+                                                                           jobject thiz)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(bus);
     return env->NewStringUTF((*bus)->GetUniqueName().c_str());
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv *env,
-                                                     jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* env,
+                                                                        jobject thiz)
 {
-    Bus *bus = (Bus *)GetHandle(thiz);
+    Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(bus);
     (*bus)->ClearKeyStore();
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_BusAttachment_getMessageContext(JNIEnv *env, 
-							 jobject thiz)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(JNIEnv* env,
+                                                                               jobject thiz)
 {
     Message msg = MessageContext::GetMessage();
     JLocalRef<jstring> jobjectPath = env->NewStringUTF(msg->GetObjectPath());
     if (!jobjectPath) {
-	return NULL;
+        return NULL;
     }
     JLocalRef<jstring> jinterfaceName = env->NewStringUTF(msg->GetInterface());
     if (!jinterfaceName) {
-	return NULL;
+        return NULL;
     }
     JLocalRef<jstring> jmemberName = env->NewStringUTF(msg->GetMemberName());
     if (!jmemberName) {
-	return NULL;
+        return NULL;
     }
     JLocalRef<jstring> jdestination = env->NewStringUTF(msg->GetDestination());
     if (!jdestination) {
-	return NULL;
+        return NULL;
     }
     JLocalRef<jstring> jsender = env->NewStringUTF(msg->GetSender());
     if (!jsender) {
-	return NULL;
+        return NULL;
     }
     JLocalRef<jstring> jsignature = env->NewStringUTF(msg->GetSignature());
     if (!jsignature) {
-	return NULL;
+        return NULL;
     }
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(msg->GetAuthMechanism().c_str());
     if (!jauthMechanism) {
-	return NULL;
+        return NULL;
     }
 
     jmethodID mid = env->GetMethodID(CLS_MessageContext, "<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     if (!mid) {
-	return NULL;
+        return NULL;
     }
-    return env->NewObject(CLS_MessageContext, mid, msg->IsUnreliable(), (jstring)jobjectPath, 
-                          (jstring)jinterfaceName, (jstring)jmemberName, (jstring)jdestination, 
+    return env->NewObject(CLS_MessageContext, mid, msg->IsUnreliable(), (jstring)jobjectPath,
+                          (jstring)jinterfaceName, (jstring)jmemberName, (jstring)jdestination,
                           (jstring)jsender, (jstring)jsignature, (jstring)jauthMechanism);
 }
 
-/* 
- * class org_alljoyn_bus_InterfaceDescription 
+/*
+ * class org_alljoyn_bus_InterfaceDescription
  */
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_InterfaceDescription_create(JNIEnv *env, 
-						     jobject thiz, 
-						     jobject jbus, 
-						     jstring jname,
-                                                     jboolean secure)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEnv* env,
+                                                                           jobject thiz,
+                                                                           jobject jbus,
+                                                                           jstring jname,
+                                                                           jboolean secure)
 {
-    Bus *bus = (Bus *)GetHandle(jbus);
+    Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(bus);
     JString name(jname);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
 
-    InterfaceDescription *intf;
+    InterfaceDescription* intf;
     QStatus status = (*bus)->CreateInterface(name.c_str(), intf, secure);
     if (ER_BUS_IFACE_ALREADY_EXISTS == status) {
-        intf = (InterfaceDescription *)(*bus)->GetInterface(name.c_str());
+        intf = (InterfaceDescription*)(*bus)->GetInterface(name.c_str());
         assert(intf);
         status = ER_OK;
     }
     if (ER_OK == status) {
-	SetHandle(thiz, intf);
+        SetHandle(thiz, intf);
     }
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     } else {
-	return JStatus(status);
+        return JStatus(status);
     }
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_InterfaceDescription_addMember(JNIEnv *env, 
-							jobject thiz, 
-							jint type, 
-							jstring jname, 
-							jstring jinputSig, 
-							jstring joutSig,
-                                                        jint annotation)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JNIEnv* env,
+                                                                              jobject thiz,
+                                                                              jint type,
+                                                                              jstring jname,
+                                                                              jstring jinputSig,
+                                                                              jstring joutSig,
+                                                                              jint annotation)
 {
-    InterfaceDescription *intf = (InterfaceDescription *)GetHandle(thiz);
+    InterfaceDescription* intf = (InterfaceDescription*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(intf);
     JString name(jname);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString outSig(joutSig);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
 
-    QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(), 
-				     inputSig.c_str(), outSig.c_str(), NULL, annotation);
+    QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(),
+                                     inputSig.c_str(), outSig.c_str(), NULL, annotation);
     if (ER_BUS_MEMBER_ALREADY_EXISTS == status) {
-	status = ER_OK;
+        status = ER_OK;
     }
     return JStatus(status);
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_InterfaceDescription_addProperty(JNIEnv *env, 
-							  jobject thiz, 
-							  jstring jname, 
-							  jstring jsignature, 
-							  jint access)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(JNIEnv* env,
+                                                                                jobject thiz,
+                                                                                jstring jname,
+                                                                                jstring jsignature,
+                                                                                jint access)
 {
-    InterfaceDescription *intf = (InterfaceDescription *)GetHandle(thiz);
+    InterfaceDescription* intf = (InterfaceDescription*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(intf);
     JString name(jname);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
 
     QStatus status = intf->AddProperty(name.c_str(), signature.c_str(), access);
     if (ER_BUS_PROPERTY_ALREADY_EXISTS == status) {
-	status = ER_OK;
+        status = ER_OK;
     }
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv *env, 
-						       jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv* env,
+                                                                          jobject thiz)
 {
-    InterfaceDescription *intf = (InterfaceDescription *)GetHandle(thiz);
+    InterfaceDescription* intf = (InterfaceDescription*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(intf);
     intf->Activate();
 }
 
-/* 
- * class org_alljoyn_bus_ProxyBusObject 
+/*
+ * class org_alljoyn_bus_ProxyBusObject
  */
 
 class JProxyBusObject : public ProxyBusObject {
-public:
-    JProxyBusObject(Bus &bus, const char *endpoint, const char *path);
+  public:
+    JProxyBusObject(Bus& bus, const char* endpoint, const char* path);
     Bus bus;
 };
 
-JProxyBusObject::JProxyBusObject(Bus &b, const char *endpoint, const char *path)
+JProxyBusObject::JProxyBusObject(Bus& b, const char* endpoint, const char* path)
     : ProxyBusObject(*b, endpoint, path), bus(b)
 {
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv *env, jobject thiz, 
-                                               jobject jbus, 
-                                               jstring jbusName, 
-                                               jstring jobjPath)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, jobject thiz,
+                                                                  jobject jbus,
+                                                                  jstring jbusName,
+                                                                  jstring jobjPath)
 {
-    Bus *bus = (Bus *)GetHandle(jbus);
+    Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(bus);
     JString busName(jbusName);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     JString objPath(jobjPath);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
-    JProxyBusObject *proxyBusObj = new JProxyBusObject(*bus, busName.c_str(), objPath.c_str());
+    JProxyBusObject* proxyBusObj = new JProxyBusObject(*bus, busName.c_str(), objPath.c_str());
     if (!proxyBusObj) {
-	Throw("java/lang/OutOfMemoryError", NULL);
+        Throw("java/lang/OutOfMemoryError", NULL);
     }
     if (!env->ExceptionCheck()) {
-	SetHandle(thiz, proxyBusObj);
+        SetHandle(thiz, proxyBusObj);
     }
     if (env->ExceptionCheck()) {
-	Bus tmp = proxyBusObj->bus;
-	delete proxyBusObj;
+        Bus tmp = proxyBusObj->bus;
+        delete proxyBusObj;
     }
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv *env, 
-                                                jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env,
+                                                                   jobject thiz)
 {
-    JProxyBusObject *proxyBusObj = (JProxyBusObject *)GetHandle(thiz);
+    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
     if (!proxyBusObj) {
-	return;
+        return;
     }
     Bus tmp = proxyBusObj->bus;
     delete proxyBusObj;
@@ -2007,97 +1988,96 @@ Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv *env,
 }
 
 static void AddInterface(jobject thiz,
-			 jobject jbus,
-			 jstring jinterfaceName)
+                         jobject jbus,
+                         jstring jinterfaceName)
 {
-    JNIEnv *env = GetEnv();
-    Bus *bus = (Bus *)GetHandle(jbus);
+    JNIEnv* env = GetEnv();
+    Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(bus);
-    JProxyBusObject *proxyBusObj = (JProxyBusObject *)GetHandle(thiz);
+    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(proxyBusObj);
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(thiz);
     jmethodID mid = env->GetMethodID(clazz, "addInterface", "(Ljava/lang/String;)I");
     if (!mid) {
-	return;
+        return;
     }
     QStatus status = (QStatus)env->CallIntMethod(thiz, mid, jinterfaceName);
     if (env->ExceptionCheck()) {
         /* AnnotationBusException */
-	return;
+        return;
     }
     if (ER_OK != status) {
-	env->ThrowNew(CLS_BusException, QCC_StatusText(status));
-	return;
+        env->ThrowNew(CLS_BusException, QCC_StatusText(status));
+        return;
     }
-    const InterfaceDescription *intf = (*bus)->GetInterface(interfaceName.c_str());
+    const InterfaceDescription* intf = (*bus)->GetInterface(interfaceName.c_str());
     assert(intf);
     status = proxyBusObj->AddInterface(*intf);
     if (ER_OK != status) {
-	env->ThrowNew(CLS_BusException, QCC_StatusText(status));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv *env, 
-                                                   jobject thiz, 
-                                                   jobject jbus, 
-                                                   jstring jinterfaceName, 
-                                                   jstring jmethodName, 
-                                                   jstring jinputSig, 
-                                                   jobject joutType, 
-                                                   jobjectArray jargs,
-                                                   jint replyTimeoutMsecs,
-                                                   jint flags)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv* env,
+                                                                         jobject thiz,
+                                                                         jobject jbus,
+                                                                         jstring jinterfaceName,
+                                                                         jstring jmethodName,
+                                                                         jstring jinputSig,
+                                                                         jobject joutType,
+                                                                         jobjectArray jargs,
+                                                                         jint replyTimeoutMsecs,
+                                                                         jint flags)
 {
-    Bus *bus = (Bus *)GetHandle(jbus);
+    Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(bus);
-    JProxyBusObject *proxyBusObj = (JProxyBusObject *)GetHandle(thiz);
+    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(proxyBusObj);
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString methodName(jmethodName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
 
     QStatus status;
     MsgArg args;
     Message replyMsg(**bus);
-    const MsgArg *replyArgs;
+    const MsgArg* replyArgs;
     size_t numReplyArgs;
     jobject jreplyArg = NULL;
-    const InterfaceDescription *intf;
-    const InterfaceDescription::Member *member;
+    const InterfaceDescription* intf;
+    const InterfaceDescription::Member* member;
 
     intf = proxyBusObj->GetInterface(interfaceName.c_str());
     if (!intf) {
-	AddInterface(thiz, jbus, jinterfaceName);
-	if (env->ExceptionCheck()) {
-	    goto exit;
-	}
+        AddInterface(thiz, jbus, jinterfaceName);
+        if (env->ExceptionCheck()) {
+            goto exit;
+        }
         intf = proxyBusObj->GetInterface(interfaceName.c_str());
         assert(intf);
     }
@@ -2112,13 +2092,13 @@ Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv *env,
     }
 
     if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
-        status = proxyBusObj->MethodCallAsync(*member, NULL, NULL, args.v_struct.members, 
+        status = proxyBusObj->MethodCallAsync(*member, NULL, NULL, args.v_struct.members,
                                               args.v_struct.numMembers, NULL, replyTimeoutMsecs, flags);
         if (ER_OK != status) {
             env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         }
     } else {
-        status = proxyBusObj->MethodCall(*member, args.v_struct.members, args.v_struct.numMembers, 
+        status = proxyBusObj->MethodCall(*member, args.v_struct.members, args.v_struct.numMembers,
                                          replyMsg, replyTimeoutMsecs, flags);
         if (ER_OK == status) {
             replyMsg->GetArgs(numReplyArgs, replyArgs);
@@ -2136,7 +2116,7 @@ Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv *env,
             }
         } else if (ER_BUS_REPLY_IS_ERROR_MESSAGE == status) {
             String errorMessage;
-            const char *errorName = replyMsg->GetErrorName(&errorMessage);
+            const char* errorName = replyMsg->GetErrorName(&errorMessage);
             if (errorName) {
                 if (!strcmp("org.alljoyn.bus.BusException", errorName)) {
                     env->ThrowNew(CLS_BusException, errorMessage.c_str());
@@ -2151,40 +2131,39 @@ Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv *env,
         }
     }
 
- exit:
+exit:
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     } else {
-	return jreplyArg;
+        return jreplyArg;
     }
 }
 
-JNIEXPORT jobject JNICALL 
-Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv *env, 
-                                                    jobject thiz,
-                                                    jobject jbus, 
-                                                    jstring jinterfaceName,
-                                                    jstring jpropertyName)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv* env,
+                                                                          jobject thiz,
+                                                                          jobject jbus,
+                                                                          jstring jinterfaceName,
+                                                                          jstring jpropertyName)
 {
-    JProxyBusObject *proxyBusObj = (JProxyBusObject *)GetHandle(thiz);
+    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     assert(proxyBusObj);
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
     JString propertyName(jpropertyName);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
-    
+
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
-	AddInterface(thiz, jbus, jinterfaceName);
-	if (env->ExceptionCheck()) {
-	    return NULL;
-	}
+        AddInterface(thiz, jbus, jinterfaceName);
+        if (env->ExceptionCheck()) {
+            return NULL;
+        }
     }
 
     MsgArg value;
@@ -2192,43 +2171,42 @@ Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv *env,
     if (ER_OK == status) {
         return Unmarshal(&value, CLS_Variant);
     } else {
-	env->ThrowNew(CLS_BusException, QCC_StatusText(status));
-	return NULL;
+        env->ThrowNew(CLS_BusException, QCC_StatusText(status));
+        return NULL;
     }
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv *env, 
-                                                    jobject thiz,
-                                                    jobject jbus, 
-                                                    jstring jinterfaceName,
-                                                    jstring jpropertyName,
-                                                    jstring jsignature,
-                                                    jobject jvalue)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* env,
+                                                                       jobject thiz,
+                                                                       jobject jbus,
+                                                                       jstring jinterfaceName,
+                                                                       jstring jpropertyName,
+                                                                       jstring jsignature,
+                                                                       jobject jvalue)
 {
-    JProxyBusObject *proxyBusObj = (JProxyBusObject *)GetHandle(thiz);
+    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     assert(proxyBusObj);
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     JString propertyName(jpropertyName);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
 
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
-	AddInterface(thiz, jbus, jinterfaceName);
-	if (env->ExceptionCheck()) {
-	    return;
-	}
+        AddInterface(thiz, jbus, jinterfaceName);
+        if (env->ExceptionCheck()) {
+            return;
+        }
     }
 
     MsgArg value;
@@ -2239,129 +2217,125 @@ Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv *env,
         status = ER_FAIL;
     }
     if (ER_OK != status) {
-	env->ThrowNew(CLS_BusException, QCC_StatusText(status));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
 }
 
-/* 
- * class org_alljoyn_bus_SignalEmitter 
+/*
+ * class org_alljoyn_bus_SignalEmitter
  */
 
-JNIEXPORT void JNICALL
-Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv *env, 
-					      jobject thiz, 
-					      jobject jbusObj, 
-					      jstring jdestination, 		
-					      jstring jifaceName, 
-					      jstring jsignalName, 
-					      jstring jinputSig, 
-					      jobjectArray jargs,
-                                              jint timeToLive,
-                                              jint flags)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env,
+                                                                 jobject thiz,
+                                                                 jobject jbusObj,
+                                                                 jstring jdestination,
+                                                                 jstring jifaceName,
+                                                                 jstring jsignalName,
+                                                                 jstring jinputSig,
+                                                                 jobjectArray jargs,
+                                                                 jint timeToLive,
+                                                                 jint flags)
 {
-    JBusObject *busObj = _Bus::GetBusObject(jbusObj);
+    JBusObject* busObj = _Bus::GetBusObject(jbusObj);
     if (!busObj) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
         return;
     }
     JString destination(jdestination);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     JString ifaceName(jifaceName);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     JString signalName(jsignalName);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
-    
+
     MsgArg args;
     if (!Marshal(inputSig.c_str(), jargs, &args)) {
-	return;
+        return;
     }
-    QStatus status = busObj->Signal(destination.c_str(), ifaceName.c_str(), signalName.c_str(), 
+    QStatus status = busObj->Signal(destination.c_str(), ifaceName.c_str(), signalName.c_str(),
                                     args.v_struct.members, args.v_struct.numMembers, timeToLive, flags);
     if (ER_OK != status) {
-	env->ThrowNew(CLS_BusException, QCC_StatusText(status));
-    }	
+        env->ThrowNew(CLS_BusException, QCC_StatusText(status));
+    }
 }
 
-/* 
- * class org_alljoyn_bus_Signature 
+/*
+ * class org_alljoyn_bus_Signature
  */
 
-JNIEXPORT jobjectArray JNICALL 
-Java_org_alljoyn_bus_Signature_split(JNIEnv *env, 
-					 jclass clazz, 
-					 jstring jsignature)
+JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env,
+                                                                    jclass clazz,
+                                                                    jstring jsignature)
 {
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
-	return NULL;
+        return NULL;
     }
-    const char *next = signature.c_str();
+    const char* next = signature.c_str();
     if (next) {
-	uint8_t count = SignatureUtils::CountCompleteTypes(next);
-	JLocalRef<jobjectArray> jsignatures = env->NewObjectArray(count, CLS_String, NULL);
-	if (!jsignatures) {
-	    return NULL;
-	}
-	const char *prev = next;
-	for (jsize i = 0; *next; ++i, prev = next) {
-	    QStatus status = SignatureUtils::ParseCompleteType(next);
-	    if (ER_OK != status) {
-		return NULL;
-	    }
+        uint8_t count = SignatureUtils::CountCompleteTypes(next);
+        JLocalRef<jobjectArray> jsignatures = env->NewObjectArray(count, CLS_String, NULL);
+        if (!jsignatures) {
+            return NULL;
+        }
+        const char* prev = next;
+        for (jsize i = 0; *next; ++i, prev = next) {
+            QStatus status = SignatureUtils::ParseCompleteType(next);
+            if (ER_OK != status) {
+                return NULL;
+            }
             assert(i < count);
 
-	    ptrdiff_t len = next - prev;
-	    String type(prev, len);
+            ptrdiff_t len = next - prev;
+            String type(prev, len);
 
-	    JLocalRef<jstring> jtype = env->NewStringUTF(type.c_str());
-	    if (!jtype) {
-		return NULL;
-	    }
-	    env->SetObjectArrayElement(jsignatures, i, jtype);
-	    if (env->ExceptionCheck()) {
-		return NULL;
-	    }
-	}
-	return jsignatures.move();
+            JLocalRef<jstring> jtype = env->NewStringUTF(type.c_str());
+            if (!jtype) {
+                return NULL;
+            }
+            env->SetObjectArrayElement(jsignatures, i, jtype);
+            if (env->ExceptionCheck()) {
+                return NULL;
+            }
+        }
+        return jsignatures.move();
     } else {
-	return NULL;
+        return NULL;
     }
 }
 
-/* 
- * class org_alljoyn_bus_Variant 
+/*
+ * class org_alljoyn_bus_Variant
  */
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_Variant_destroy(JNIEnv *env, 
-					 jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env,
+                                                            jobject thiz)
 {
-    MsgArg *arg = (MsgArg *)GetHandle(thiz);
+    MsgArg* arg = (MsgArg*)GetHandle(thiz);
     if (!arg) {
-	return;
+        return;
     }
     delete arg;
     SetHandle(thiz, NULL);
 }
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv *env, 
-                                           jobject thiz,
-                                           jlong jmsgArg)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv* env,
+                                                              jobject thiz,
+                                                              jlong jmsgArg)
 {
-    MsgArg *arg = (MsgArg *)jmsgArg;
+    MsgArg* arg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_VARIANT == arg->typeId);
-    MsgArg *argCopy = new MsgArg(*arg->v_variant.val);
+    MsgArg* argCopy = new MsgArg(*arg->v_variant.val);
     if (!argCopy) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
@@ -2373,114 +2347,107 @@ Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv *env,
 }
 
 /*
- * class org_alljoyn_bus_BusException 
+ * class org_alljoyn_bus_BusException
  */
 
-JNIEXPORT void JNICALL 
-Java_org_alljoyn_bus_BusException_logln(JNIEnv *env, 
-                                            jclass clazz, 
-                                            jstring jline)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusException_logln(JNIEnv* env,
+                                                               jclass clazz,
+                                                               jstring jline)
 {
     JString line(jline);
     if (env->ExceptionCheck()) {
-	return;
+        return;
     }
     _QCC_DbgPrint(DBG_LOCAL_ERROR, ("%s", line.c_str()));
 }
 
-/* 
- * class org_alljoyn_bus_MsgArg 
+/*
+ * class org_alljoyn_bus_MsgArg
  */
 
-JNIEXPORT jint JNICALL 
-Java_org_alljoyn_bus_MsgArg_getNumElements(JNIEnv *env, 
-                                               jclass clazz, 
-                                               jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumElements(JNIEnv* env,
+                                                                  jclass clazz,
+                                                                  jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
     return msgArg->v_array.GetNumElements();
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_getElement(JNIEnv *env, 
-                                           jclass clazz, 
-                                           jlong jmsgArg,
-                                           jint index)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getElement(JNIEnv* env,
+                                                               jclass clazz,
+                                                               jlong jmsgArg,
+                                                               jint index)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
     assert(index < (jint)msgArg->v_array.GetNumElements());
-    return (jlong)&msgArg->v_array.GetElements()[index];
+    return (jlong) & msgArg->v_array.GetElements()[index];
 }
 
-JNIEXPORT jstring JNICALL 
-Java_org_alljoyn_bus_MsgArg_getElemSig(JNIEnv *env, 
-                                           jclass clazz, 
-                                           jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getElemSig(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
     return env->NewStringUTF(msgArg->v_array.GetElemSig());
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_getVal(JNIEnv *env, 
-                                       jclass clazz, 
-                                       jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getVal(JNIEnv* env,
+                                                           jclass clazz,
+                                                           jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     switch (msgArg->typeId) {
     case ALLJOYN_VARIANT: return (jlong)msgArg->v_variant.val;
+
     case ALLJOYN_DICT_ENTRY: return (jlong)msgArg->v_dictEntry.val;
+
     default: assert(0); return 0;
     }
 }
 
-JNIEXPORT jint JNICALL 
-Java_org_alljoyn_bus_MsgArg_getNumMembers(JNIEnv *env, 
-                                               jclass clazz, 
-                                               jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumMembers(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRUCT == msgArg->typeId);
     return msgArg->v_struct.numMembers;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_getMember(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg,
-                                          jint index)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getMember(JNIEnv* env,
+                                                              jclass clazz,
+                                                              jlong jmsgArg,
+                                                              jint index)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRUCT == msgArg->typeId);
     assert(index < (jint)msgArg->v_struct.numMembers);
-    return (jlong)&msgArg->v_struct.members[index];
+    return (jlong) & msgArg->v_struct.members[index];
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_getKey(JNIEnv *env, 
-                                       jclass clazz, 
-                                       jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getKey(JNIEnv* env,
+                                                           jclass clazz,
+                                                           jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DICT_ENTRY == msgArg->typeId);
     return (jlong)msgArg->v_dictEntry.key;
 }
 
-JNIEXPORT jbyteArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv *env, 
-                                             jclass clazz, 
-                                             jlong jmsgArg)
+JNIEXPORT jbyteArray JNICALL Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv* env,
+                                                                      jclass clazz,
+                                                                      jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BYTE_ARRAY == msgArg->typeId);
     jbyteArray jarray = env->NewByteArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jbyte *jelements = env->GetByteArrayElements(jarray, NULL);
+    jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_byte[i];
     }
@@ -2488,18 +2455,17 @@ Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jshortArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv *env, 
-                                              jclass clazz, 
-                                              jlong jmsgArg)
+JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv* env,
+                                                                        jclass clazz,
+                                                                        jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT16_ARRAY == msgArg->typeId);
     jshortArray jarray = env->NewShortArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jshort *jelements = env->GetShortArrayElements(jarray, NULL);
+    jshort* jelements = env->GetShortArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_int16[i];
     }
@@ -2507,18 +2473,17 @@ Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jshortArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv *env, 
-                                               jclass clazz, 
-                                               jlong jmsgArg)
+JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv* env,
+                                                                         jclass clazz,
+                                                                         jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT16_ARRAY == msgArg->typeId);
     jshortArray jarray = env->NewShortArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jshort *jelements = env->GetShortArrayElements(jarray, NULL);
+    jshort* jelements = env->GetShortArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_uint16[i];
     }
@@ -2526,18 +2491,17 @@ Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jbooleanArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv *env, 
-                                             jclass clazz, 
-                                             jlong jmsgArg)
+JNIEXPORT jbooleanArray JNICALL Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv* env,
+                                                                         jclass clazz,
+                                                                         jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BOOLEAN_ARRAY == msgArg->typeId);
     jbooleanArray jarray = env->NewBooleanArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jboolean *jelements = env->GetBooleanArrayElements(jarray, NULL);
+    jboolean* jelements = env->GetBooleanArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_bool[i];
     }
@@ -2545,18 +2509,17 @@ Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jintArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv *env, 
-                                               jclass clazz, 
-                                               jlong jmsgArg)
+JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv* env,
+                                                                       jclass clazz,
+                                                                       jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT32_ARRAY == msgArg->typeId);
     jintArray jarray = env->NewIntArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jint *jelements = env->GetIntArrayElements(jarray, NULL);
+    jint* jelements = env->GetIntArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_uint32[i];
     }
@@ -2564,18 +2527,17 @@ Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jintArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv *env, 
-                                              jclass clazz, 
-                                              jlong jmsgArg)
+JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv* env,
+                                                                      jclass clazz,
+                                                                      jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT32_ARRAY == msgArg->typeId);
     jintArray jarray = env->NewIntArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jint *jelements = env->GetIntArrayElements(jarray, NULL);
+    jint* jelements = env->GetIntArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_int32[i];
     }
@@ -2583,18 +2545,17 @@ Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jlongArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv *env, 
-                                              jclass clazz, 
-                                              jlong jmsgArg)
+JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv* env,
+                                                                       jclass clazz,
+                                                                       jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT64_ARRAY == msgArg->typeId);
     jlongArray jarray = env->NewLongArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jlong *jelements = env->GetLongArrayElements(jarray, NULL);
+    jlong* jelements = env->GetLongArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_int64[i];
     }
@@ -2602,18 +2563,17 @@ Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jlongArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv *env, 
-                                               jclass clazz, 
-                                               jlong jmsgArg)
+JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv* env,
+                                                                        jclass clazz,
+                                                                        jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT64_ARRAY == msgArg->typeId);
     jlongArray jarray = env->NewLongArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jlong *jelements = env->GetLongArrayElements(jarray, NULL);
+    jlong* jelements = env->GetLongArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_uint64[i];
     }
@@ -2621,18 +2581,17 @@ Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jdoubleArray JNICALL 
-Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv *env, 
-                                               jclass clazz, 
-                                               jlong jmsgArg)
+JNIEXPORT jdoubleArray JNICALL Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv* env,
+                                                                          jclass clazz,
+                                                                          jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DOUBLE_ARRAY == msgArg->typeId);
     jdoubleArray jarray = env->NewDoubleArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
-    jdouble *jelements = env->GetDoubleArrayElements(jarray, NULL);
+    jdouble* jelements = env->GetDoubleArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_double[i];
     }
@@ -2640,113 +2599,102 @@ Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv *env,
     return jarray;
 }
 
-JNIEXPORT jint JNICALL 
-Java_org_alljoyn_bus_MsgArg_getTypeId(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getTypeId(JNIEnv* env,
+                                                             jclass clazz,
+                                                             jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     return msgArg->typeId;
 }
 
-JNIEXPORT jbyte JNICALL 
-Java_org_alljoyn_bus_MsgArg_getByte(JNIEnv *env, 
-                                        jclass clazz, 
-                                        jlong jmsgArg)
+JNIEXPORT jbyte JNICALL Java_org_alljoyn_bus_MsgArg_getByte(JNIEnv* env,
+                                                            jclass clazz,
+                                                            jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BYTE == msgArg->typeId);
     return msgArg->v_byte;
 }
 
-JNIEXPORT jshort JNICALL 
-Java_org_alljoyn_bus_MsgArg_getInt16(JNIEnv *env, 
-                                         jclass clazz, 
-                                         jlong jmsgArg)
+JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getInt16(JNIEnv* env,
+                                                              jclass clazz,
+                                                              jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT16 == msgArg->typeId);
     return msgArg->v_int16;
 }
 
-JNIEXPORT jshort JNICALL 
-Java_org_alljoyn_bus_MsgArg_getUint16(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg)
+JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getUint16(JNIEnv* env,
+                                                               jclass clazz,
+                                                               jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT16 == msgArg->typeId);
     return msgArg->v_uint16;
 }
 
-JNIEXPORT jboolean JNICALL 
-Java_org_alljoyn_bus_MsgArg_getBool(JNIEnv *env, 
-                                        jclass clazz, 
-                                        jlong jmsgArg)
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_MsgArg_getBool(JNIEnv* env,
+                                                               jclass clazz,
+                                                               jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BOOLEAN == msgArg->typeId);
     return msgArg->v_bool;
 }
 
-JNIEXPORT jint JNICALL 
-Java_org_alljoyn_bus_MsgArg_getUint32(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getUint32(JNIEnv* env,
+                                                             jclass clazz,
+                                                             jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT32 == msgArg->typeId);
     return msgArg->v_uint32;
 }
 
-JNIEXPORT jint JNICALL 
-Java_org_alljoyn_bus_MsgArg_getInt32(JNIEnv *env, 
-                                         jclass clazz, 
-                                         jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getInt32(JNIEnv* env,
+                                                            jclass clazz,
+                                                            jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT32 == msgArg->typeId);
     return msgArg->v_int32;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_getInt64(JNIEnv *env, 
-                                         jclass clazz, 
-                                         jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getInt64(JNIEnv* env,
+                                                             jclass clazz,
+                                                             jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT64 == msgArg->typeId);
     return msgArg->v_int64;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_getUint64(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getUint64(JNIEnv* env,
+                                                              jclass clazz,
+                                                              jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT64 == msgArg->typeId);
     return msgArg->v_uint64;
 }
 
-JNIEXPORT jdouble JNICALL 
-Java_org_alljoyn_bus_MsgArg_getDouble(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg)
+JNIEXPORT jdouble JNICALL Java_org_alljoyn_bus_MsgArg_getDouble(JNIEnv* env,
+                                                                jclass clazz,
+                                                                jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DOUBLE == msgArg->typeId);
     return msgArg->v_double;
 }
 
-JNIEXPORT jstring JNICALL 
-Java_org_alljoyn_bus_MsgArg_getString(JNIEnv *env, 
-                                          jclass clazz, 
-                                          jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getString(JNIEnv* env,
+                                                                jclass clazz,
+                                                                jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRING == msgArg->typeId);
-    char *str = new char[msgArg->v_string.len + 1];
+    char* str = new char[msgArg->v_string.len + 1];
     if (!str) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return NULL;
@@ -2758,14 +2706,13 @@ Java_org_alljoyn_bus_MsgArg_getString(JNIEnv *env,
     return jstr;
 }
 
-JNIEXPORT jstring JNICALL 
-Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv *env, 
-                                           jclass clazz, 
-                                           jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_OBJECT_PATH == msgArg->typeId);
-    char *str = new char[msgArg->v_objPath.len + 1];
+    char* str = new char[msgArg->v_objPath.len + 1];
     if (!str) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return NULL;
@@ -2777,14 +2724,13 @@ Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv *env,
     return jstr;
 }
 
-JNIEXPORT jstring JNICALL 
-Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv *env, 
-                                                jclass clazz, 
-                                                jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv* env,
+                                                                      jclass clazz,
+                                                                      jlong jmsgArg)
 {
-    MsgArg *msgArg = (MsgArg *)jmsgArg;
+    MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_SIGNATURE == msgArg->typeId);
-    char *str = new char[msgArg->v_signature.len + 1];
+    char* str = new char[msgArg->v_signature.len + 1];
     if (!str) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return NULL;
@@ -2796,22 +2742,21 @@ Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv *env,
     return jstr;
 }
 
-JNIEXPORT jstring JNICALL 
-Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv *env, 
-                                                  jclass clazz, 
-                                                  jlongArray jarray)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv* env,
+                                                                        jclass clazz,
+                                                                        jlongArray jarray)
 {
     size_t numValues = jarray ? env->GetArrayLength(jarray) : 0;
-    MsgArg *values = NULL;
+    MsgArg* values = NULL;
     if (numValues) {
         values = new MsgArg[numValues];
         if (!values) {
             Throw("java/lang/OutOfMemoryError", NULL);
             return NULL;
         }
-        jlong *jvalues = env->GetLongArrayElements(jarray, NULL);
+        jlong* jvalues = env->GetLongArrayElements(jarray, NULL);
         for (size_t i = 0; i < numValues; ++i) {
-            values[i] = *(MsgArg *)(jvalues[i]);
+            values[i] = *(MsgArg*)(jvalues[i]);
         }
         env->ReleaseLongArrayElements(jarray, jvalues, JNI_ABORT);
     }
@@ -2829,8 +2774,8 @@ Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv *env,
  * @return the @param arg passed in or NULL if an error occurred
  * @throws BusException if an error occurs
  */
-static MsgArg *Set(JNIEnv *env,
-                   MsgArg *arg,
+static MsgArg* Set(JNIEnv* env,
+                   MsgArg* arg,
                    jstring jsignature,
                    ...)
 {
@@ -2850,93 +2795,85 @@ static MsgArg *Set(JNIEnv *env,
     return arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2B(JNIEnv *env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg,
-                                                           jstring jsignature,
-                                                           jbyte value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2B(JNIEnv* env,
+                                                                               jclass clazz,
+                                                                               jlong jmsgArg,
+                                                                               jstring jsignature,
+                                                                               jbyte value)
 {
-    return (jlong)Set(env, (MsgArg *)jmsgArg, jsignature, value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Z(JNIEnv *env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg,
-                                                           jstring jsignature,
-                                                           jboolean value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Z(JNIEnv* env,
+                                                                               jclass clazz,
+                                                                               jlong jmsgArg,
+                                                                               jstring jsignature,
+                                                                               jboolean value)
 {
-    return (jlong)Set(env, (MsgArg *)jmsgArg, jsignature, value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2S(JNIEnv *env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg,
-                                                           jstring jsignature,
-                                                           jshort value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2S(JNIEnv* env,
+                                                                               jclass clazz,
+                                                                               jlong jmsgArg,
+                                                                               jstring jsignature,
+                                                                               jshort value)
 {
-    return (jlong)Set(env, (MsgArg *)jmsgArg, jsignature, value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2I(JNIEnv *env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg,
-                                                           jstring jsignature,
-                                                           jint value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2I(JNIEnv* env,
+                                                                               jclass clazz,
+                                                                               jlong jmsgArg,
+                                                                               jstring jsignature,
+                                                                               jint value)
 {
-    return (jlong)Set(env, (MsgArg *)jmsgArg, jsignature, value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2J(JNIEnv *env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg,
-                                                           jstring jsignature,
-                                                           jlong value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2J(JNIEnv* env,
+                                                                               jclass clazz,
+                                                                               jlong jmsgArg,
+                                                                               jstring jsignature,
+                                                                               jlong value)
 {
-    return (jlong)Set(env, (MsgArg *)jmsgArg, jsignature, &value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, &value);
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(JNIEnv *env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg,
-                                                           jstring jsignature,
-                                                           jdouble value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(JNIEnv* env,
+                                                                               jclass clazz,
+                                                                               jlong jmsgArg,
+                                                                               jstring jsignature,
+                                                                               jdouble value)
 {
-    return (jlong)Set(env, (MsgArg *)jmsgArg, jsignature, &value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, &value);
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2(JNIEnv *env,
-                                                                             jclass clazz,
-                                                                             jlong jmsgArg,
-                                                                             jstring jsignature,
-                                                                             jstring jvalue)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2(JNIEnv* env,
+                                                                                                 jclass clazz,
+                                                                                                 jlong jmsgArg,
+                                                                                                 jstring jsignature,
+                                                                                                 jstring jvalue)
 {
     JString value(jvalue);
     if (env->ExceptionCheck()) {
         return 0;
     }
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, value.c_str());
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, value.c_str());
     if (arg) {
         arg->Stabilize();
     }
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B(JNIEnv *env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jsignature,
-                                                             jbyteArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B(JNIEnv* env,
+                                                                                 jclass clazz,
+                                                                                 jlong jmsgArg,
+                                                                                 jstring jsignature,
+                                                                                 jbyteArray jarray)
 {
-    jbyte *jelements = env->GetByteArrayElements(jarray, NULL);
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
+    jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
@@ -2944,17 +2881,16 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv *env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jsignature,
-                                                             jbooleanArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv* env,
+                                                                                 jclass clazz,
+                                                                                 jlong jmsgArg,
+                                                                                 jstring jsignature,
+                                                                                 jbooleanArray jarray)
 {
     /* Booleans are different sizes in Java and MsgArg, so can't just do a straight copy. */
-    jboolean *jelements = env->GetBooleanArrayElements(jarray, NULL);
+    jboolean* jelements = env->GetBooleanArrayElements(jarray, NULL);
     size_t numElements = env->GetArrayLength(jarray);
-    bool *v_bool = new bool[numElements];
+    bool* v_bool = new bool[numElements];
     if (!v_bool) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
@@ -2962,7 +2898,7 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv *env,
     for (size_t i = 0; i < numElements; ++i) {
         v_bool[i] = jelements[i];
     }
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, numElements, v_bool);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, numElements, v_bool);
     if (arg) {
         arg->SetOwnershipFlags(MsgArg::OwnsData);
     } else {
@@ -2972,15 +2908,14 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S(JNIEnv *env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jsignature,
-                                                             jshortArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S(JNIEnv* env,
+                                                                                 jclass clazz,
+                                                                                 jlong jmsgArg,
+                                                                                 jstring jsignature,
+                                                                                 jshortArray jarray)
 {
-    jshort *jelements = env->GetShortArrayElements(jarray, NULL);
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
+    jshort* jelements = env->GetShortArrayElements(jarray, NULL);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
@@ -2988,15 +2923,14 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I(JNIEnv *env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jsignature,
-                                                             jintArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I(JNIEnv* env,
+                                                                                 jclass clazz,
+                                                                                 jlong jmsgArg,
+                                                                                 jstring jsignature,
+                                                                                 jintArray jarray)
 {
-    jint *jelements = env->GetIntArrayElements(jarray, NULL);
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
+    jint* jelements = env->GetIntArrayElements(jarray, NULL);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
@@ -3004,15 +2938,14 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J(JNIEnv *env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jsignature,
-                                                             jlongArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J(JNIEnv* env,
+                                                                                 jclass clazz,
+                                                                                 jlong jmsgArg,
+                                                                                 jstring jsignature,
+                                                                                 jlongArray jarray)
 {
-    jlong *jelements = env->GetLongArrayElements(jarray, NULL);
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
+    jlong* jelements = env->GetLongArrayElements(jarray, NULL);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
@@ -3020,15 +2953,14 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D(JNIEnv *env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jsignature,
-                                                             jdoubleArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D(JNIEnv* env,
+                                                                                 jclass clazz,
+                                                                                 jlong jmsgArg,
+                                                                                 jstring jsignature,
+                                                                                 jdoubleArray jarray)
 {
-    jdouble *jelements = env->GetDoubleArrayElements(jarray, NULL);
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
+    jdouble* jelements = env->GetDoubleArrayElements(jarray, NULL);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
@@ -3036,19 +2968,18 @@ Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv *env,
-                                         jclass clazz,
-                                         jlong jmsgArg,
-                                         jstring jelemSig,
-                                         jint numElements)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv* env,
+                                                             jclass clazz,
+                                                             jlong jmsgArg,
+                                                             jstring jelemSig,
+                                                             jint numElements)
 {
     JString elemSig(jelemSig);
     if (env->ExceptionCheck()) {
         return 0;
     }
-    MsgArg *arg = (MsgArg *)jmsgArg;
-    MsgArg *elements = new MsgArg[numElements];
+    MsgArg* arg = (MsgArg*)jmsgArg;
+    MsgArg* elements = new MsgArg[numElements];
     if (!elements) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
@@ -3064,14 +2995,13 @@ Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv *env,
-                                          jclass clazz,
-                                          jlong jmsgArg,
-                                          jint numMembers)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv* env,
+                                                              jclass clazz,
+                                                              jlong jmsgArg,
+                                                              jint numMembers)
 {
-    MsgArg *arg = (MsgArg *)jmsgArg;
-    MsgArg *members = new MsgArg[numMembers];
+    MsgArg* arg = (MsgArg*)jmsgArg;
+    MsgArg* members = new MsgArg[numMembers];
     if (!members) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
@@ -3083,14 +3013,13 @@ Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv *env,
-                                             jclass clazz,
-                                             jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jlong jmsgArg)
 {
-    MsgArg *arg = (MsgArg *)jmsgArg;
-    MsgArg *key = new MsgArg;
-    MsgArg *val = new MsgArg;
+    MsgArg* arg = (MsgArg*)jmsgArg;
+    MsgArg* key = new MsgArg;
+    MsgArg* val = new MsgArg;
     if (!key || !val) {
         delete val;
         delete key;
@@ -3104,32 +3033,30 @@ Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv *env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_String_2J(JNIEnv *env, 
-                                                                  jclass clazz, 
-                                                                  jlong jmsgArg, 
-                                                                  jstring jsignature, 
-                                                                  jlong jvalue)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_String_2J(JNIEnv* env,
+                                                                                      jclass clazz,
+                                                                                      jlong jmsgArg,
+                                                                                      jstring jsignature,
+                                                                                      jlong jvalue)
 {
-    MsgArg *value = new MsgArg(*(MsgArg *)jvalue);
+    MsgArg* value = new MsgArg(*(MsgArg*)jvalue);
     if (!value) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
     }
-    MsgArg *arg = Set(env, (MsgArg *)jmsgArg, jsignature, value);
+    MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, value);
     if (arg) {
         arg->SetOwnershipFlags(MsgArg::OwnsArgs);
     }
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL 
-Java_org_alljoyn_bus_MsgArg_setVariant__J(JNIEnv *env, 
-                                              jclass clazz,
-                                              jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__J(JNIEnv* env,
+                                                                  jclass clazz,
+                                                                  jlong jmsgArg)
 {
-    MsgArg *arg = (MsgArg *)jmsgArg;
-    MsgArg *val = new MsgArg;
+    MsgArg* arg = (MsgArg*)jmsgArg;
+    MsgArg* val = new MsgArg;
     if (!val) {
         delete val;
         Throw("java/lang/OutOfMemoryError", NULL);
