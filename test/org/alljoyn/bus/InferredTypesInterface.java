@@ -404,4 +404,12 @@ public interface InferredTypesInterface {
 
     @BusProperty
     public void setDictionarySS(Map<String, String> aess) throws BusException;
+
+    public class TwoByteArrays {
+        @Position(0) public byte[] ay0;
+        @Position(1) public byte[] ay1;
+    }
+
+    @BusMethod
+    public TwoByteArrays TwoByteArrays(TwoByteArrays rayay) throws BusException;
 }

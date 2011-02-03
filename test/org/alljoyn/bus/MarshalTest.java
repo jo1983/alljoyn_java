@@ -541,6 +541,8 @@ public class MarshalTest extends TestCase {
         public TreeMap<String, String>[] TreeDictionaryArray(TreeMap<String, String>[] aaess) throws BusException {
             return aaess;
         }
+
+        public TwoByteArrays TwoByteArrays(TwoByteArrays rayay) throws BusException { return rayay; }
     }
 
     public class NullService implements InferredTypesInterface, 
@@ -1038,6 +1040,8 @@ public class MarshalTest extends TestCase {
         public TreeMap<String, String>[] TreeDictionaryArray(TreeMap<String, String>[] aaess) throws BusException {
             return null;
         }
+
+        public TwoByteArrays TwoByteArrays(TwoByteArrays rayay) throws BusException { return null; }
     }
 
     private BusAttachment bus;
@@ -2337,6 +2341,25 @@ public class MarshalTest extends TestCase {
         try {
             assertArrayEquals(ay, proxy.ByteArray(ay));
         } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+    }
+
+    public void testPacketSizes() throws Exception {
+        InferredTypesInterface proxy = remoteObj.getInterface(InferredTypesInterface.class);
+
+        // There exists a hard-coded limit of k bytes in an array
+        int k = 67108864;
+
+        InferredTypesInterface.TwoByteArrays rayay = new InferredTypesInterface.TwoByteArrays();
+        rayay.ay0 = new byte[k];
+        rayay.ay1 = new byte[k];
+
+        boolean thrown = false;
+        try {
+            proxy.TwoByteArrays(rayay);
+        } catch (BusException ex) {
             thrown = true;
         }
         assertEquals(true, thrown);
