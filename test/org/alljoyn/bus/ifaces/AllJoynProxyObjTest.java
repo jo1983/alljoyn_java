@@ -46,6 +46,8 @@ public class AllJoynProxyObjTest extends TestCase {
     private String foundName;
     private int foundNameCount;
     private String address;
+    private String lostAddress;
+    private String lostName;
 
     public void setUp() throws Exception {
         address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
@@ -129,6 +131,46 @@ public class AllJoynProxyObjTest extends TestCase {
         Thread.currentThread().sleep(1000);
         assertEquals(name, foundName);
         assertTrue(foundNameCount > 0);
+    }
+
+    @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "BusConnectionLost")
+    public void BusConnectionLost(String busAddress) {
+        lostAddress = busAddress;
+    }
+
+    public void testBusConnectionLost() throws Exception {
+        daemon = new AllJoynDaemon();
+        bus.registerSignalHandlers(this);
+        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
+        lostAddress = null;
+        daemon.stop();
+
+        Thread.currentThread().sleep(1000);
+        assertEquals(daemon.remoteAddress(), lostAddress);
+        daemon = null;
+    }
+
+    @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "LostAdvertisedName")
+    public void LostAdvertisedName(String name, String guid, String namePrefix, String busAddress) {
+        lostName = name;
+    }
+
+    public void testLostAdvertisedName() throws Exception {
+        daemon = new AllJoynDaemon();
+        System.setProperty("org.alljoyn.bus.address", daemon.address());
+        otherBus = new BusAttachment(getClass().getName());
+        assertEquals(Status.OK, otherBus.connect());
+        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, 
+                     otherBus.getDBusProxyObj().RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS));
+        assertEquals(AllJoynProxyObj.AdvertiseNameResult.Success, otherBus.getAllJoynProxyObj().AdvertiseName(name));
+
+        bus.registerSignalHandlers(this);
+        lostName = null;
+        assertEquals(AllJoynProxyObj.FindNameResult.Success, alljoyn.FindName(name));
+        Thread.currentThread().sleep(1000);
+        assertEquals(AllJoynProxyObj.CancelAdvertiseNameResult.Success, otherBus.getAllJoynProxyObj().CancelAdvertiseName(name));
+        Thread.currentThread().sleep(1000);
+        assertEquals(name, lostName);
     }
 
     public void testNullDisconnect() throws Exception {

@@ -214,6 +214,15 @@ public interface AllJoynProxyObj {
     String[] ListAdvertisedNames() throws BusException;
 
     /**
+     * Called by the bus when a daemon to daemon connection is unexpectedly lost.
+     *
+     * @param busAddress the bus address of the connection that was lost
+     * @throws BusException
+     */
+    @BusSignal(signature = "s")
+    void BusConnectionLost(String busAddress) throws BusException;
+
+    /**
      * Signal broadcast when the local AllJoyn daemon receives an advertisement of
      * well-known names from a remote AllJoyn instance.
      *
@@ -226,5 +235,21 @@ public interface AllJoynProxyObj {
      */
     @BusSignal(signature = "ssss")
     void FoundName(String name, String guid, String namePrefix, String busAddress) 
+        throws BusException;
+
+    /**
+     * Called by the bus when an advertisement previously reported through FoundName has become
+     * unavailable.
+     *
+     * @param name a well known name that the remote bus is advertising that is of interest to this
+     *             attachment
+     * @param guid the GUID of the remote bus daemon
+     * @param namePrefix the well-known name prefix that was used in a call to FindName that
+     *                   triggered this callback
+     * @param busAddress the connection address of the remote bus (used for informational purposes
+     *                   only)
+     */
+    @BusSignal(signature = "ssss")
+    void LostAdvertisedName(String name, String guid, String namePrefix, String busAddress)
         throws BusException;
 }
