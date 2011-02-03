@@ -132,7 +132,7 @@ public class AllJoynProxyObjTest extends TestCase {
     }
 
     public void testNullDisconnect() throws Exception {
-        assertEquals(AllJoynProxyObj.DisconnectResult.Failed, alljoyn.Disconnect(null));
+        assertEquals(AllJoynProxyObj.DisconnectResult.Failed, alljoyn.Disconnect(""));
     }
 
     public void testInvalidDisconnect() throws Exception {
@@ -140,7 +140,7 @@ public class AllJoynProxyObjTest extends TestCase {
     }
 
     public void testNullConnect() throws Exception {
-        assertEquals(AllJoynProxyObj.ConnectResult.InvalidSpec, alljoyn.Connect(null));
+        assertEquals(AllJoynProxyObj.ConnectResult.InvalidSpec, alljoyn.Connect(""));
     }
 
     public void testInvalidConnect() throws Exception {

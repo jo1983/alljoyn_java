@@ -27,6 +27,13 @@ public class Assert {
         }
     }
 
+    static void assertArrayEquals(boolean[] expected, boolean[] actual) {
+        assertEquals(expected.length, actual.length);
+        for (int i = 0; i < expected.length; ++i) {
+            assertEquals(expected[i], actual[i]);
+        }
+    }
+
     static void assertArrayEquals(byte[][] expected, byte[][] actual) {
         assertEquals(expected.length, actual.length);
         for (int i = 0; i < expected.length; ++i) {

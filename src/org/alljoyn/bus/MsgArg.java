@@ -428,9 +428,15 @@ final class MsgArg {
             case ALLJOYN_STRING:
             case ALLJOYN_SIGNATURE:
             case ALLJOYN_OBJECT_PATH:
+                if (arg == null) {
+                    throw new MarshalBusException("cannot marshal null into '" + sig + "'");
+                }
                 set(msgArg, sig, (String) arg);
                 break;
             case ALLJOYN_ARRAY:
+                if (arg == null) {
+                    throw new MarshalBusException("cannot marshal null into '" + sig + "'");
+                }
                 char elementTypeId = sig.charAt(1);
                 if (ALLJOYN_DICT_ENTRY_OPEN == elementTypeId) {
                     arg = ((Map) arg).entrySet().toArray();
@@ -503,8 +509,9 @@ final class MsgArg {
                 throw new MarshalBusException("unimplemented '" + sig + "'");
             }
         } catch (Throwable th) {
-            throw new MarshalBusException("cannot marshal " + arg.getClass() + " into '" 
-                                          + sig + "'", th);
+            throw new MarshalBusException("cannot marshal " + 
+                                          ((arg == null) ? "null" : arg.getClass()) + 
+                                          " into '" + sig + "'", th);
         }
     }
 

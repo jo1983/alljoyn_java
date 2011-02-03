@@ -543,11 +543,510 @@ public class MarshalTest extends TestCase {
         }
     }
 
+    public class NullService implements InferredTypesInterface, 
+                                        AnnotatedTypesInterface,
+                                        BusObject {
+
+        public void Void() throws BusException {}
+
+        public byte Byte(byte y) throws BusException { return y; }
+
+        public boolean Boolean(boolean b) throws BusException { return b; }
+
+        public short Int16(short n) throws BusException { return n; }
+
+        public int Int32(int i) throws BusException { return i; }
+
+        public long Int64(long x) throws BusException { return x; }
+
+        public double Double(double d) throws BusException { return d; }
+
+        public String String(String s) throws BusException { return null; }
+
+        public short Uint16(short q) throws BusException { return q; }
+
+        public int Uint32(int u) throws BusException { return u; }
+
+        public long Uint64(long t) throws BusException { return t; }
+
+        public String ObjectPath(String o) throws BusException { return null; }
+
+        public String Signature(String g) throws BusException { return null; }
+
+        public byte[] ByteArray(byte[] ay) throws BusException { return null; }
+
+        public boolean[] BooleanArray(boolean[] ab) throws BusException { return null; }
+
+        public short[] Int16Array(short[] an) throws BusException { return null; }
+
+        public short[] Uint16Array(short[] aq) throws BusException { return null; }
+
+        public int[] Int32Array(int[] ai) throws BusException { return null; }
+
+        public int[] Uint32Array(int[] au) throws BusException { return null; }
+
+        public long[] Int64Array(long[] ax) throws BusException { return null; }
+
+        public long[] Uint64Array(long[] at) throws BusException { return null; }
+
+        public double[] DoubleArray(double[] ad) throws BusException { return null; }
+
+        public String[] StringArray(String[] as) throws BusException { return null; }
+
+        public String[] SignatureArray(String[] ag) throws BusException { return null; }
+
+        public String[] ObjectPathArray(String[] ao) throws BusException { return null; }
+
+        public byte[][] ArrayArray(byte[][] aay) throws BusException { return null; }
+
+        public InferredTypesInterface.InnerStruct[] InferredStructArray(InferredTypesInterface.InnerStruct[] ar) throws BusException { return null; }
+
+        public AnnotatedTypesInterface.InnerStruct[] AnnotatedStructArray(AnnotatedTypesInterface.InnerStruct[] ar) throws BusException { return null; }
+
+        public Variant[] VariantArray(Variant[] av) throws BusException { return null; }
+
+        public Map<String, String>[] DictionaryArray(Map<String, String>[] aaess) throws BusException {
+            return null;
+        }
+
+        public InferredTypesInterface.Struct InferredStruct(InferredTypesInterface.Struct r) throws BusException { return null; }
+
+        public AnnotatedTypesInterface.Struct AnnotatedStruct(AnnotatedTypesInterface.Struct r) throws BusException { return null; }
+
+        public Variant Variant(Variant v) throws BusException { return null; }
+
+        public Map<Byte, Byte> DictionaryYY(Map<Byte, Byte> aeyy) throws BusException { return null; }
+
+        public Map<Byte, Boolean> DictionaryYB(Map<Byte, Boolean> aeyb) throws BusException { return null; }
+
+        public Map<Byte, Short> DictionaryYN(Map<Byte, Short> aeyn) throws BusException { return null; }
+
+        public Map<Byte, Integer> DictionaryYI(Map<Byte, Integer> aeyi) throws BusException { return null; }
+
+        public Map<Byte, Long> DictionaryYX(Map<Byte, Long> aeyx) throws BusException { return null; }
+
+        public Map<Byte, Double> DictionaryYD(Map<Byte, Double> aeyd) throws BusException { return null; }
+
+        public Map<Byte, String> DictionaryYS(Map<Byte, String> aeys) throws BusException { return null; }
+
+        public Map<Byte, byte[]> DictionaryYAY(Map<Byte, byte[]> aeyay) throws BusException { return null; }
+
+        public Map<Byte, InferredTypesInterface.InnerStruct> InferredDictionaryYR(Map<Byte, InferredTypesInterface.InnerStruct> aeyr) throws BusException { return null; }
+
+        public Map<Byte, Variant> DictionaryYV(Map<Byte, Variant> aeyv) throws BusException { return null; }
+
+        public Map<Byte, Map<String, String>> DictionaryYAESS(Map<Byte, Map<String, String>> aeyaess) throws BusException { return null; }
+
+        public Map<Boolean, Byte> DictionaryBY(Map<Boolean, Byte> aeby) throws BusException { return null; }
+
+        public Map<Boolean, Boolean> DictionaryBB(Map<Boolean, Boolean> aebb) throws BusException { return null; }
+
+        public Map<Boolean, Short> DictionaryBN(Map<Boolean, Short> aebn) throws BusException { return null; }
+
+        public Map<Boolean, Integer> DictionaryBI(Map<Boolean, Integer> aebi) throws BusException { return null; }
+
+        public Map<Boolean, Long> DictionaryBX(Map<Boolean, Long> aebx) throws BusException { return null; }
+
+        public Map<Boolean, Double> DictionaryBD(Map<Boolean, Double> aebd) throws BusException { return null; }
+
+        public Map<Boolean, String> DictionaryBS(Map<Boolean, String> aebs) throws BusException { return null; }
+
+        public Map<Boolean, byte[]> DictionaryBAY(Map<Boolean, byte[]> aebay) throws BusException { return null; }
+
+        public Map<Boolean, InferredTypesInterface.InnerStruct> InferredDictionaryBR(Map<Boolean, InferredTypesInterface.InnerStruct> aebr) throws BusException { return null; }
+
+        public Map<Boolean, Variant> DictionaryBV(Map<Boolean, Variant> aebv) throws BusException { return null; }
+
+        public Map<Boolean, Map<String, String>> DictionaryBAESS(Map<Boolean, Map<String, String>> aebaess) throws BusException { return null; }
+
+        public Map<Short, Byte> DictionaryNY(Map<Short, Byte> aeny) throws BusException { return null; }
+
+        public Map<Short, Boolean> DictionaryNB(Map<Short, Boolean> aenb) throws BusException { return null; }
+
+        public Map<Short, Short> DictionaryNN(Map<Short, Short> aenn) throws BusException { return null; }
+
+        public Map<Short, Integer> DictionaryNI(Map<Short, Integer> aeni) throws BusException { return null; }
+
+        public Map<Short, Long> DictionaryNX(Map<Short, Long> aenx) throws BusException { return null; }
+
+        public Map<Short, Double> DictionaryND(Map<Short, Double> aend) throws BusException { return null; }
+
+        public Map<Short, String> DictionaryNS(Map<Short, String> aens) throws BusException { return null; }
+
+        public Map<Short, byte[]> DictionaryNAY(Map<Short, byte[]> aenay) throws BusException { return null; }
+
+        public Map<Short, InferredTypesInterface.InnerStruct> InferredDictionaryNR(Map<Short, InferredTypesInterface.InnerStruct> aenr) throws BusException { return null; }
+
+        public Map<Short, Variant> DictionaryNV(Map<Short, Variant> aenv) throws BusException { return null; }
+
+        public Map<Short, Map<String, String>> DictionaryNAESS(Map<Short, Map<String, String>> aenaess) throws BusException { return null; }
+
+        public Map<Integer, Byte> DictionaryIY(Map<Integer, Byte> aeiy) throws BusException { return null; }
+
+        public Map<Integer, Boolean> DictionaryIB(Map<Integer, Boolean> aeib) throws BusException { return null; }
+
+        public Map<Integer, Short> DictionaryIN(Map<Integer, Short> aein) throws BusException { return null; }
+
+        public Map<Integer, Integer> DictionaryII(Map<Integer, Integer> aeii) throws BusException { return null; }
+
+        public Map<Integer, Long> DictionaryIX(Map<Integer, Long> aeix) throws BusException { return null; }
+
+        public Map<Integer, Double> DictionaryID(Map<Integer, Double> aeid) throws BusException { return null; }
+
+        public Map<Integer, String> DictionaryIS(Map<Integer, String> aeis) throws BusException { return null; }
+
+        public Map<Integer, byte[]> DictionaryIAY(Map<Integer, byte[]> aeiay) throws BusException { return null; }
+
+        public Map<Integer, InferredTypesInterface.InnerStruct> InferredDictionaryIR(Map<Integer, InferredTypesInterface.InnerStruct> aeir) throws BusException { return null; }
+
+        public Map<Integer, Variant> DictionaryIV(Map<Integer, Variant> aeiv) throws BusException { return null; }
+
+        public Map<Integer, Map<String, String>> DictionaryIAESS(Map<Integer, Map<String, String>> aeiaess) throws BusException { return null; }
+
+        public Map<Long, Byte> DictionaryXY(Map<Long, Byte> aexy) throws BusException { return null; }
+
+        public Map<Long, Boolean> DictionaryXB(Map<Long, Boolean> aexb) throws BusException { return null; }
+
+        public Map<Long, Short> DictionaryXN(Map<Long, Short> aexn) throws BusException { return null; }
+
+        public Map<Long, Integer> DictionaryXI(Map<Long, Integer> aexi) throws BusException { return null; }
+
+        public Map<Long, Long> DictionaryXX(Map<Long, Long> aexx) throws BusException { return null; }
+
+        public Map<Long, Double> DictionaryXD(Map<Long, Double> aexd) throws BusException { return null; }
+
+        public Map<Long, String> DictionaryXS(Map<Long, String> aexs) throws BusException { return null; }
+
+        public Map<Long, byte[]> DictionaryXAY(Map<Long, byte[]> aexay) throws BusException { return null; }
+
+        public Map<Long, InferredTypesInterface.InnerStruct> InferredDictionaryXR(Map<Long, InferredTypesInterface.InnerStruct> aexr) throws BusException { return null; }
+
+        public Map<Long, Variant> DictionaryXV(Map<Long, Variant> aexv) throws BusException { return null; }
+
+        public Map<Long, Map<String, String>> DictionaryXAESS(Map<Long, Map<String, String>> aexaess) throws BusException { return null; }
+
+        public Map<Double, Byte> DictionaryDY(Map<Double, Byte> aedy) throws BusException { return null; }
+
+        public Map<Double, Boolean> DictionaryDB(Map<Double, Boolean> aedb) throws BusException { return null; }
+
+        public Map<Double, Short> DictionaryDN(Map<Double, Short> aedn) throws BusException { return null; }
+
+        public Map<Double, Integer> DictionaryDI(Map<Double, Integer> aedi) throws BusException { return null; }
+
+        public Map<Double, Long> DictionaryDX(Map<Double, Long> aedx) throws BusException { return null; }
+
+        public Map<Double, Double> DictionaryDD(Map<Double, Double> aedd) throws BusException { return null; }
+
+        public Map<Double, String> DictionaryDS(Map<Double, String> aeds) throws BusException { return null; }
+
+        public Map<Double, byte[]> DictionaryDAY(Map<Double, byte[]> aeday) throws BusException { return null; }
+
+        public Map<Double, InferredTypesInterface.InnerStruct> InferredDictionaryDR(Map<Double, InferredTypesInterface.InnerStruct> aedr) throws BusException { return null; }
+
+        public Map<Double, Variant> DictionaryDV(Map<Double, Variant> aedv) throws BusException { return null; }
+
+        public Map<Double, Map<String, String>> DictionaryDAESS(Map<Double, Map<String, String>> aedaess) throws BusException { return null; }
+
+        public Map<String, Byte> DictionarySY(Map<String, Byte> aesy) throws BusException { return null; }
+
+        public Map<String, Boolean> DictionarySB(Map<String, Boolean> aesb) throws BusException { return null; }
+
+        public Map<String, Short> DictionarySN(Map<String, Short> aesn) throws BusException { return null; }
+
+        public Map<String, Integer> DictionarySI(Map<String, Integer> aesi) throws BusException { return null; }
+
+        public Map<String, Long> DictionarySX(Map<String, Long> aesx) throws BusException { return null; }
+
+        public Map<String, Double> DictionarySD(Map<String, Double> aesd) throws BusException { return null; }
+
+        public Map<String, String> DictionarySS(Map<String, String> aess) throws BusException { return null; }
+
+        public Map<String, byte[]> DictionarySAY(Map<String, byte[]> aesay) throws BusException { return null; }
+
+        public Map<String, InferredTypesInterface.InnerStruct> InferredDictionarySR(Map<String, InferredTypesInterface.InnerStruct> aesr) throws BusException { return null; }
+
+        public Map<String, Variant> DictionarySV(Map<String, Variant> aesv) throws BusException { return null; }
+
+        public Map<String, Map<String, String>> DictionarySAESS(Map<String, Map<String, String>> aesaess) throws BusException { return null; }
+
+        public Map<Short, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionaryNR(Map<Short, AnnotatedTypesInterface.InnerStruct> aenr) throws BusException { return null; }
+
+        public Map<Short, Integer> DictionaryNU(Map<Short, Integer> aenu) throws BusException { return null; }
+
+        public Map<Short, String> DictionaryNG(Map<Short, String> aeng) throws BusException { return null; }
+
+        public Map<Short, Long> DictionaryNT(Map<Short, Long> aent) throws BusException { return null; }
+
+        public Map<Short, Short> DictionaryNQ(Map<Short, Short> aenq) throws BusException { return null; }
+
+        public Map<Short, String> DictionaryNO(Map<Short, String> aeno) throws BusException { return null; }
+
+        public Map<Double, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionaryDR(Map<Double, AnnotatedTypesInterface.InnerStruct> aedr) throws BusException { return null; }
+
+        public Map<Double, Integer> DictionaryDU(Map<Double, Integer> aedu) throws BusException { return null; }
+
+        public Map<Double, String> DictionaryDG(Map<Double, String> aedg) throws BusException { return null; }
+
+        public Map<Double, Long> DictionaryDT(Map<Double, Long> aedt) throws BusException { return null; }
+
+        public Map<Double, Short> DictionaryDQ(Map<Double, Short> aedq) throws BusException { return null; }
+
+        public Map<Double, String> DictionaryDO(Map<Double, String> aedo) throws BusException { return null; }
+
+        public Map<Long, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionaryXR(Map<Long, AnnotatedTypesInterface.InnerStruct> aexr) throws BusException { return null; }
+
+        public Map<Long, Integer> DictionaryXU(Map<Long, Integer> aexu) throws BusException { return null; }
+
+        public Map<Long, String> DictionaryXG(Map<Long, String> aexg) throws BusException { return null; }
+
+        public Map<Long, Long> DictionaryXT(Map<Long, Long> aext) throws BusException { return null; }
+
+        public Map<Long, Short> DictionaryXQ(Map<Long, Short> aexq) throws BusException { return null; }
+
+        public Map<Long, String> DictionaryXO(Map<Long, String> aexo) throws BusException { return null; }
+
+        public Map<String, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionarySR(Map<String, AnnotatedTypesInterface.InnerStruct> aesr) throws BusException { return null; }
+
+        public Map<String, Integer> DictionarySU(Map<String, Integer> aesu) throws BusException { return null; }
+
+        public Map<String, String> DictionarySG(Map<String, String> aesg) throws BusException { return null; }
+
+        public Map<String, Long> DictionaryST(Map<String, Long> aest) throws BusException { return null; }
+
+        public Map<String, Short> DictionarySQ(Map<String, Short> aesq) throws BusException { return null; }
+
+        public Map<String, String> DictionarySO(Map<String, String> aeso) throws BusException { return null; }
+
+        public Map<Byte, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionaryYR(Map<Byte, AnnotatedTypesInterface.InnerStruct> aeyr) throws BusException { return null; }
+
+        public Map<Byte, Integer> DictionaryYU(Map<Byte, Integer> aeyu) throws BusException { return null; }
+
+        public Map<Byte, String> DictionaryYG(Map<Byte, String> aeyg) throws BusException { return null; }
+
+        public Map<Byte, Long> DictionaryYT(Map<Byte, Long> aeyt) throws BusException { return null; }
+
+        public Map<Byte, Short> DictionaryYQ(Map<Byte, Short> aeyq) throws BusException { return null; }
+
+        public Map<Byte, String> DictionaryYO(Map<Byte, String> aeyo) throws BusException { return null; }
+
+        public Map<Integer, Map<String, String>> DictionaryUAESS(Map<Integer, Map<String, String>> aeuaess) throws BusException { return null; }
+
+        public Map<Integer, AnnotatedTypesInterface.InnerStruct> DictionaryUR(Map<Integer, AnnotatedTypesInterface.InnerStruct> aeur) throws BusException { return null; }
+
+        public Map<Integer, Double> DictionaryUD(Map<Integer, Double> aeud) throws BusException { return null; }
+
+        public Map<Integer, Long> DictionaryUX(Map<Integer, Long> aeux) throws BusException { return null; }
+
+        public Map<Integer, Byte> DictionaryUY(Map<Integer, Byte> aeuy) throws BusException { return null; }
+
+        public Map<Integer, Integer> DictionaryUU(Map<Integer, Integer> aeuu) throws BusException { return null; }
+
+        public Map<Integer, String> DictionaryUG(Map<Integer, String> aeug) throws BusException { return null; }
+
+        public Map<Integer, Integer> DictionaryUI(Map<Integer, Integer> aeui) throws BusException { return null; }
+
+        public Map<Integer, Long> DictionaryUT(Map<Integer, Long> aeut) throws BusException { return null; }
+
+        public Map<Integer, Short> DictionaryUN(Map<Integer, Short> aeun) throws BusException { return null; }
+
+        public Map<Integer, Variant> DictionaryUV(Map<Integer, Variant> aeuv) throws BusException { return null; }
+
+        public Map<Integer, String> DictionaryUS(Map<Integer, String> aeus) throws BusException { return null; }
+
+        public Map<Integer, byte[]> DictionaryUAY(Map<Integer, byte[]> aeuay) throws BusException { return null; }
+
+        public Map<Integer, Short> DictionaryUQ(Map<Integer, Short> aeuq) throws BusException { return null; }
+
+        public Map<Integer, Boolean> DictionaryUB(Map<Integer, Boolean> aeub) throws BusException { return null; }
+
+        public Map<Integer, String> DictionaryUO(Map<Integer, String> aeuo) throws BusException { return null; }
+
+        public Map<String, Map<String, String>> DictionaryGAESS(Map<String, Map<String, String>> aegaess) throws BusException { return null; }
+
+        public Map<String, AnnotatedTypesInterface.InnerStruct> DictionaryGR(Map<String, AnnotatedTypesInterface.InnerStruct> aegr) throws BusException { return null; }
+
+        public Map<String, Double> DictionaryGD(Map<String, Double> aegd) throws BusException { return null; }
+
+        public Map<String, Long> DictionaryGX(Map<String, Long> aegx) throws BusException { return null; }
+
+        public Map<String, Byte> DictionaryGY(Map<String, Byte> aegy) throws BusException { return null; }
+
+        public Map<String, Integer> DictionaryGU(Map<String, Integer> aegu) throws BusException { return null; }
+
+        public Map<String, String> DictionaryGG(Map<String, String> aegg) throws BusException { return null; }
+
+        public Map<String, Integer> DictionaryGI(Map<String, Integer> aegi) throws BusException { return null; }
+
+        public Map<String, Long> DictionaryGT(Map<String, Long> aegt) throws BusException { return null; }
+
+        public Map<String, Short> DictionaryGN(Map<String, Short> aegn) throws BusException { return null; }
+
+        public Map<String, Variant> DictionaryGV(Map<String, Variant> aegv) throws BusException { return null; }
+
+        public Map<String, String> DictionaryGS(Map<String, String> aegs) throws BusException { return null; }
+
+        public Map<String, byte[]> DictionaryGAY(Map<String, byte[]> aegay) throws BusException { return null; }
+
+        public Map<String, Short> DictionaryGQ(Map<String, Short> aegq) throws BusException { return null; }
+
+        public Map<String, Boolean> DictionaryGB(Map<String, Boolean> aegb) throws BusException { return null; }
+
+        public Map<String, String> DictionaryGO(Map<String, String> aego) throws BusException { return null; }
+
+        public Map<Boolean, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionaryBR(Map<Boolean, AnnotatedTypesInterface.InnerStruct> aebr) throws BusException { return null; }
+
+        public Map<Boolean, Integer> DictionaryBU(Map<Boolean, Integer> aebu) throws BusException { return null; }
+
+        public Map<Boolean, String> DictionaryBG(Map<Boolean, String> aebg) throws BusException { return null; }
+
+        public Map<Boolean, Long> DictionaryBT(Map<Boolean, Long> aebt) throws BusException { return null; }
+
+        public Map<Boolean, Short> DictionaryBQ(Map<Boolean, Short> aebq) throws BusException { return null; }
+
+        public Map<Boolean, String> DictionaryBO(Map<Boolean, String> aebo) throws BusException { return null; }
+
+        public Map<Short, Map<String, String>> DictionaryQAESS(Map<Short, Map<String, String>> aeqaess) throws BusException { return null; }
+
+        public Map<Short, AnnotatedTypesInterface.InnerStruct> DictionaryQR(Map<Short, AnnotatedTypesInterface.InnerStruct> aeqr) throws BusException { return null; }
+
+        public Map<Short, Double> DictionaryQD(Map<Short, Double> aeqd) throws BusException { return null; }
+
+        public Map<Short, Long> DictionaryQX(Map<Short, Long> aeqx) throws BusException { return null; }
+
+        public Map<Short, Byte> DictionaryQY(Map<Short, Byte> aeqy) throws BusException { return null; }
+
+        public Map<Short, Integer> DictionaryQU(Map<Short, Integer> aequ) throws BusException { return null; }
+
+        public Map<Short, String> DictionaryQG(Map<Short, String> aeqg) throws BusException { return null; }
+
+        public Map<Short, Integer> DictionaryQI(Map<Short, Integer> aeqi) throws BusException { return null; }
+
+        public Map<Short, Long> DictionaryQT(Map<Short, Long> aeqt) throws BusException { return null; }
+
+        public Map<Short, Short> DictionaryQN(Map<Short, Short> aeqn) throws BusException { return null; }
+
+        public Map<Short, Variant> DictionaryQV(Map<Short, Variant> aeqv) throws BusException { return null; }
+
+        public Map<Short, String> DictionaryQS(Map<Short, String> aeqs) throws BusException { return null; }
+
+        public Map<Short, byte[]> DictionaryQAY(Map<Short, byte[]> aeqay) throws BusException { return null; }
+
+        public Map<Short, Short> DictionaryQQ(Map<Short, Short> aeqq) throws BusException { return null; }
+
+        public Map<Short, Boolean> DictionaryQB(Map<Short, Boolean> aeqb) throws BusException { return null; }
+
+        public Map<Short, String> DictionaryQO(Map<Short, String> aeqo) throws BusException { return null; }
+
+        public Map<String, Map<String, String>> DictionaryOAESS(Map<String, Map<String, String>> aeoaess) throws BusException { return null; }
+
+        public Map<String, AnnotatedTypesInterface.InnerStruct> DictionaryOR(Map<String, AnnotatedTypesInterface.InnerStruct> aeor) throws BusException { return null; }
+
+        public Map<String, Double> DictionaryOD(Map<String, Double> aeod) throws BusException { return null; }
+
+        public Map<String, Long> DictionaryOX(Map<String, Long> aeox) throws BusException { return null; }
+
+        public Map<String, Byte> DictionaryOY(Map<String, Byte> aeoy) throws BusException { return null; }
+
+        public Map<String, Integer> DictionaryOU(Map<String, Integer> aeou) throws BusException { return null; }
+
+        public Map<String, String> DictionaryOG(Map<String, String> aeog) throws BusException { return null; }
+
+        public Map<String, Integer> DictionaryOI(Map<String, Integer> aeoi) throws BusException { return null; }
+
+        public Map<String, Long> DictionaryOT(Map<String, Long> aeot) throws BusException { return null; }
+
+        public Map<String, Short> DictionaryON(Map<String, Short> aeon) throws BusException { return null; }
+
+        public Map<String, Variant> DictionaryOV(Map<String, Variant> aeov) throws BusException { return null; }
+
+        public Map<String, String> DictionaryOS(Map<String, String> aeos) throws BusException { return null; }
+
+        public Map<String, byte[]> DictionaryOAY(Map<String, byte[]> aeoay) throws BusException { return null; }
+
+        public Map<String, Short> DictionaryOQ(Map<String, Short> aeoq) throws BusException { return null; }
+
+        public Map<String, Boolean> DictionaryOB(Map<String, Boolean> aeob) throws BusException { return null; }
+
+        public Map<String, String> DictionaryOO(Map<String, String> aeoo) throws BusException { return null; }
+
+        public Map<Integer, AnnotatedTypesInterface.InnerStruct> AnnotatedDictionaryIR(Map<Integer, AnnotatedTypesInterface.InnerStruct> aeir) throws BusException { return null; }
+
+        public Map<Integer, Integer> DictionaryIU(Map<Integer, Integer> aeiu) throws BusException { return null; }
+
+        public Map<Integer, String> DictionaryIG(Map<Integer, String> aeig) throws BusException { return null; }
+
+        public Map<Integer, Long> DictionaryIT(Map<Integer, Long> aeit) throws BusException { return null; }
+
+        public Map<Integer, Short> DictionaryIQ(Map<Integer, Short> aeiq) throws BusException { return null; }
+
+        public Map<Integer, String> DictionaryIO(Map<Integer, String> aeio) throws BusException { return null; }
+
+        public Map<Long, Map<String, String>> DictionaryTAESS(Map<Long, Map<String, String>> aetaess) throws BusException { return null; }
+
+        public Map<Long, AnnotatedTypesInterface.InnerStruct> DictionaryTR(Map<Long, AnnotatedTypesInterface.InnerStruct> aetr) throws BusException { return null; }
+
+        public Map<Long, Double> DictionaryTD(Map<Long, Double> aetd) throws BusException { return null; }
+
+        public Map<Long, Long> DictionaryTX(Map<Long, Long> aetx) throws BusException { return null; }
+
+        public Map<Long, Byte> DictionaryTY(Map<Long, Byte> aety) throws BusException { return null; }
+
+        public Map<Long, Integer> DictionaryTU(Map<Long, Integer> aetu) throws BusException { return null; }
+
+        public Map<Long, String> DictionaryTG(Map<Long, String> aetg) throws BusException { return null; }
+
+        public Map<Long, Integer> DictionaryTI(Map<Long, Integer> aeti) throws BusException { return null; }
+
+        public Map<Long, Long> DictionaryTT(Map<Long, Long> aett) throws BusException { return null; }
+
+        public Map<Long, Short> DictionaryTN(Map<Long, Short> aetn) throws BusException { return null; }
+
+        public Map<Long, Variant> DictionaryTV(Map<Long, Variant> aetv) throws BusException { return null; }
+
+        public Map<Long, String> DictionaryTS(Map<Long, String> aets) throws BusException { return null; }
+
+        public Map<Long, byte[]> DictionaryTAY(Map<Long, byte[]> aetay) throws BusException { return null; }
+
+        public Map<Long, Short> DictionaryTQ(Map<Long, Short> aetq) throws BusException { return null; }
+
+        public Map<Long, Boolean> DictionaryTB(Map<Long, Boolean> aetb) throws BusException { return null; }
+
+        public Map<Long, String> DictionaryTO(Map<Long, String> aeto) throws BusException { return null; }
+
+        public Map<String, String> getDictionarySS() throws BusException {         
+            TreeMap<String, String> aess = new TreeMap<String, String>();
+            aess.put("six", "six");
+            return null;
+        }
+
+        public void setDictionarySS(Map<String, String> aess) throws BusException {}
+
+        public EnumType EnumY(EnumType y) throws BusException { return null; }
+
+        public EnumType EnumN(EnumType n) throws BusException { return null; }
+
+        public EnumType EnumQ(EnumType q) throws BusException { return null; }
+
+        public EnumType EnumI(EnumType i) throws BusException { return null; }
+
+        public EnumType EnumU(EnumType u) throws BusException { return null; }
+
+        public EnumType EnumX(EnumType x) throws BusException { return null; }
+
+        public EnumType EnumT(EnumType t) throws BusException { return null; }
+
+        public TreeMap<String, String>[] TreeDictionaryArray(TreeMap<String, String>[] aaess) throws BusException {
+            return null;
+        }
+    }
+
     private BusAttachment bus;
 
     private Service service;
+    private NullService nullService;
     
     private ProxyBusObject remoteObj;
+    private ProxyBusObject remoteNullReturnsObj;
 
     public void setUp() throws Exception {
         bus = new BusAttachment(getClass().getName());
@@ -558,6 +1057,10 @@ public class MarshalTest extends TestCase {
         status = bus.registerBusObject(service, "/testobject");
         assertEquals(Status.OK, status);
 
+        nullService = new NullService();
+        status = bus.registerBusObject(nullService, "/testnullobject");
+        assertEquals(Status.OK, status);
+
         DBusProxyObj control = bus.getDBusProxyObj();
         DBusProxyObj.RequestNameResult res = control.RequestName("org.alljoyn.bus.MarshalTest",
                                                                 DBusProxyObj.REQUEST_NAME_NO_FLAGS);
@@ -565,14 +1068,19 @@ public class MarshalTest extends TestCase {
 
         Class[] ifaces = { InferredTypesInterface.class, AnnotatedTypesInterface.class };
         remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testobject", ifaces);
+        remoteNullReturnsObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testnullobject", ifaces);
     }
 
     public void tearDown() throws Exception {
+        remoteNullReturnsObj = null;
         remoteObj = null;
 
         DBusProxyObj control = bus.getDBusProxyObj();
         DBusProxyObj.ReleaseNameResult res = control.ReleaseName("org.alljoyn.bus.MarshalTest");
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, res);
+
+        bus.deregisterBusObject(nullService);
+        nullService = null;
 
         bus.deregisterBusObject(service);
         service = null;
@@ -976,10 +1484,10 @@ public class MarshalTest extends TestCase {
 
     public void testEmptyStrings() throws Exception {
         AnnotatedTypesInterface proxy = remoteObj.getInterface(AnnotatedTypesInterface.class);
-        proxy.String(null);
-        proxy.Signature(null);
+        proxy.String("");
+        proxy.Signature("");
         try {
-            proxy.ObjectPath(null);
+            proxy.ObjectPath("");
         } catch (BusException ex) {
             // null is not a valid object path
         }
@@ -1829,6 +2337,1623 @@ public class MarshalTest extends TestCase {
         try {
             assertArrayEquals(ay, proxy.ByteArray(ay));
         } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+    }
+
+    public void testNullArgs() throws Exception {
+        InferredTypesInterface proxy = remoteObj.getInterface(InferredTypesInterface.class);
+
+        /* Basic types */
+        boolean thrown = false;
+        try {
+            proxy.String(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Array types */
+        thrown = false;
+        try {
+            proxy.ByteArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.BooleanArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.Int16Array(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.Int32Array(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.Int64Array(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.DoubleArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.StringArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.ArrayArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.InferredStructArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.VariantArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            proxy.DictionaryArray(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Struct types */
+        thrown = false;
+        try {
+            proxy.InferredStruct(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Variant types */
+        thrown = false;
+        try {
+            proxy.Variant(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Dictionary types */
+        thrown = true;
+        try {
+            proxy.DictionaryYY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYI(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYD(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionaryYR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryYAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBI(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBD(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionaryBR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryBAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNI(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryND(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionaryNR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryNAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryII(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryID(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionaryIR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryIAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXI(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXD(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionaryXR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryXAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDI(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDD(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionaryDR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionaryDAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySB(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySN(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySI(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySX(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySD(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySAY(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.InferredDictionarySR(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySV(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = true;
+        try {
+            proxy.DictionarySAESS(null);
+        } catch (MarshalBusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+    }
+
+    public void testNullReturns() throws Exception {
+        InferredTypesInterface proxy = remoteNullReturnsObj.getInterface(InferredTypesInterface.class);
+
+        /* Basic types */
+        boolean thrown = false;
+        try {
+            proxy.String("string");
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Array types */
+        thrown = false;
+        try {
+            byte[] ay = new byte[] { 1, 2 };
+            proxy.ByteArray(ay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            boolean[] ab = new boolean[] { true, false };
+            proxy.BooleanArray(ab);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            short[] an = new short[] { 3, 4, 5 };
+            proxy.Int16Array(an);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            int[] ai = new int[] { 7 }; 
+            proxy.Int32Array(ai);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            long[] ax = new long[] { 8, 9, 10, 11 };
+            proxy.Int64Array(ax);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            double[] ad = new double[] { 0.1, 0.2, 0.3 };
+            proxy.DoubleArray(ad);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            String[] as = new String[] { "one", "two" };
+            proxy.StringArray(as);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            byte[][] aay = new byte[][] { new byte[] { 1 }, new byte[] { 2 } };
+            proxy.ArrayArray(aay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            InferredTypesInterface.InnerStruct[] ar = new InferredTypesInterface.InnerStruct[] { 
+                new InferredTypesInterface.InnerStruct(12), new InferredTypesInterface.InnerStruct(13) };
+            proxy.InferredStructArray(ar);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            Variant[] av = new Variant[] { new Variant(new String("three")) };
+            proxy.VariantArray(av);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            @SuppressWarnings(value="unchecked")
+            TreeMap<String, String>[] aaess = (TreeMap<String, String>[]) new TreeMap[2];
+            aaess[0] = new TreeMap<String, String>();
+            aaess[0].put("a1", "value1");
+            aaess[0].put("a2", "value2");
+            aaess[1] = new TreeMap<String, String>();
+            aaess[1].put("b1", "value3");
+            proxy.DictionaryArray(aaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Struct types */
+        thrown = false;
+        try {
+            TreeMap<String, String> ae = new TreeMap<String, String>();
+            ae.put("fourteen", "fifteen");
+            ae.put("sixteen", "seventeen");
+            InferredTypesInterface.Struct r = 
+                new InferredTypesInterface.Struct((byte)1, false, (short)1, 2, (long)3, 4.1, "five", 
+                                                  new byte[] { 6 }, new boolean[] { true }, new short[] { 7 },
+                                                  new int[] { 8 }, new long[] { 10 }, new double[] { 10.1 },
+                                                  new String[] { "eleven" },
+                                                  new InferredTypesInterface.InnerStruct(12), 
+                                                  new Variant(new String("thirteen")), ae);
+            proxy.InferredStruct(r);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Variant types */
+        TreeMap<String, String> ae = new TreeMap<String, String>();
+        ae.put("fourteen", "fifteen");
+        ae.put("sixteen", "seventeen");
+        Variant v;
+        thrown = false;
+        try {
+            v = new Variant((byte)1);
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(true);
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant((short)2);
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(3);
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant((long)4);
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(4.1);
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant("five");
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new byte[] { 6 });
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new boolean[] { true });
+            Variant v2 = proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new short[] { 7 });
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new int[] { 8 });
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new long[] { 10 });
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new double[] { 10.1 });
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new String[] { "eleven" });
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new InferredTypesInterface.InnerStruct(12));
+            proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            v = new Variant(new Variant(new String("thirteen")));
+        proxy.Variant(v);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        /* Dictionary types */
+        thrown = false;
+        try {
+            TreeMap<Byte, Byte> aeyy = new TreeMap<Byte, Byte>();
+            aeyy.put((byte)1, (byte)1);
+            proxy.DictionaryYY(aeyy);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Boolean> aeyb = new TreeMap<Byte, Boolean>();
+            aeyb.put((byte)1, true);
+            proxy.DictionaryYB(aeyb);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Short> aeyn = new TreeMap<Byte, Short>();
+            aeyn.put((byte)1, (short)2);
+            proxy.DictionaryYN(aeyn);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Integer> aeyi = new TreeMap<Byte, Integer>();
+            aeyi.put((byte)1, 3);
+            proxy.DictionaryYI(aeyi);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Long> aeyx = new TreeMap<Byte, Long>();
+            aeyx.put((byte)1, (long)4);
+            proxy.DictionaryYX(aeyx);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Double> aeyd = new TreeMap<Byte, Double>();
+            aeyd.put((byte)1, 5.1);
+            proxy.DictionaryYD(aeyd);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, String> aeys = new TreeMap<Byte, String>();
+            aeys.put((byte)1, "six");
+            proxy.DictionaryYS(aeys);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, byte[]> aeyay = new TreeMap<Byte, byte[]>();
+            aeyay.put((byte)1, new byte[] { (byte)7 });
+            proxy.DictionaryYAY(aeyay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, InferredTypesInterface.InnerStruct> aeyr = new TreeMap<Byte, InferredTypesInterface.InnerStruct>();
+            aeyr.put((byte)1, new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionaryYR(aeyr);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Variant> aeyv = new TreeMap<Byte, Variant>();
+            aeyv.put((byte)1, new Variant(new String("nine")));
+            proxy.DictionaryYV(aeyv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Byte, Map<String, String>> aeyaess = new TreeMap<Byte, Map<String, String>>();
+            aeyaess.put((byte)1, ae);
+            proxy.DictionaryYAESS(aeyaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Byte> aeby = new TreeMap<Boolean, Byte>();
+            aeby.put(true, (byte)1);
+            proxy.DictionaryBY(aeby);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Boolean> aebb = new TreeMap<Boolean, Boolean>();
+            aebb.put(true, true);
+            proxy.DictionaryBB(aebb);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Short> aebn = new TreeMap<Boolean, Short>();
+            aebn.put(true, (short)2);
+            proxy.DictionaryBN(aebn);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Integer> aebi = new TreeMap<Boolean, Integer>();
+            aebi.put(true, 3);
+            proxy.DictionaryBI(aebi);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Long> aebx = new TreeMap<Boolean, Long>();
+            aebx.put(true, (long)4);
+            proxy.DictionaryBX(aebx);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Double> aebd = new TreeMap<Boolean, Double>();
+            aebd.put(true, 5.1);
+            proxy.DictionaryBD(aebd);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, String> aebs = new TreeMap<Boolean, String>();
+            aebs.put(true, "six");
+            proxy.DictionaryBS(aebs);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, byte[]> aebay = new TreeMap<Boolean, byte[]>();
+            aebay.put(true, new byte[] { (byte)7 });
+            proxy.DictionaryBAY(aebay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, InferredTypesInterface.InnerStruct> aebr = new TreeMap<Boolean, InferredTypesInterface.InnerStruct>();
+            aebr.put(true, new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionaryBR(aebr);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Variant> aebv = new TreeMap<Boolean, Variant>();
+            aebv.put(true, new Variant(new String("nine")));
+            proxy.DictionaryBV(aebv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Boolean, Map<String, String>> aebaess = new TreeMap<Boolean, Map<String, String>>();
+            aebaess.put(true, ae);
+            proxy.DictionaryBAESS(aebaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Byte> aeny = new TreeMap<Short, Byte>();
+            aeny.put((short)2, (byte)1);
+            proxy.DictionaryNY(aeny);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Boolean> aenb = new TreeMap<Short, Boolean>();
+            aenb.put((short)2, true);
+            proxy.DictionaryNB(aenb);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Short> aenn = new TreeMap<Short, Short>();
+            aenn.put((short)2, (short)2);
+            proxy.DictionaryNN(aenn);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Integer> aeni = new TreeMap<Short, Integer>();
+            aeni.put((short)2, 3);
+            proxy.DictionaryNI(aeni);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Long> aenx = new TreeMap<Short, Long>();
+            aenx.put((short)2, (long)4);
+            proxy.DictionaryNX(aenx);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Double> aend = new TreeMap<Short, Double>();
+            aend.put((short)2, 5.1);
+            proxy.DictionaryND(aend);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, String> aens = new TreeMap<Short, String>();
+            aens.put((short)2, "six");
+            proxy.DictionaryNS(aens);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, byte[]> aenay = new TreeMap<Short, byte[]>();
+            aenay.put((short)2, new byte[] { (byte)7 });
+            proxy.DictionaryNAY(aenay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, InferredTypesInterface.InnerStruct> aenr = new TreeMap<Short, InferredTypesInterface.InnerStruct>();
+            aenr.put((short)2, new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionaryNR(aenr);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Variant> aenv = new TreeMap<Short, Variant>();
+            aenv.put((short)2, new Variant(new String("nine")));
+            proxy.DictionaryNV(aenv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Short, Map<String, String>> aenaess = new TreeMap<Short, Map<String, String>>();
+            aenaess.put((short)2, ae);
+            proxy.DictionaryNAESS(aenaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Byte> aeiy = new TreeMap<Integer, Byte>();
+            aeiy.put(3, (byte)1);
+            proxy.DictionaryIY(aeiy);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Boolean> aeib = new TreeMap<Integer, Boolean>();
+            aeib.put(3, true);
+            proxy.DictionaryIB(aeib);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Short> aein = new TreeMap<Integer, Short>();
+            aein.put(3, (short)2);
+            proxy.DictionaryIN(aein);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Integer> aeii = new TreeMap<Integer, Integer>();
+            aeii.put(3, 3);
+            proxy.DictionaryII(aeii);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Long> aeix = new TreeMap<Integer, Long>();
+            aeix.put(3, (long)4);
+            proxy.DictionaryIX(aeix);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Double> aeid = new TreeMap<Integer, Double>();
+            aeid.put(3, 5.1);
+            proxy.DictionaryID(aeid);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, String> aeis = new TreeMap<Integer, String>();
+            aeis.put(3, "six");
+            proxy.DictionaryIS(aeis);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, byte[]> aeiay = new TreeMap<Integer, byte[]>();
+            aeiay.put(3, new byte[] { (byte)7 });
+            proxy.DictionaryIAY(aeiay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, InferredTypesInterface.InnerStruct> aeir = new TreeMap<Integer, InferredTypesInterface.InnerStruct>();
+            aeir.put(3, new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionaryIR(aeir);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Variant> aeiv = new TreeMap<Integer, Variant>();
+            aeiv.put(3, new Variant(new String("nine")));
+            proxy.DictionaryIV(aeiv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Integer, Map<String, String>> aeiaess = new TreeMap<Integer, Map<String, String>>();
+            aeiaess.put(3, ae);
+            proxy.DictionaryIAESS(aeiaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Byte> aexy = new TreeMap<Long, Byte>();
+            aexy.put((long)4, (byte)1);
+            proxy.DictionaryXY(aexy);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Boolean> aexb = new TreeMap<Long, Boolean>();
+            aexb.put((long)4, true);
+            proxy.DictionaryXB(aexb);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Short> aexn = new TreeMap<Long, Short>();
+            aexn.put((long)4, (short)2);
+            proxy.DictionaryXN(aexn);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Integer> aexi = new TreeMap<Long, Integer>();
+            aexi.put((long)4, 3);
+            proxy.DictionaryXI(aexi);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Long> aexx = new TreeMap<Long, Long>();
+            aexx.put((long)4, (long)4);
+            proxy.DictionaryXX(aexx);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Double> aexd = new TreeMap<Long, Double>();
+            aexd.put((long)4, 5.1);
+            proxy.DictionaryXD(aexd);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, String> aexs = new TreeMap<Long, String>();
+            aexs.put((long)4, "six");
+            proxy.DictionaryXS(aexs);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, byte[]> aexay = new TreeMap<Long, byte[]>();
+            aexay.put((long)4, new byte[] { (byte)7 });
+            proxy.DictionaryXAY(aexay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, InferredTypesInterface.InnerStruct> aexr = new TreeMap<Long, InferredTypesInterface.InnerStruct>();
+            aexr.put((long)4, new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionaryXR(aexr);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Variant> aexv = new TreeMap<Long, Variant>();
+            aexv.put((long)4, new Variant(new String("nine")));
+            proxy.DictionaryXV(aexv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Long, Map<String, String>> aexaess = new TreeMap<Long, Map<String, String>>();
+            aexaess.put((long)4, ae);
+            proxy.DictionaryXAESS(aexaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Byte> aedy = new TreeMap<Double, Byte>();
+            aedy.put(5.1, (byte)1);
+            proxy.DictionaryDY(aedy);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Boolean> aedb = new TreeMap<Double, Boolean>();
+            aedb.put(5.1, true);
+            proxy.DictionaryDB(aedb);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Short> aedn = new TreeMap<Double, Short>();
+            aedn.put(5.1, (short)2);
+            proxy.DictionaryDN(aedn);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Integer> aedi = new TreeMap<Double, Integer>();
+            aedi.put(5.1, 3);
+            proxy.DictionaryDI(aedi);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Long> aedx = new TreeMap<Double, Long>();
+            aedx.put(5.1, (long)4);
+            proxy.DictionaryDX(aedx);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Double> aedd = new TreeMap<Double, Double>();
+            aedd.put(5.1, 5.1);
+            proxy.DictionaryDD(aedd);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, String> aeds = new TreeMap<Double, String>();
+            aeds.put(5.1, "six");
+            proxy.DictionaryDS(aeds);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, byte[]> aeday = new TreeMap<Double, byte[]>();
+            aeday.put(5.1, new byte[] { (byte)7 });
+            proxy.DictionaryDAY(aeday);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, InferredTypesInterface.InnerStruct> aedr = new TreeMap<Double, InferredTypesInterface.InnerStruct>();
+            aedr.put(5.1, new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionaryDR(aedr);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Variant> aedv = new TreeMap<Double, Variant>();
+            aedv.put(5.1, new Variant(new String("nine")));
+            proxy.DictionaryDV(aedv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<Double, Map<String, String>> aedaess = new TreeMap<Double, Map<String, String>>();
+            aedaess.put(5.1, ae);
+            proxy.DictionaryDAESS(aedaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Byte> aesy = new TreeMap<String, Byte>();
+            aesy.put("six", (byte)1);
+            proxy.DictionarySY(aesy);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Boolean> aesb = new TreeMap<String, Boolean>();
+            aesb.put("six", true);
+            proxy.DictionarySB(aesb);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Short> aesn = new TreeMap<String, Short>();
+            aesn.put("six", (short)2);
+            proxy.DictionarySN(aesn);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Integer> aesi = new TreeMap<String, Integer>();
+            aesi.put("six", 3);
+            proxy.DictionarySI(aesi);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Long> aesx = new TreeMap<String, Long>();
+            aesx.put("six", (long)4);
+            proxy.DictionarySX(aesx);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Double> aesd = new TreeMap<String, Double>();
+            aesd.put("six", 5.1);
+            proxy.DictionarySD(aesd);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, String> aess = new TreeMap<String, String>();
+            aess.put("six", "six");
+            proxy.DictionarySS(aess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, byte[]> aesay = new TreeMap<String, byte[]>();
+            aesay.put("six", new byte[] { (byte)7 });
+            proxy.DictionarySAY(aesay);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, InferredTypesInterface.InnerStruct> aesr = new TreeMap<String, InferredTypesInterface.InnerStruct>();
+            aesr.put("six", new InferredTypesInterface.InnerStruct(8));
+            proxy.InferredDictionarySR(aesr);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Variant> aesv = new TreeMap<String, Variant>();
+            aesv.put("six", new Variant(new String("nine")));
+            proxy.DictionarySV(aesv);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+        thrown = false;
+        try {
+            TreeMap<String, Map<String, String>> aesaess = new TreeMap<String, Map<String, String>>();
+            aesaess.put("six", ae);
+            proxy.DictionarySAESS(aesaess);
+        } catch (BusException ex) {
+            thrown = true;
+        }
+        assertEquals(true, thrown);
+
+        thrown = false;
+        try {
+            proxy.getDictionarySS();
+        } catch (BusException ex) {
             thrown = true;
         }
         assertEquals(true, thrown);

@@ -1110,9 +1110,10 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Mess
     JNIEnv *env = GetEnv();
     MsgArg replyArgs;
     QStatus status;
+    uint8_t completeTypes = SignatureUtils::CountCompleteTypes(member->returnSignature.c_str());
     if (jreply) {
         JLocalRef<jobjectArray> jreplyArgs;
-        if (SignatureUtils::CountCompleteTypes(member->returnSignature.c_str()) > 1) {
+        if (completeTypes > 1) {
             jmethodID mid = env->GetStaticMethodID(CLS_Signature, "structArgs", 
                                                    "(Ljava/lang/Object;)[Ljava/lang/Object;");
             if (!mid) {
@@ -1140,6 +1141,11 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member *member, Mess
             return MethodReply(member, msg, ER_FAIL);
         }
         status = BusObject::MethodReply(msg, replyArgs.v_struct.members, replyArgs.v_struct.numMembers);
+    } else if (completeTypes) {
+        String errorMessage(member->iface->GetName());
+        errorMessage += "." + member->name + " returned null";
+        QCC_LogError(ER_BUS_BAD_VALUE, (errorMessage.c_str()));
+        status = BusObject::MethodReply(msg, "org.alljoyn.bus.BusException", errorMessage.c_str());
     } else {
         status = BusObject::MethodReply(msg, (MsgArg *)NULL, 0);
     }
@@ -2132,7 +2138,11 @@ Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv *env,
             String errorMessage;
             const char *errorName = replyMsg->GetErrorName(&errorMessage);
             if (errorName) {
-                ThrowErrorReplyBusException(errorName, errorMessage.c_str());
+                if (!strcmp("org.alljoyn.bus.BusException", errorName)) {
+                    env->ThrowNew(CLS_BusException, errorMessage.c_str());
+                } else {
+                    ThrowErrorReplyBusException(errorName, errorMessage.c_str());
+                }
             } else {
                 env->ThrowNew(CLS_BusException, QCC_StatusText(status));
             }
