@@ -53,8 +53,10 @@ public class AllJoynDaemon {
     }
 
     public AllJoynDaemon() {
-        daemonAddress = "unix:abstract=AllJoynDaemonTest";
-        daemonRemoteAddress = "tcp:addr=127.0.0.1,port=5343";
+        daemonAddress = System.getProperty("org.alljoyn.bus.daemonaddress", 
+            "unix:abstract=AllJoynDaemonTest");
+        daemonRemoteAddress = System.getProperty("org.alljoyn.bus.daemonremoteaddress", 
+            "tcp:addr=127.0.0.1,port=5343");
         if ("The Android Project".equals(System.getProperty("java.vendor"))) {
             return;
         }

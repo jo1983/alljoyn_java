@@ -21,7 +21,14 @@ set -x
 killall -v bbdaemon
 rm -rf bbdaemon.log
 
-export BUS_SERVER_ADDRESSES="unix:abstract=/tmp/mbustest;tcp:addr=0.0.0.0,port=5342"
+if cygpath -wa . > /dev/null 2>&1
+then
+	: Cygwin
+	export BUS_SERVER_ADDRESSES="tcp:addr=0.0.0.0,port=5342"
+else
+	: Linux
+	export BUS_SERVER_ADDRESSES="unix:abstract=/tmp/mbustest;tcp:addr=0.0.0.0,port=5342"
+fi
 
 # set ALLJOYN_JAVA and/or ALLJOYN_DIST either through environment variables...
 # .. or by putting ALLJOYN_JAVA=something and/or ALLJOYN_DIST=something as commandline parameters
@@ -69,7 +76,7 @@ fi
 os_cpu_variant=` cd "$ALLJOYN_DIST/.." > /dev/null && pwd | awk -F/ 'NR==1 && NF>=3 { print $(NF-2) "/" $(NF-1) "/" $NF; }' `
 if test -z "$os_cpu_variant"
 then
-    echo >&2 "error, cannot get target_os/target_cpu/variant from ALLJOYN_DIST=$ALLJOYN_DIST"
+	echo >&2 "error, cannot get target_os/target_cpu/variant from ALLJOYN_DIST=$ALLJOYN_DIST"
 fi
 
 (
@@ -104,15 +111,34 @@ date
 
 	# following recipe from Todd Malsbury, 2010-08-16
 	# added explicit build, dist, classes properties definitions, 2011-01-06
-	PATH="$ALLJOYN_DIST/bin:$PATH" ant \
-		-Dtest="$test" \
-		-Dbuild="$build" \
-		-Ddist="$ALLJOYN_DIST/java" \
-		-Dclasses="$classes" \
-		-Dorg.alljoyn.bus.address="unix:abstract=/tmp/mbustest" \
-		-Dorg.alljoyn.bus.authMechanisms=EXTERNAL \
-		test
-	xit=$?
+	if cygpath -wa . > /dev/null 2>&1
+	then
+		: Cygwin
+		PATH="$ALLJOYN_DIST/bin:$PATH" ant \
+			-Dtest="$( cygpath -wa "$test" )" \
+			-Dbuild="$( cygpath -wa "$build" )" \
+			-Ddist="$( cygpath -wa "$ALLJOYN_DIST/java" )" \
+			-Dclasses="$( cygpath -wa "$classes" )" \
+			-Dorg.alljoyn.bus.address="tcp:addr=127.0.0.1,port=5342" \
+			-Dorg.alljoyn.bus.daemonaddress="tcp:addr=0.0.0.0,port=5343" \
+			-Dorg.alljoyn.bus.daemonremoteaddress="tcp:addr=127.0.0.1,port=5343" \
+			-Dorg.alljoyn.bus.authMechanisms=EXTERNAL \
+			test
+		xit=$?
+	else
+		: Linux
+		PATH="$ALLJOYN_DIST/bin:$PATH" ant \
+			-Dtest="$test" \
+			-Dbuild="$build" \
+			-Ddist="$ALLJOYN_DIST/java" \
+			-Dclasses="$classes" \
+			-Dorg.alljoyn.bus.address="unix:abstract=/tmp/mbustest" \
+			-Dorg.alljoyn.bus.daemonaddress="unix:abstract=AllJoynDaemonTest" \
+			-Dorg.alljoyn.bus.daemonremoteaddress="tcp:addr=127.0.0.1,port=5343" \
+			-Dorg.alljoyn.bus.authMechanisms=EXTERNAL \
+			test
+		xit=$?
+	fi
 
 	date
 	set +x

@@ -7,6 +7,8 @@
   <property name="test" value="./${build}/test" />
   <property name="checkstyle" value="./${build}/checkstyle" />
   <property name="org.alljoyn.bus.address" value="unix:abstract=bluebus"/>
+  <property name="org.alljoyn.bus.daemonaddress" value="unix:abstract=AllJoynDaemonTest"/>
+  <property name="org.alljoyn.bus.daemonremoteaddress" value="tcp:addr=127.0.0.1,port=5343"/>
   
   <path id="test.classpath">
     <pathelement location="${classes}" />
@@ -27,6 +29,8 @@
       <jvmarg value="-Xcheck:jni" />
       <jvmarg value="-Xmx512m" />
       <jvmarg value="-Dorg.alljoyn.bus.address=${org.alljoyn.bus.address}" />
+      <jvmarg value="-Dorg.alljoyn.bus.daemonaddress=${org.alljoyn.bus.daemonaddress}" />
+      <jvmarg value="-Dorg.alljoyn.bus.daemonremoteaddress=${org.alljoyn.bus.daemonremoteaddress}" />
       <sysproperty key="java.library.path" path="${dist}/lib"/>
       <classpath refid="test.classpath" />
       <formatter type="brief" usefile="false" />
