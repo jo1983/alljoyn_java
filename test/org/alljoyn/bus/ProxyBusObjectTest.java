@@ -68,7 +68,7 @@ public class ProxyBusObjectTest extends TestCase {
         proxyObj.disconnect();
         bus.disconnect();
 
-        if (daemon) {
+        if (daemon != null) {
             otherBus.getAllJoynProxyObj().CancelAdvertiseName(name);
             otherBus.getDBusProxyObj().ReleaseName(name);
             otherBus.deregisterBusObject(service);
