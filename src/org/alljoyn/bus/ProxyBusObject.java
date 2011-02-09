@@ -56,7 +56,11 @@ public class ProxyBusObject {
 
     private int flags;
 
+    private Method busConnectionLost;
+
     private String busAddress;
+
+    private ProxyBusObjectListener listener;
 
     private String nameOwner;
 
@@ -76,6 +80,13 @@ public class ProxyBusObject {
         create(busAttachment, busName, objPath);
         replyTimeoutMsecs = 25000;
         proxy = Proxy.newProxyInstance(busInterfaces[0].getClassLoader(), busInterfaces, new Handler());
+        try {
+            busConnectionLost = 
+                getClass().getDeclaredMethod("busConnectionLost", String.class);
+            busConnectionLost.setAccessible(true);
+        } catch (NoSuchMethodException ex) {
+            /* This will not happen */
+        }
     }
 
     /** Allocate native resources. */
@@ -331,10 +342,25 @@ public class ProxyBusObject {
         }
     }
 
+    private void busConnectionLost(String busAddress) {
+        if ((this.busAddress != null) && this.busAddress.equals(busAddress)) {
+            final ProxyBusObjectListener l = listener;
+            if (l != null) {
+                final String ba = busAddress;
+                bus.execute(new Runnable() {
+                        public void run() {
+                            l.disconnected(ba);
+                        }
+                    });
+            }
+        }
+    }
+
     /**
-     * Connects the local daemon to a remote AllJoyn address and causes the current
-     * thread to wait until an owner of this object's bus name appears.  This is
-     * equivalent to {@link #connect(String, long) connect(busAddress, 0)}.
+     * Connects the local daemon to a remote AllJoyn address and causes the
+     * current thread to wait until an owner of this object's bus name appears.
+     * This is equivalent to {@link #connect(String, long,
+     * ProxyBusObjectListener listener) connect(busAddress, 0, null)}.
      *
      * @param busAddress remote bus address to connect to
      *                (e.g. {@code bluetooth:addr=00.11.22.33.44.55}, or
@@ -348,7 +374,54 @@ public class ProxyBusObject {
      * @see #getBusName()
      */
     public Status connect(String busAddress) {
-        return connect(busAddress, 0);
+        return connect(busAddress, 0, null);
+    }
+
+    /**
+     * Connects the local daemon to a remote AllJoyn address and causes the
+     * current thread to wait until an owner of this object's bus name appears,
+     * or a certain amount of time has elapsed.  This is equivalent to {@link
+     * #connect(String, long, ProxyBusObjectListener) connect(busAddress,
+     * timeout, null)}.
+     *
+     * @param busAddress remote bus address to connect to
+     *                (e.g. {@code bluetooth:addr=00.11.22.33.44.55}, or
+     *                {@code tcp:addr=1.2.3.4,port=1234})
+     * @param timeout how many milliseconds to wait for an owner to be found.
+     *                If {@code timeout} is zero, then this thread waits
+     *                forever.
+     * @return a status code indicating success or failure. {@code
+     *         Status.CANCELLED} if the request is cancelled via {@code
+     *         cancelConnect()}.
+     * @see #connect(String, long)
+     * @see #cancelConnect()
+     * @see #disconnect()
+     * @see #getBusName()
+     */
+    public Status connect(String busAddress, long timeout) {
+        return connect(busAddress, timeout, null);
+    }
+
+    /**
+     * Connects the local daemon to a remote AllJoyn address and causes the
+     * current thread to wait until an owner of this object's bus name appears.
+     * This is equivalent to {@link #connect(String, long,
+     * ProxyBusObjectListener) connect(busAddress, 0, listener)}.
+     *
+     * @param busAddress remote bus address to connect to
+     *                (e.g. {@code bluetooth:addr=00.11.22.33.44.55}, or
+     *                {@code tcp:addr=1.2.3.4,port=1234})
+     * @param listener a listener to be notified of an unexpected disconnection
+     * @return a status code indicating success or failure. {@code
+     *         Status.CANCELLED} if the request is cancelled via {@code
+     *         cancelConnect()}.
+     * @see #connect(String, long)
+     * @see #cancelConnect()
+     * @see #disconnect()
+     * @see #getBusName()
+     */
+    public Status connect(String busAddress, ProxyBusObjectListener listener) {
+        return connect(busAddress, 0, listener);
     }
 
     /**
@@ -362,6 +435,9 @@ public class ProxyBusObject {
      * <p>
      * This method does the following:
      * <pre>
+     * Method busConnectionLost = myObj.getClass().getMethod("busConnectionLost", String.class);
+     * busAttachment.registerSignalHandler("org.alljoyn.Bus", "BusConnectionLost", myObj, busConnectionLost);
+     *
      * busAttachment.getAllJoynProxyObj().Connect(busAddress);
      *
      * if (!busAttachment.getDBusProxyObj().NameHasOwner(getBusName())) {
@@ -388,6 +464,7 @@ public class ProxyBusObject {
      * @param timeout how many milliseconds to wait for an owner to be found.
      *                If {@code timeout} is zero, then this thread waits
      *                forever.
+     * @param listener a listener to be notified of an unexpected disconnection
      * @return a status code indicating success or failure. {@code
      *         Status.CANCELLED} if the request is cancelled via {@code
      *         cancelConnect()}.  {@code Status.TIMEOUT} if the name owner is
@@ -396,7 +473,7 @@ public class ProxyBusObject {
      * @see #disconnect()
      * @see #getBusName()
      */
-    public Status connect(String busAddress, long timeout) {
+    public Status connect(String busAddress, long timeout, ProxyBusObjectListener listener) {
         Method nameOwnerChanged = null;
         try {
             nameOwnerChanged = 
@@ -416,6 +493,10 @@ public class ProxyBusObject {
             /* Part 1: connect to the remote bus */
             if (this.busAddress != null) {
                 status = Status.BUS_ALREADY_CONNECTED;
+            }
+            if (status == Status.OK) {
+                status = bus.registerSignalHandler("org.alljoyn.Bus", "BusConnectionLost", 
+                                                   this, busConnectionLost);
             }
             if (status == Status.OK) {
                 connectResult = bus.getAllJoynProxyObj().Connect(busAddress);
@@ -463,6 +544,9 @@ public class ProxyBusObject {
                     nameOwner = null;
                 }
             }
+            if (status == Status.OK) {
+                this.listener = listener;
+            }
         } catch (BusException ex) {
             BusException.log(ex);
             status = Status.FAIL;
@@ -500,6 +584,8 @@ public class ProxyBusObject {
      */
     public void disconnect() {
         try {
+            listener = null;
+            bus.deregisterSignalHandler(this, busConnectionLost);
             if (busAddress != null) {
                 bus.getAllJoynProxyObj().Disconnect(busAddress);
                 busAddress = null;

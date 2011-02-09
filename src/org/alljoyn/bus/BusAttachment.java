@@ -157,7 +157,7 @@ public class BusAttachment {
 
     private Method foundName;
 
-    private ExecutorService foundNameExecutor;
+    private ExecutorService executor;
 
     private Method lostAdvName;
 
@@ -201,6 +201,7 @@ public class BusAttachment {
                                   new Class[] { DBusProxyObj.class }).getInterface(DBusProxyObj.class);        
         alljoyn = new ProxyBusObject(this, "org.alljoyn.Bus", "/org/alljoyn/Bus",
                                   new Class[] { AllJoynProxyObj.class }).getInterface(AllJoynProxyObj.class);
+        executor = Executors.newSingleThreadExecutor();
     }
 
     /**
@@ -246,7 +247,7 @@ public class BusAttachment {
         final String np = namePrefix;
         final String ba = busAddress;
         if (listener != null) {
-            foundNameExecutor.execute(new Runnable() {
+            execute(new Runnable() {
                     public void run() { 
                         listener.foundName(n, g, np, ba); 
                     }
@@ -265,7 +266,7 @@ public class BusAttachment {
         final String np = namePrefix;
         final String ba = busAddress;
         if (listener != null) {
-            foundNameExecutor.execute(new Runnable() {
+            execute(new Runnable() {
                     public void run() { 
                         listener.lostAdvertisedName(n, g, np, ba); 
                     }
@@ -298,6 +299,15 @@ public class BusAttachment {
             BusException.log(ex);
             return null;
         }
+    }
+
+    /**
+     * Used to defer listener methods called on a signal handler to
+     * another thread.  This allows the listener method to make
+     * blocking calls back into the library.
+     */
+    void execute(Runnable runnable) {
+        executor.execute(runnable);
     }
 
     /**
@@ -689,16 +699,11 @@ public class BusAttachment {
             throw new IllegalArgumentException("listener");
         }
         try {
-            boolean startExecutor;
             synchronized (findNameListeners) {
                 if (findNameListeners.get(wellKnownNamePrefix) != null) {
                     return Status.ALREADY_FINDING;
                 }
-                startExecutor = findNameListeners.isEmpty();
                 findNameListeners.put(wellKnownNamePrefix, listener);
-            }
-            if (startExecutor) {
-                foundNameExecutor = Executors.newSingleThreadExecutor();
             }
             
             /* Look for any remote names */
@@ -739,13 +744,8 @@ public class BusAttachment {
             AllJoynProxyObj.CancelFindNameResult res = 
                 getAllJoynProxyObj().CancelFindName(wellKnownNamePrefix);
             if (res == AllJoynProxyObj.CancelFindNameResult.Success) {
-                boolean stopExecutor;
                 synchronized (findNameListeners) {
                     findNameListeners.remove(wellKnownNamePrefix);
-                    stopExecutor = findNameListeners.isEmpty();
-                }
-                if (stopExecutor) {
-                    foundNameExecutor.shutdown();
                 }
                 return Status.OK;
             } else {
