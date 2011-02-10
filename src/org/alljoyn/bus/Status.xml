@@ -18,9 +18,8 @@ Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
   <xi:include href="../common/src/Status.xml"/>
   <xi:include href="../alljoyn_core/src/Status.xml"/>
 
-  <offset>0xa000</offset>
-  <status name="ER_BAD_ANNOTATION" comment="Annotation is incorrect"/>
-  <status name="ER_INVALID_CONNECT_ARGS" comment="The org.alljoyn.bus.address property is null"/>
-  <status name="ER_ALREADY_FINDING" comment="A find name request for the well-known name prefix is already active"/>
-  <status name="ER_CANCELLED" comment="An operation was cancelled"/>
+  <status name="ER_BAD_ANNOTATION" value="0xa000" comment="Annotation is incorrect"/>
+  <status name="ER_INVALID_CONNECT_ARGS" value="0xa001" comment="The org.alljoyn.bus.address property is null"/>
+  <status name="ER_ALREADY_FINDING" value="0xa002" comment="A find name request for the well-known name prefix is already active"/>
+  <status name="ER_CANCELLED" value="0xa003" comment="An operation was cancelled"/>
 </status_block>
