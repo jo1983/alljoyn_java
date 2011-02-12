@@ -24,6 +24,10 @@ from configurejni import ConfigureJNI
 if not ConfigureJNI(env):
     Exit()
 
+if not os.environ.get('CLASSPATH'):
+    print "CLASSPATH not set"
+    Exit()
+
 # Dependent Projects
 if not env.has_key('_ALLJOYNCORE_'):
     env.SConscript('../alljoyn_core/SConscript')
