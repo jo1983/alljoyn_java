@@ -6,7 +6,7 @@
   <property name="classes" value="./test/${build}/obj/classes" />
   <property name="test" value="./${build}/test" />
   <property name="checkstyle" value="./${build}/checkstyle" />
-  <property name="org.alljoyn.bus.address" value="unix:abstract=mbustest"/>
+  <property name="org.alljoyn.bus.address" value="unix:abstract=bluebus"/>
   
   <path id="test.classpath">
     <pathelement location="${classes}" />
