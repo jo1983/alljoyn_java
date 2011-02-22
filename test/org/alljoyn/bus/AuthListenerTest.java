@@ -56,6 +56,7 @@ public class AuthListenerTest extends TestCase {
     private BusAttachment serviceBus;
     private SecureService service;
     private SecureInterface proxy;
+    private InsecureInterface insecureProxy;
     private BusAuthListener authListener;
     private BusAuthListener serviceAuthListener;
     private String logonEntry;
@@ -77,9 +78,12 @@ public class AuthListenerTest extends TestCase {
         }
     }
 
-    public class SecureService implements SecureInterface, BusObject {
+    public class SecureService implements SecureInterface, InsecureInterface, BusObject {
         public String Ping(String str) { 
             assertTrue(bus.getMessageContext().authMechanism.length() > 0);
+            return str; 
+        }
+        public String InsecurePing(String str) { 
             return str; 
         }
     }
@@ -169,7 +173,6 @@ public class AuthListenerTest extends TestCase {
 
         public boolean requested(String mechanism, int count, String userName, 
                                  AuthRequest[] requests) {
-
             /* Bail out if we get stuck in a loop. */
             assertTrue(count < 10);
 
@@ -479,8 +482,9 @@ public class AuthListenerTest extends TestCase {
         assertEquals(Status.OK, bus.connect());
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/secure", 
-                                                        new Class[] { SecureInterface.class });
+                                                        new Class[] { SecureInterface.class, InsecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
+        insecureProxy = proxyObj.getInterface(InsecureInterface.class);
         abortCount = 3;
     }
 
@@ -501,7 +505,20 @@ public class AuthListenerTest extends TestCase {
     public void doPing(String mechanism) throws Exception {
         assertEquals(Status.OK, serviceBus.registerAuthListener(mechanism, serviceAuthListener));
         assertEquals(Status.OK, bus.registerAuthListener(mechanism, authListener));
-        proxy.Ping("hello");
+        BusException ex = null;
+        try {
+            proxy.Ping("hello");
+        } catch (BusException e) {
+            ex = e;
+        }
+        /*
+         * Make insecure second call to ensure that all the authentication transactions have run
+         * their course on both sides.
+         */
+        insecureProxy.InsecurePing("goodbye");
+        if (ex != null) {
+            throw ex;
+        }
     }
 
     public void listener(String mechanism) throws Exception {
