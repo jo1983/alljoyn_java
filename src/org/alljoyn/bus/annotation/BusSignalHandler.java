@@ -24,6 +24,34 @@ import java.lang.annotation.Target;
 
 /**
  * Indicates that a method should receive AllJoyn signals.
+ * <p>
+ * {@code iface} and {@code signal} may be either the DBus interface
+ * and signal name, or the Java interface and method name.  For the
+ * following interface definition:
+ * <p><blockquote><pre>
+ *     package org.myapp;
+ *     &#64;BusInterface(name = "org.sample.MyInterface")
+ *     public interface IMyInterface {
+ *         &#64;BusSignal(name = "MySignal")
+ *         public void EmitMySignal(String str) throws BusException;
+ *     }
+ * </pre></blockquote><p>
+ * either of the following may be used to annotate a signal handler:
+ * <p><blockquote><pre>
+ *     &#64;BusSignalHandler(iface = "org.sample.MyInterface", signal = "MySignal")
+ *     public void handleSignal(String str) {}
+ *
+ *     &#64;BusSignalHandler(iface = "org.myapp.IMyInterface", signal = "EmitMySignal")
+ *     public void handleSignal(String str) {}
+ * </pre></blockquote><p>
+ * The first example may be used succesfully when {@code IMyInterface}
+ * is known to the BusAttachment via a previous call to {@link
+ * org.alljoyn.bus.BusAttachment#registerBusObject(BusObject, String)}
+ * or {@link org.alljoyn.bus.BusAttachment#getProxyBusObject(String,
+ * String, Class[])}.
+ * <p>
+ * The second example may be used succesfully when {@code
+ * IMyInterface} is unknown to the BusAttachment.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

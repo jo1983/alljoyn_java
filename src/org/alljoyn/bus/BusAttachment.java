@@ -529,6 +529,13 @@ public class BusAttachment {
                 InterfaceDescription desc = new InterfaceDescription();
                 status = desc.create(this, iface);
                 if (status == Status.OK) {
+                    ifaceName = InterfaceDescription.getName(iface);
+                    try {
+                        Method signal = iface.getMethod(signalName, handlerMethod.getParameterTypes());
+                        signalName = InterfaceDescription.getName(signal);
+                    } catch (NoSuchMethodException ex) {
+                        // Ignore, use signalName parameter provided 
+                    }
                     status = registerNativeSignalHandler(ifaceName, signalName, obj, handlerMethod,
                                                          source);
                 }
@@ -547,8 +554,14 @@ public class BusAttachment {
      * Registers all public methods that are annotated as signal handlers.
      *
      * @param obj object with methods annotated with as signal handlers
-     * @return OK if the register is succesful
-     * @see org.alljoyn.bus.annotation.BusSignalHandler
+     * @return <ul>
+     *         <li>OK if the register is succesful
+     *         <li>BUS_NO_SUCH_INTERFACE if the interface and signal
+     *         specified in any {@code @BusSignalHandler} annotations
+     *         of {@code obj} are unknown to this BusAttachment.  See
+     *         {@link org.alljoyn.bus.annotation.BusSignalHandler} for
+     *         a discussion of how to annotate signal handlers.
+     *         </ul>
      */
     public Status registerSignalHandlers(Object obj) {
         Status status = Status.OK;

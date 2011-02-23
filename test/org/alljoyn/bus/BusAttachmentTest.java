@@ -21,6 +21,7 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
+import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
 import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.ifaces.Introspectable;
@@ -175,6 +176,30 @@ public class BusAttachmentTest extends TestCase {
 
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit", 
                                             this, getClass().getMethod("signalHandler1", String.class));
+        assertEquals(Status.OK, status);
+    }
+
+    public class SignalHandlers {
+        //@BusSignalHandler(iface = "org.alljoyn.bus.EmitterFoo", signal = "Emit") // ClassNotFound exception
+        public void signalHandler1(String string) throws BusException {
+        }
+
+        @BusSignalHandler(iface = "org.alljoyn.bus.EmitterBarInterface", signal = "Emit")
+        public void signalHandler2(String string) throws BusException {
+        }
+
+        @BusSignalHandler(iface = "org.alljoyn.bus.EmitterBarInterface", signal = "EmitBar")
+        public void signalHandler3(String string) throws BusException {
+        }
+    }
+
+    public void testRegisterSignalHandlersNoLocalObject() throws Exception {
+        bus = new BusAttachment(getClass().getName());
+        Status status = bus.connect();
+        assertEquals(Status.OK, status);
+
+        SignalHandlers handlers = new SignalHandlers();
+        status = bus.registerSignalHandlers(handlers);
         assertEquals(Status.OK, status);
     }
 
