@@ -251,14 +251,16 @@ public class AllJoynChat extends Activity {
         public static final int CHAT = 5;
         public static final int DISCONNECT = 6;
         
-        //AllJoyn specific elements
+        /*
+         * AllJoyn specific elements.
+         */
         private BusAttachment mBus;
         private ChatInterface mChatInterface;
         private boolean mIsConnected;
         private boolean mIsStoppingDiscovery;
         
         private ChatService mChatService;
-        private List<String> mBusAddressList;
+        private List<Integer> mSessionList;
         
         DBusProxyObj dbusProxy;
         AllJoynProxyObj alljoynProxy;
@@ -269,7 +271,7 @@ public class AllJoynChat extends Activity {
             super(looper);
             
             mChatService = new ChatService();
-            mBusAddressList = new LinkedList<String>();
+            mSessionList = new LinkedList<Integer>();
             mIsStoppingDiscovery = false;
         }
         
@@ -277,10 +279,14 @@ public class AllJoynChat extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case (CONNECT): {
-                //Create new BusAttachment
+                /*
+                 * Create a new BusAttachment.
+                 */
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
 
-                //Register the BusObject with the path "/chatService"
+                /*
+                 * Register the BusObject with the path "/chatService"
+                 */
                 Status status = mBus.registerBusObject(mChatService, CHAT_SERVICE_PATH);
                 logStatus("BusAttachment.registerBusObject()", status);
                 if (Status.OK != status) {
@@ -288,13 +294,46 @@ public class AllJoynChat extends Activity {
                     return;
                 }
 
-                //connect the BusAttachment to the daemon.
+                /*
+                 * Connect the BusAttachment to the daemon.
+                 */
                 status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
                 if (status != Status.OK) {
                     finish();
                     return;
                 }
+
+                /*
+                 * The AllJoynProxyObj enables a way to make calls to methods
+                 * that are part of AllJoyn interface.
+                 */
+                alljoynProxy = mBus.getAllJoynProxyObj();
+
+                /*
+                 * Identify the contact port for the chat service session and create a
+                 * new session listening on that contact port.  We are going to create
+                 * a point-to-point session (one in which there are a maximum of two
+                 * participants).  We need to set up the session options and we choose
+                 * to exhange reliable messages (TRAFFIC_MESSAGES) and allow these
+                 * messages to flow to a client anywhere (PROXIMITY_ANY) over any 
+                 * available transport (TRANSPORTS_ANY).
+                 */
+                Short contactPortRequested = 42;
+                Boolean isMultipoint = false;
+                AllJoynProxyObj.SessionOpts sessionOpts = new AllJoynProxyObj.SessionOpts();
+                sessionOpts.traffic = AllJoynProxyObj.SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.proximity = AllJoynProxyObj.SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = AllJoynProxyObj.SessionOpts.TRANSPORT_ANY;
+                Short contactPortAssigned = 0;
+
+                try {
+					AllJoynProxyObj.BindSessionPortResult bindSessionPortResult = 
+					    alljoynProxy.BindSessionPort(contactPortRequested, isMultipoint, sessionOpts, contactPortAssigned);
+                } catch (BusException ex) {
+                    logException("BusException while trying to Advertise service", ex);
+                }
+
 
                 /*
                  *  Create a signal emitter to send out the Chat signal.
@@ -306,7 +345,8 @@ public class AllJoynChat extends Activity {
                  *  signals need to be available to other devices so global broadcasting of 
                  *  signals has been set to true. 
                  */
-                SignalEmitter emitter = new SignalEmitter(mChatService, SignalEmitter.GlobalBroadcast.On);
+                SignalEmitter emitter = new SignalEmitter(mChatService, 
+                    SignalEmitter.GlobalBroadcast.On);
                 mChatInterface = emitter.getInterface(ChatInterface.class);
 
                 /*
@@ -324,35 +364,46 @@ public class AllJoynChat extends Activity {
                     return;
                 }
                 
-                
-                // The DBusProxyObj creates a way to make calls to methods built into the DBus standard
+                /*
+                 * The DBusProxyObj creates a way to make calls to methods built
+                 * into the DBus standard.
+                 */
                 dbusProxy = mBus.getDBusProxyObj();
-                // The AllJoynProxyObj creates a way to make calls to methods that are part of AllJoyn interface.
-                alljoynProxy = mBus.getAllJoynProxyObj();
                 break;
             }
             case (START_DISCOVER): {
-                //Request a well-known Name
+                /*
+                 * Request a well-known Name.
+                 */
                 try {
                     int flags = (DBusProxyObj.REQUEST_NAME_REPLACE_EXISTING |
                                  DBusProxyObj.REQUEST_NAME_ALLOW_REPLACEMENT |
                                  DBusProxyObj.REQUEST_NAME_DO_NOT_QUEUE);
                     String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                    DBusProxyObj.RequestNameResult requestNameResult = dbusProxy.RequestName(wellKnownName, flags);
-                    logStatus("DBusProxyObj.RequestName()", requestNameResult, DBusProxyObj.RequestNameResult.PrimaryOwner);
+                    DBusProxyObj.RequestNameResult requestNameResult = 
+                        dbusProxy.RequestName(wellKnownName, flags);
+                    logStatus("DBusProxyObj.RequestName()", requestNameResult, 
+                        DBusProxyObj.RequestNameResult.PrimaryOwner);
                     
                     if (requestNameResult == DBusProxyObj.RequestNameResult.PrimaryOwner) {
-                        //advertise the same well-known name
-                        AllJoynProxyObj.AdvertiseNameResult advertiseNameResult = alljoynProxy.AdvertiseName(wellKnownName);
+                        /*
+                         * Advertise the same well-known name.
+                         */
+                        AllJoynProxyObj.AdvertiseNameResult advertiseNameResult = 
+                            alljoynProxy.AdvertiseName(wellKnownName);
                         logStatus(String.format("AllJoynProxyObj.AdvertiseName(%s)", wellKnownName), 
-                                  advertiseNameResult, AllJoynProxyObj.AdvertiseNameResult.Success);
+                            advertiseNameResult, AllJoynProxyObj.AdvertiseNameResult.Success);
                         
                         if (advertiseNameResult != AllJoynProxyObj.AdvertiseNameResult.Success && 
                             advertiseNameResult != AllJoynProxyObj.AdvertiseNameResult.AlreadyAdvertising) {
-                            //if we are unable to advertise Name release the name from the local bus. 
-                            DBusProxyObj.ReleaseNameResult releaseNameRes = dbusProxy.ReleaseName(wellKnownName);
+                            /*
+                             * If we are unable to advertise Name release the
+                             * name from the local bus.
+                             */
+                            DBusProxyObj.ReleaseNameResult releaseNameRes = 
+                                dbusProxy.ReleaseName(wellKnownName);
                             logStatus(String.format("DBusProxyObj.ReleaseName(%s)", wellKnownName), 
-                                      releaseNameRes, DBusProxyObj.ReleaseNameResult.Released);
+                                releaseNameRes, DBusProxyObj.ReleaseNameResult.Released);
                             mIsConnected = false;
                         } else {
                             mIsConnected = true;
@@ -360,78 +411,113 @@ public class AllJoynChat extends Activity {
                     }
                 
                     /*
-                     * Each device running the the AllJoyn Chat sample advertises a name NAME_PREFIX.<a_user_entered_name>
-                     * for example if the user uses foo as there name the name requested from the bus and advertised is
-                     * "org.alljoyn.bus.samples.chat.foo" since buses must advertise a unique name we don't know
-                     * the name the other buses will advertise however we can know part of the name each bus will 
-                     * advertise.
+                     * Each device running the the AllJoyn Chat sample
+                     * advertises a name NAME_PREFIX.<a_user_entered_name> for
+                     * example if the user uses foo as there name the name
+                     * requested from the bus and advertised is
+                     * "org.alljoyn.bus.samples.chat.foo" since buses must
+                     * advertise a unique name we don't know the name the other
+                     * buses will advertise however we can know part of the name
+                     * each bus will advertise.
                      * 
-                     * For the AllJoyn Chat sample all of the Bus names advertised will start with 
-                     * "org.alljoyn.bus.samples.chat" this will tell the local bus to look for any remote bus that
-                     * is advertising a name that uses that prefix. If found the bus will send out a "FoundName" signal
-                     * We must register a signal handler for the 'FoundName' signal to know about any remote buses. 
+                     * For the AllJoyn Chat sample all of the Bus names
+                     * advertised will start with "org.alljoyn.bus.samples.chat"
+                     * this will tell the local bus to look for any remote bus
+                     * that is advertising a name that uses that prefix. If
+                     * found the bus will send out a "FoundName" signal We must
+                     * register a signal handler for the 'FoundName' signal to
+                     * know about any remote buses.
                      */
-                    AllJoynProxyObj.FindNameResult findNameResult = alljoynProxy.FindName(NAME_PREFIX);
-                    logStatus("AllJoynProxyObj.FindName()", findNameResult, AllJoynProxyObj.FindNameResult.Success);
+                    AllJoynProxyObj.FindAdvertisedNameResult findAdvertisedNameResult = 
+                        alljoynProxy.FindAdvertisedName(NAME_PREFIX);
+                    logStatus("AllJoynProxyObj.FindAdvertisedName()", 
+                    	findAdvertisedNameResult, AllJoynProxyObj.FindAdvertisedNameResult.Success);
                 } catch (BusException ex) {
-                    logException("BusException while trying to Advertize service", ex);
+                    logException("BusException while trying to Advertise service", ex);
                 }
                 break;
             }
+
             /*
-             * When the 'FoundName' signal is received it will send the address of the remote bus 
-             * to this BusHandler case. The AllJoyn connect method is used to make a P2P connection between
-             * two separate buses. 
+             * When the 'FoundAdvertisedName' signal is received it will send
+             * the address of the remote bus to this BusHandler case. The
+             * AllJoyn connect method is used to make a P2P connection between
+             * two separate buses.
              */
             case (CONNECT_WITH_REMOTE_BUS): {
-                // If discovery is currently being stopped don't connect to any other remote buses.
+                /*
+                 * If discovery is currently being stopped don't connect to any other remote buses.
+                 */
                 if (mIsStoppingDiscovery) {
                     break;
                 }
                 try { 
-                    AllJoynProxyObj.ConnectResult connResult = alljoynProxy.Connect((String) msg.obj);
-                    logStatus("AllJoynProxyObj.ConnectResult()", connResult, AllJoynProxyObj.ConnectResult.Success);
-                    if (AllJoynProxyObj.ConnectResult.Success == connResult) {
-                        mBusAddressList.add((String) msg.obj);
+                    /*
+                     * We got a discovery event, so let's try and join the chat
+                     * session hosted by the machine itendified in the msg.
+                     * Because it is identified as a chat service, we know what
+                     * contact session port to use.  We use the same session 
+                     * options as those we create when we're acting as the 
+                     * service so we know they will match.
+                     */
+                    Short contactPort = 42;
+                    AllJoynProxyObj.SessionOpts requestedOpts = new AllJoynProxyObj.SessionOpts();
+                    requestedOpts.traffic = AllJoynProxyObj.SessionOpts.TRAFFIC_MESSAGES;
+                    requestedOpts.proximity = AllJoynProxyObj.SessionOpts.PROXIMITY_ANY;
+                    requestedOpts.transports = AllJoynProxyObj.SessionOpts.TRANSPORT_ANY;
+                    AllJoynProxyObj.SessionOpts actualOpts = new AllJoynProxyObj.SessionOpts();
+                    Integer sessionId = 0;
+
+                    AllJoynProxyObj.JoinSessionResult joinSessionResult = 
+                        alljoynProxy.JoinSession((String) msg.obj, 
+                            contactPort, requestedOpts, sessionId, actualOpts);
+                    logStatus("AllJoynProxyObj.JoinSessionResult()", joinSessionResult,
+                        AllJoynProxyObj.JoinSessionResult.Success);
+                    if (AllJoynProxyObj.JoinSessionResult.Success == joinSessionResult) {
+                        mSessionList.add(sessionId);
                         mIsConnected = true; 
                     }
                 } catch (BusException ex) {
-                    logException("BusException while trying to connect with remote bus", ex);
+                    logException("BusException while trying to join with remote session", ex);
                 }
                 break;
             }
-            /*
-             * Disconnect the local bus from all of the other buses that have been found. 
-             * Stop looking for the NAME_PREFIX
-             * Stop the local bus from advertising its own well known name so no other 
-             * buses will try and connect with the local bus.
-             * Remove the wellKnownName from the local bus.
+ 
+           /*
+             * - Disconnect from all of the session that have been found.
+             * - Stop looking for the NAME_PREFIX
+             * - Stop the local bus from advertising its own well known name so
+             *   no other buses will try and connect with the local bus.
+             * - Remove the wellKnownName from the local bus.
              */
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;
                 try {
-                    for (String busAddress : mBusAddressList) {
-                        AllJoynProxyObj.DisconnectResult disConnResult = alljoynProxy.Disconnect(busAddress);
-                        logStatus("AllJoynProxyObj.Disconnect()", disConnResult, AllJoynProxyObj.DisconnectResult.Success);
-                        if (AllJoynProxyObj.DisconnectResult.Success == disConnResult) {
-                            mIsConnected = false;
+                    for (Integer sid : mSessionList) {
+                        AllJoynProxyObj.LeaveSessionResult leaveSessionResult = alljoynProxy.LeaveSession(sid);
+                        logStatus("AllJoynProxyObj.LeaveSession()", leaveSessionResult, 
+                            AllJoynProxyObj.LeaveSessionResult.Success);
+                        if (AllJoynProxyObj.LeaveSessionResult.Success == leaveSessionResult) {
                         }
                     }
                     
-                    mBusAddressList.clear();               
+                    mIsConnected = false;
+                    mSessionList.clear();               
 
-                    AllJoynProxyObj.CancelFindNameResult cancelFNResult = alljoynProxy.CancelFindName(NAME_PREFIX);
-                    logStatus("AllJoynProxyObj.CancelFindName()", cancelFNResult, AllJoynProxyObj.CancelFindNameResult.Success);
-                    
+                    AllJoynProxyObj.CancelFindAdvertisedNameResult cancelFindAdvertisedNameResult =
+                        alljoynProxy.CancelFindAdvertisedName(NAME_PREFIX);
+                    logStatus("AllJoynProxyObj.CancelFindAdvertisedName()", cancelFindAdvertisedNameResult, 
+                        AllJoynProxyObj.CancelFindAdvertisedNameResult.Success);
 
                     String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                    AllJoynProxyObj.CancelAdvertiseNameResult cancelANResult = alljoynProxy.CancelAdvertiseName(wellKnownName);
+                    AllJoynProxyObj.CancelAdvertiseNameResult cancelAdvertiseNameResult = 
+                        alljoynProxy.CancelAdvertiseName(wellKnownName);
                     logStatus(String.format("AllJoynProxyObj.CancelAdvertiseName(%s)", wellKnownName), 
-                              cancelANResult, AllJoynProxyObj.CancelAdvertiseNameResult.Success);
+                              cancelAdvertiseNameResult, AllJoynProxyObj.CancelAdvertiseNameResult.Success);
                     
-                    DBusProxyObj.ReleaseNameResult releaseNameRes = dbusProxy.ReleaseName(wellKnownName);
+                    DBusProxyObj.ReleaseNameResult releaseNameResult = dbusProxy.ReleaseName(wellKnownName);
                     logStatus(String.format("DBusProxyObj.ReleaseName(%s)", wellKnownName), 
-                              releaseNameRes, DBusProxyObj.ReleaseNameResult.Released);
+                              releaseNameResult, DBusProxyObj.ReleaseNameResult.Released);
                 } catch (BusException ex) {
                     logException("BusException while trying to stop advertising", ex);
                 }
@@ -492,8 +578,8 @@ public class AllJoynChat extends Activity {
          * The bus address is sent to the AllJoyn connect method using the BusHandler 
          * CONNECT_WITH_REMOTE_BUS case.  
          */
-        @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "FoundName")
-        public void FoundName(String name, String guid, String namePrefix, String busAddress) {
+        @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "FoundAdvertisedName")
+        public void FoundAdvertisedName(String name, String guid, String namePrefix, String busAddress) {
             Log.i(TAG, String.format("org.alljoyn.Bus.FoundName signal detected."));
             Message msg = obtainMessage(CONNECT_WITH_REMOTE_BUS, busAddress);
             sendMessage(msg);

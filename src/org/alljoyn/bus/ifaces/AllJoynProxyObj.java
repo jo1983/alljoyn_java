@@ -28,15 +28,42 @@ import org.alljoyn.bus.annotation.BusSignal;
  */
 @BusInterface(name = "org.alljoyn.Bus")
 public interface AllJoynProxyObj {
-
-    /** The options structure used by sessions (cf. socket options). */
+    /** 
+     * The session options (characteristics) used by sessions (cf. socket options).
+     */
     public class SessionOpts {
-        Byte traffic;
-        Byte proximity;
-        Short transports;
+        public static Byte TRAFFIC_MESSAGES       = 0x01;
+        public static Byte TRAFFIC_RAW_UNRELIABLE = 0x02;
+        public static Byte TRAFFIC_RAW_RELIABLE   = 0x04;
+        public Byte traffic;
+
+        public static Byte PROXIMITY_ANY      = (byte)0xff;
+        public static Byte PROXIMITY_PHYSICAL = 0x01;
+        public static Byte PROXIMITY_NETWORK  = 0x02;
+        public Byte proximity;
+
+        public static Short TRANSPORT_NONE      = 0x0000;
+        public static Short TRANSPORT_ANY       = (short)0xffff;
+        public static Short TRANSPORT_LOCAL     = 0x0001;
+        public static Short TRANSPORT_BLUETOOTH = 0x0002;
+        public static Short TRANSPORT_WLAN      = 0x0004;
+        public static Short TRANSPORT_WWAN      = 0x0008;
+        public Short transports;
+
+        public SessionOpts() {
+            traffic = TRAFFIC_MESSAGES;
+            proximity = PROXIMITY_ANY;
+            transports = TRANSPORT_ANY;
+        }
     }
 
-    /** {@link #BindSessionPort(Integer,Boolean,SessionOpts)} return value. */
+    /** 
+     * When passed to BindSessionPort as the requested port, the system will
+     * assign an ephemeral session port
+     */
+    public static Short SESSION_PORT_ANY = 0;
+
+    /** {@link #BindSessionPort(Short, Boolean, SessionOpts, Short)} return value. */
     enum BindSessionPortResult {
 
         /** Invalid. */
