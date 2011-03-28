@@ -720,10 +720,10 @@ public class BusAttachment {
             }
             
             /* Look for any remote names */
-            AllJoynProxyObj.FindNameResult res = getAllJoynProxyObj().FindName(wellKnownNamePrefix);
-            if (res == AllJoynProxyObj.FindNameResult.Success) {
+            AllJoynProxyObj.FindAdvertisedNameResult res = getAllJoynProxyObj().FindAdvertisedName(wellKnownNamePrefix);
+            if (res == AllJoynProxyObj.FindAdvertisedNameResult.Success) {
                 return Status.OK;
-            } else if (res == AllJoynProxyObj.FindNameResult.AlreadyDiscovering) {
+            } else if (res == AllJoynProxyObj.FindAdvertisedNameResult.AlreadyDiscovering) {
                 return Status.ALREADY_FINDING;
             } else {
                 return Status.FAIL;
@@ -754,9 +754,9 @@ public class BusAttachment {
             throw new IllegalArgumentException("wellKnownNamePrefix");
         }
         try {
-            AllJoynProxyObj.CancelFindNameResult res = 
-                getAllJoynProxyObj().CancelFindName(wellKnownNamePrefix);
-            if (res == AllJoynProxyObj.CancelFindNameResult.Success) {
+            AllJoynProxyObj.CancelFindAdvertisedNameResult res = 
+                getAllJoynProxyObj().CancelFindAdvertisedName(wellKnownNamePrefix);
+            if (res == AllJoynProxyObj.CancelFindAdvertisedNameResult.Success) {
                 synchronized (findNameListeners) {
                     findNameListeners.remove(wellKnownNamePrefix);
                 }

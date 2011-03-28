@@ -29,8 +29,15 @@ import org.alljoyn.bus.annotation.BusSignal;
 @BusInterface(name = "org.alljoyn.Bus")
 public interface AllJoynProxyObj {
 
-    /** {@link #Connect(String)} return value. */
-    enum ConnectResult {
+    /** The options structure used by sessions (cf. socket options). */
+    public class SessionOpts {
+        Byte traffic;
+        Byte proximity;
+        Short transports;
+    }
+
+    /** {@link #BindSessionPort(Integer,Boolean,SessionOpts)} return value. */
+    enum BindSessionPortResult {
 
         /** Invalid. */
         Invalid,
@@ -38,34 +45,35 @@ public interface AllJoynProxyObj {
         /** Success. */
         Success,
 
-        /** Invalid connect specification. */
-        InvalidSpec,
-
-        /** 
-         * Invalid.  This value exists only to fill this hole in the
-         * over-the-air ordinal values. 
-         */
-        Invalid3,
+        /** The specified session port is already bound. */
+        AlreadyExists,
 
         /** Connect failed. */
         Failed;
     }
 
     /**
-     * Requests the local daemon to connect to a given remote AllJoyn address.
+     * Requests the local daemon to bind a new session to a given contact 
+     * SessionPort, creating a new session port if requested.
      *
-     * @param busAddress remote bus address to connect to
-     *                (e.g. {@code bluetooth:addr=00.11.22.33.44.55}, or
-     *                {@code tcp:addr=1.2.3.4,port=1234})
+     * @param sessionPort  The session port to use as the well-known contact
+     *     port for the session.  If SESSION_PORT_ANY, the system will assign
+     *     a new, unused port.
+     * @param isMultipoint  If false, the new session will be a point-to-point
+     *     session supporting only two participants.  If true, the new session
+     *     will be a point-to-multipoint session supporting moer than two 
+     *     participants.
+     * @param SessionOpts The session options describing the characteristics of
+     *     session instances.
      *
      * @return a status code indicating success or failure
      * @throws BusException
      */
-    @BusMethod(signature = "s", replySignature = "u")
-    ConnectResult Connect(String busAddress) throws BusException;
+    @BusMethod(signature = "qb(yyq)", replySignature = "uq")
+    BindSessionPortResult BindSessionPort(Short sessionPort, Boolean isMultipoint, SessionOpts sessionOpts, Short boundPort) throws BusException;
 
-    /** {@link #Disconnect(String)} return value. */
-    enum DisconnectResult {
+    /** {@link #JoinSession(String,Short,SessionOpts,Integer,SessionOpts)} return value. */
+    enum JoinSessionResult {
 
         /** Invalid. */
         Invalid,
@@ -73,24 +81,71 @@ public interface AllJoynProxyObj {
         /** Success. */
         Success,
 
-        /** No connection matching spec was found. */
-        NoConn,
+        /** The specified session port doesn not exist. */
+        NoSession,
+
+        /** Failed to find a suitable transport. */
+        Unreachable,
+
+        /** Underlying bus connect failed. */
+        ConnectFailed,
+
+        /** The join request was rejected by the session creator. */
+        Rejected,
+
+        /** The join request failed due to incompatible session options. */
+        BadSessionOpts,
+
+        /** Connect failed. */
+        Failed;
+    }
+
+    /**
+     * Requests the local daemon to join to a session hosted on a given bus
+     * address, over a given contact session port.
+     *
+     * @param sessionHost  The bus name of an endpoint that is hosting the 
+     *     session.
+     * @param sessionPort  The contact session port of the hosted session.
+     * @param inOpts       The session options describing the desired
+     *                     characteristics of the new session.
+     * @param sessionId    The session identifier of the resulting session.
+     * @param outOpts      The session options describing the actual
+     *                     characteristics of the new session.
+     *
+     * @return a status code indicating success or failure
+     * @throws BusException
+     */
+    @BusMethod(signature = "sq(yyq)", replySignature = "uu(yyq)")
+    JoinSessionResult JoinSession(String sessionHost, Short sessionPort, SessionOpts inOpts, Integer sessionId, SessionOpts outOpts) throws BusException;
+
+    /** {@link #LeaveSession(Integer)} return value. */
+    enum LeaveSessionResult {
+
+        /** Invalid. */
+        Invalid,
+
+        /** Success. */
+        Success,
+
+        /** No such session exists. */
+        NoSession,
 
         /** Disconnect failed. */
         Failed;
     };
 
     /**
-     * Requests the local daemon to disconnect from a given remote AllJoyn address
-     * previously connected via a call to {@link #Connect(String)}.
+     * Requests the local daemon to disconnect from a given session previously
+     * joined via a call to {@link #JoinSession(String,Short,SessionOpts,Integer,SessionOpts)}.
      *
-     * @param busAddress remote bus address to disconnect. Must match busAddress
-     *                previously passed to {@link #Connect(String)}.
+     * @param sessionId  The session ID corresponding to the session to leave.
+     *
      * @return a status code indicating success or failure
      * @throws BusException
      */
-    @BusMethod(signature = "s", replySignature = "u")
-    DisconnectResult Disconnect(String busAddress) throws BusException;
+    @BusMethod(signature = "u", replySignature = "u")
+    LeaveSessionResult LeaveSession(Integer sessionId) throws BusException;
 
     /** {@link #AdvertiseName(String)} return value.*/
     enum AdvertiseNameResult {
@@ -147,8 +202,8 @@ public interface AllJoynProxyObj {
     @BusMethod(signature = "s", replySignature = "u")
     CancelAdvertiseNameResult CancelAdvertiseName(String wellKnownName) throws BusException;
 
-    /** {@link #FindName(String)} return value.*/
-    enum FindNameResult {
+    /** {@link #FindAdvertisedName(String)} return value.*/
+    enum FindAdvertisedNameResult {
 
         /** Invalid. */
         Invalid,
@@ -166,8 +221,8 @@ public interface AllJoynProxyObj {
     /**
      * Registers interest in a well-known attachment name being advertised by a
      * remote AllJoyn instance.  When the local AllJoyn daemon receives such an
-     * advertisement it will send a {@link #FoundName(String, String, String,
-     * String)} signal. This attachment can then choose to ignore the
+     * advertisement it will send a {@link #FoundAdvertisedName(String, String,
+     * String, String)} signal. This attachment can then choose to ignore the
      * advertisement or to connect to the remote bus by calling {@link
      * #Connect(String)}.
      *
@@ -177,10 +232,10 @@ public interface AllJoynProxyObj {
      * @throws BusException
      */
     @BusMethod(signature = "s", replySignature = "u")
-    FindNameResult FindName(String wellKnownNamePrefix) throws BusException;
+    FindAdvertisedNameResult FindAdvertisedName(String wellKnownNamePrefix) throws BusException;
 
-    /** {@link #CancelFindName(String)} return value.*/
-    enum CancelFindNameResult {
+    /** {@link #CancelFindAdvertisedName(String)} return value.*/
+    enum CancelFindAdvertisedNameResult {
 
         /** Invalid. */
         Invalid,
@@ -194,7 +249,7 @@ public interface AllJoynProxyObj {
 
     /**
      * Cancels interest in a well-known attachment name that was previously
-     * included in a call to {@link #FindName(String)}.
+     * included in a call to {@link #FindAdvertisedName(String)}.
      * 
      * @param wellKnownNamePrefix well-known name prefix of the attachment that
      *                            client is no longer interested in
@@ -202,7 +257,7 @@ public interface AllJoynProxyObj {
      * @throws BusException
      */
     @BusMethod(signature = "s", replySignature = "u")
-    CancelFindNameResult CancelFindName(String wellKnownNamePrefix) throws BusException;
+    CancelFindAdvertisedNameResult CancelFindAdvertisedName(String wellKnownNamePrefix) throws BusException;
 
     /**
      * Returns the list of currently advertised names of the local AllJoyn daemon.
@@ -211,7 +266,7 @@ public interface AllJoynProxyObj {
      * @throws BusException
      */
     @BusMethod(replySignature = "as")
-    String[] ListAdvertisedNames() throws BusException;
+    String[] GetAdvertisedNames() throws BusException;
 
     /**
      * Called by the bus when a daemon to daemon connection is unexpectedly lost.
@@ -234,7 +289,7 @@ public interface AllJoynProxyObj {
      * @throws BusException
      */
     @BusSignal(signature = "ssss")
-    void FoundName(String name, String guid, String namePrefix, String busAddress) 
+    void FoundAdvertisedName(String name, String guid, String namePrefix, String busAddress) 
         throws BusException;
 
     /**

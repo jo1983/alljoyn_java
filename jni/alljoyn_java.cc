@@ -729,8 +729,8 @@ class JBusObject : public BusObject {
     void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
-    QStatus Signal(const char* destination, const char* ifaceName, const char* signalName, const MsgArg* args,
-                   size_t numArgs, uint32_t timeToLive, uint8_t flags);
+    QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName, 
+                   const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags);
     QStatus Get(const char* ifcName, const char* propName, MsgArg& val);
     QStatus Set(const char* ifcName, const char* propName, MsgArg& val);
     String GenerateIntrospection(bool deep = false, size_t indent = 0) const;
@@ -1154,7 +1154,7 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
     return status;
 }
 
-QStatus JBusObject::Signal(const char* destination, const char* ifaceName, const char* signalName,
+QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
                            const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags)
 {
     const InterfaceDescription* intf = bus.GetInterface(ifaceName);
@@ -1165,7 +1165,7 @@ QStatus JBusObject::Signal(const char* destination, const char* ifaceName, const
     if (!signal) {
         return ER_BUS_OBJECT_NO_SUCH_MEMBER;
     }
-    return BusObject::Signal(destination, *signal, args, numArgs, timeToLive, flags);
+    return BusObject::Signal(destination, sessionId, *signal, args, numArgs, timeToLive, flags);
 }
 
 QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
@@ -1935,19 +1935,20 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv
 
 class JProxyBusObject : public ProxyBusObject {
   public:
-    JProxyBusObject(Bus& bus, const char* endpoint, const char* path);
+    JProxyBusObject(Bus& bus, const char* endpoint, const char* path, SessionId sessionId);
     Bus bus;
 };
 
-JProxyBusObject::JProxyBusObject(Bus& b, const char* endpoint, const char* path)
-    : ProxyBusObject(*b, endpoint, path), bus(b)
+JProxyBusObject::JProxyBusObject(Bus& b, const char* endpoint, const char* path, SessionId sessionId)
+    : ProxyBusObject(*b, endpoint, path, sessionId), bus(b)
 {
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, jobject thiz,
                                                                   jobject jbus,
                                                                   jstring jbusName,
-                                                                  jstring jobjPath)
+                                                                  jstring jobjPath,
+                                                                  short sessionId)
 {
     Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {
@@ -1962,7 +1963,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, j
     if (env->ExceptionCheck()) {
         return;
     }
-    JProxyBusObject* proxyBusObj = new JProxyBusObject(*bus, busName.c_str(), objPath.c_str());
+    JProxyBusObject* proxyBusObj = new JProxyBusObject(*bus, busName.c_str(), objPath.c_str(), sessionId);
     if (!proxyBusObj) {
         Throw("java/lang/OutOfMemoryError", NULL);
     }
@@ -2229,6 +2230,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env,
                                                                  jobject thiz,
                                                                  jobject jbusObj,
                                                                  jstring jdestination,
+                                                                 short sessionId,
                                                                  jstring jifaceName,
                                                                  jstring jsignalName,
                                                                  jstring jinputSig,
@@ -2262,7 +2264,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env,
     if (!Marshal(inputSig.c_str(), jargs, &args)) {
         return;
     }
-    QStatus status = busObj->Signal(destination.c_str(), ifaceName.c_str(), signalName.c_str(),
+    QStatus status = busObj->Signal(destination.c_str(), sessionId, ifaceName.c_str(), signalName.c_str(),
                                     args.v_struct.members, args.v_struct.numMembers, timeToLive, flags);
     if (ER_OK != status) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
