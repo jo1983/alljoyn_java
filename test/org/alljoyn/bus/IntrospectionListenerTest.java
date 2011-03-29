@@ -22,6 +22,7 @@ import org.alljoyn.bus.IntrospectionListener;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.ifaces.Introspectable;
 import org.alljoyn.bus.Status;
 
@@ -68,6 +69,7 @@ public class IntrospectionListenerTest extends TestCase {
 
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.IntrospectionListenerTest",
                                                          "/introspectionlistener",
+                                                         AllJoynProxyObj.SESSION_ID_ANY,
                                                          new Class[] { Introspectable.class });
         Introspectable introspectable = remoteObj.getInterface(Introspectable.class);
         String actual = introspectable.Introspect();

@@ -21,6 +21,7 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.Status;
 
 import java.lang.Thread;
@@ -71,6 +72,7 @@ public class SimpleTest extends TestCase {
         Class[] ifaces = { SimpleInterface.class };
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.samples.simple",
                                                          "/testobject",
+                                                         AllJoynProxyObj.SESSION_ID_ANY,
                                                          ifaces);
         SimpleInterface proxy = remoteObj.getInterface(SimpleInterface.class);
 

@@ -70,14 +70,15 @@ public class ProxyBusObject {
      * @param busAttachment  The connection the remote object is on.
      * @param busName        Well-known or unique bus name of remote object.
      * @param objPath        Object path of remote object.
+     * @param sessionId      The session ID corresponding to the connection to the object.
      * @param busInterfaces  A list of BusInterfaces that this proxy should respond to.
      */
-    protected ProxyBusObject(BusAttachment busAttachment, String busName, String objPath,
+    protected ProxyBusObject(BusAttachment busAttachment, String busName, String objPath, Integer sessionId,
                              Class[] busInterfaces) {
         this.bus = busAttachment;
         this.busName = busName;
         this.objPath = objPath;
-        create(busAttachment, busName, objPath);
+        create(busAttachment, busName, objPath, sessionId);
         replyTimeoutMsecs = 25000;
         proxy = Proxy.newProxyInstance(busInterfaces[0].getClassLoader(), busInterfaces, new Handler());
         try {
@@ -90,7 +91,7 @@ public class ProxyBusObject {
     }
 
     /** Allocate native resources. */
-    private native void create(BusAttachment busAttachment, String busName, String objPath);
+    private native void create(BusAttachment busAttachment, String busName, String objPath, int sessionId);
 
     /** Release native resources. */
     private synchronized native void destroy();

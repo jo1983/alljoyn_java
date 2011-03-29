@@ -197,9 +197,9 @@ public class BusAttachment {
             /* This will not happen */
         }
         create(applicationName, allowRemoteMessages);
-        dbus = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", 
+        dbus = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", AllJoynProxyObj.SESSION_ID_ANY,
                                   new Class[] { DBusProxyObj.class }).getInterface(DBusProxyObj.class);        
-        alljoyn = new ProxyBusObject(this, "org.alljoyn.Bus", "/org/alljoyn/Bus",
+        alljoyn = new ProxyBusObject(this, "org.alljoyn.Bus", "/org/alljoyn/Bus", AllJoynProxyObj.SESSION_ID_ANY,
                                   new Class[] { AllJoynProxyObj.class }).getInterface(AllJoynProxyObj.class);
         executor = Executors.newSingleThreadExecutor();
     }
@@ -446,14 +446,16 @@ public class BusAttachment {
      *
      * @param busName the remote endpoint name (well-known or unique)
      * @param objPath the absolute (non-relative) object path for the object
+     * @param sessionId the session corresponding to the connection to the the object
      * @param busInterfaces an array of BusInterfaces that this proxy should respond to
      * @return a ProxyBusObject for an object that implements all interfaces listed in busInterfaces
      * @see org.alljoyn.bus.annotation.BusMethod
      */
     public ProxyBusObject getProxyBusObject(String busName,
                                             String objPath,
+                                            Integer sessionId,
                                             Class[] busInterfaces) {
-        return new ProxyBusObject(this, busName, objPath, busInterfaces);
+        return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces);
     }
 
     /**

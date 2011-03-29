@@ -278,10 +278,10 @@ extern "C" {
 /*
  * Class:     org_alljoyn_bus_ProxyBusObject
  * Method:    create
- * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/String;Ljava/lang/String;)V
+ * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/String;Ljava/lang/String;I)V
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create
-  (JNIEnv *, jobject, jobject, jstring, jstring);
+(JNIEnv *, jobject, jobject, jstring, jstring, jint);
 
 /*
  * Class:     org_alljoyn_bus_ProxyBusObject

@@ -24,6 +24,7 @@ import org.alljoyn.bus.Status;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.VariantTypeReference;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import static org.alljoyn.bus.Assert.*;
 
 import java.util.Map;
@@ -1077,8 +1078,9 @@ public class MarshalTest extends TestCase {
         assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
 
         Class[] ifaces = { InferredTypesInterface.class, AnnotatedTypesInterface.class };
-        remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testobject", ifaces);
-        remoteNullReturnsObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testnullobject", ifaces);
+        remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testobject", AllJoynProxyObj.SESSION_ID_ANY, ifaces);
+        remoteNullReturnsObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testnullobject", 
+            AllJoynProxyObj.SESSION_ID_ANY, ifaces);
     }
 
     public void tearDown() throws Exception {

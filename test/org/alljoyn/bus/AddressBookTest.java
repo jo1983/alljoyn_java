@@ -22,6 +22,7 @@ import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -124,6 +125,7 @@ public class AddressBookTest extends TestCase {
         Class[] ifaces = { AddressBookInterface.class };
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.addressbook",
                                                          "/addressbook",
+                                                         AllJoynProxyObj.SESSION_ID_ANY,
                                                          ifaces);
         AddressBookInterface proxy = remoteObj.getInterface(AddressBookInterface.class);
     

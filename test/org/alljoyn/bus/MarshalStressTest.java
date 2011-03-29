@@ -21,6 +21,7 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import static junit.framework.Assert.*;
 
@@ -153,7 +154,8 @@ public class MarshalStressTest extends TestCase {
         assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
 
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalStressTest", "/service", 
-                                                        new Class[] { MarshalStressInterfaceInvalid.class });
+                                                         AllJoynProxyObj.SESSION_ID_ANY,
+                                                         new Class[] { MarshalStressInterfaceInvalid.class });
         proxy = remoteObj.getInterface(MarshalStressInterfaceInvalid.class);
     }
 

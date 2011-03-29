@@ -23,6 +23,7 @@ import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.ifaces.Properties;
 
 import java.util.Map;
@@ -81,6 +82,7 @@ public class PropsTest extends TestCase {
         /* Get a remote object */
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.samples.props",
                                                          "/testProperties",
+                                                         AllJoynProxyObj.SESSION_ID_ANY,
                                                          new Class<?>[] { PropsInterface.class,
                                                                           Properties.class });
         PropsInterface proxy = remoteObj.getInterface(PropsInterface.class);

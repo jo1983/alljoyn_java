@@ -351,6 +351,7 @@ public class BusAttachmentTest extends TestCase {
                                          DBusProxyObj.REQUEST_NAME_NO_FLAGS));
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/simple", 
+                                                        AllJoynProxyObj.SESSION_ID_ANY,
                                                         new Class[] { SimpleInterface.class });
         SimpleInterface proxy = proxyObj.getInterface(SimpleInterface.class);
         proxy.Ping("hello");
@@ -412,6 +413,7 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, status);
         ProxyBusObject proxyObj = otherBus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                              "/secure", 
+                                                             AllJoynProxyObj.SESSION_ID_ANY,
                                                              new Class[] { SecureInterface.class });
         SecureInterface proxy = proxyObj.getInterface(SecureInterface.class);
         pinRequested = false;
@@ -442,6 +444,7 @@ public class BusAttachmentTest extends TestCase {
         
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/annotation",
+                                                        AllJoynProxyObj.SESSION_ID_ANY,
                                                         new Class[] { Introspectable.class });
 
         Introspectable introspectable = proxyObj.getInterface(Introspectable.class);
@@ -492,6 +495,7 @@ public class BusAttachmentTest extends TestCase {
         
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/annotation",
+                                                        AllJoynProxyObj.SESSION_ID_ANY,
                                                         new Class[] { AnnotationInterface.class });
         AnnotationInterface proxy = proxyObj.getInterface(AnnotationInterface.class);
         proxy.NoReplyMethod("noreply");
@@ -510,6 +514,7 @@ public class BusAttachmentTest extends TestCase {
                                          DBusProxyObj.REQUEST_NAME_NO_FLAGS));
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/exception", 
+                                                        AllJoynProxyObj.SESSION_ID_ANY,
                                                         new Class[] { SimpleInterface.class });
         SimpleInterface proxy = proxyObj.getInterface(SimpleInterface.class);
         try {

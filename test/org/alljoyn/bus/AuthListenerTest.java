@@ -22,6 +22,7 @@ import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.io.ByteArrayInputStream;
 import java.io.BufferedInputStream;
@@ -482,6 +483,7 @@ public class AuthListenerTest extends TestCase {
         assertEquals(Status.OK, bus.connect());
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/secure", 
+                                                        AllJoynProxyObj.SESSION_ID_ANY,
                                                         new Class[] { SecureInterface.class, InsecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
         insecureProxy = proxyObj.getInterface(InsecureInterface.class);
@@ -877,6 +879,7 @@ public class AuthListenerTest extends TestCase {
         assertEquals(Status.OK, bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener));
         ProxyBusObject proxyObj = bus.getProxyBusObject("unknown.name",
                                                         "/secure", 
+                                                        AllJoynProxyObj.SESSION_ID_ANY,
                                                         new Class[] { SecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
         boolean thrown = false;

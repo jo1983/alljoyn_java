@@ -60,7 +60,7 @@ public class PeerTest extends TestCase {
         assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
 
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.ifaces.PeerTest",
-                                                         "/testobject", 
+                                                         "/testobject", AllJoynProxyObj.SESSION_ID_ANY,
                                                          new Class[] { Peer.class });
         peer = remoteObj.getInterface(Peer.class);
     }

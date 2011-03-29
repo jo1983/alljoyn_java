@@ -1948,7 +1948,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, j
                                                                   jobject jbus,
                                                                   jstring jbusName,
                                                                   jstring jobjPath,
-                                                                  short sessionId)
+                                                                  jint sessionId)
 {
     Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {

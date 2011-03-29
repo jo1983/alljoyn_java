@@ -22,6 +22,7 @@ import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.io.File;
 
@@ -103,6 +104,7 @@ public class KeyStoreListenerTest extends TestCase {
         assertEquals(Status.OK, otherBus.connect());
         ProxyBusObject proxyObj = otherBus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                              "/secure", 
+                                                             AllJoynProxyObj.SESSION_ID_ANY,
                                                              new Class[] { SecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
     }

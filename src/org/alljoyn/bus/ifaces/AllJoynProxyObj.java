@@ -63,6 +63,11 @@ public interface AllJoynProxyObj {
      */
     public static Short SESSION_PORT_ANY = 0;
 
+    /** 
+     * When passed to ProxyBusObject, the system will use any available connection.
+     */
+    public static Integer SESSION_ID_ANY = 0;
+
     /** {@link #BindSessionPort(Short, Boolean, SessionOpts, Short)} return value. */
     enum BindSessionPortResult {
 

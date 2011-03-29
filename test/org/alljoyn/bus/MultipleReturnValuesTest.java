@@ -22,6 +22,7 @@ import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import static org.alljoyn.bus.Assert.*;
 
 import java.util.HashMap;
@@ -95,6 +96,7 @@ public class MultipleReturnValuesTest extends TestCase {
         
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MultipleReturnValuesTest",
                                                          "/service",
+                                                         AllJoynProxyObj.SESSION_ID_ANY,
                                                          new Class[] { MultipleReturnValuesInterface.class });
         MultipleReturnValuesInterface proxy = remoteObj.getInterface(MultipleReturnValuesInterface.class);
         MultipleReturnValuesInterface.Values ret = proxy.Method();
