@@ -20,6 +20,8 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
 import org.alljoyn.bus.annotation.BusSignal;
+import org.alljoyn.bus.annotation.Position;
+import org.alljoyn.bus.annotation.Signature;
 
 /**
  * A predefined bus interface that is implemented by the local AllJoyn daemon.  It
@@ -31,23 +33,33 @@ public interface AllJoynProxyObj {
     /** 
      * The session options (characteristics) used by sessions (cf. socket options).
      */
+    public static Byte TRAFFIC_MESSAGES       = 0x01;
+    public static Byte TRAFFIC_RAW_UNRELIABLE = 0x02;
+    public static Byte TRAFFIC_RAW_RELIABLE   = 0x04;
+    
+    public static Byte PROXIMITY_ANY      = (byte)0xff;
+    public static Byte PROXIMITY_PHYSICAL = 0x01;
+    public static Byte PROXIMITY_NETWORK  = 0x02;
+    
+    public static Short TRANSPORT_NONE      = 0x0000;
+    public static Short TRANSPORT_ANY       = (short)0xffff;
+    public static Short TRANSPORT_LOCAL     = 0x0001;
+    public static Short TRANSPORT_BLUETOOTH = 0x0002;
+    public static Short TRANSPORT_WLAN      = 0x0004;
+    public static Short TRANSPORT_WWAN      = 0x0008;
+
     public class SessionOpts {
-        public static Byte TRAFFIC_MESSAGES       = 0x01;
-        public static Byte TRAFFIC_RAW_UNRELIABLE = 0x02;
-        public static Byte TRAFFIC_RAW_RELIABLE   = 0x04;
+
+        @Position(0) 
+        @Signature("y")
         public Byte traffic;
 
-        public static Byte PROXIMITY_ANY      = (byte)0xff;
-        public static Byte PROXIMITY_PHYSICAL = 0x01;
-        public static Byte PROXIMITY_NETWORK  = 0x02;
+        @Position(1)
+        @Signature("y")
         public Byte proximity;
 
-        public static Short TRANSPORT_NONE      = 0x0000;
-        public static Short TRANSPORT_ANY       = (short)0xffff;
-        public static Short TRANSPORT_LOCAL     = 0x0001;
-        public static Short TRANSPORT_BLUETOOTH = 0x0002;
-        public static Short TRANSPORT_WLAN      = 0x0004;
-        public static Short TRANSPORT_WWAN      = 0x0008;
+        @Position(2)
+        @Signature("q")
         public Short transports;
 
         public SessionOpts() {
@@ -68,9 +80,7 @@ public interface AllJoynProxyObj {
      */
     public static Integer SESSION_ID_ANY = 0;
 
-    /** {@link #BindSessionPort(Short, Boolean, SessionOpts, Short)} return value. */
     enum BindSessionPortResult {
-
         /** Invalid. */
         Invalid,
 
@@ -82,6 +92,12 @@ public interface AllJoynProxyObj {
 
         /** Connect failed. */
         Failed;
+    }
+
+    /** {@link #BindSessionPort(Short, Boolean, SessionOpts, Short)} return values. */
+    public class BindSessionPortReturns {
+        @Position(0) public BindSessionPortResult rc;
+        @Position(1) public short boundPort;
     }
 
     /**
@@ -98,15 +114,17 @@ public interface AllJoynProxyObj {
      * @param SessionOpts The session options describing the characteristics of
      *     session instances.
      *
-     * @return a status code indicating success or failure
+     * @return a structure containing a status code indicating success or failure
+     *     and a boundPort containing the actual port bound (useful if 
+     *     SESSION_PORT_ANY was specified.
+     *
      * @throws BusException
      */
     @BusMethod(signature = "qb(yyq)", replySignature = "uq")
-    BindSessionPortResult BindSessionPort(Short sessionPort, Boolean isMultipoint, SessionOpts sessionOpts, Short boundPort) throws BusException;
+    BindSessionPortReturns BindSessionPort(Short sessionPort, Boolean isMultipoint, SessionOpts sessionOpts) throws BusException;
 
-    /** {@link #JoinSession(String,Short,SessionOpts,Integer,SessionOpts)} return value. */
+    /** {@link #JoinSession(String,Short,SessionOpts)} result codess. */
     enum JoinSessionResult {
-
         /** Invalid. */
         Invalid,
 
@@ -132,24 +150,26 @@ public interface AllJoynProxyObj {
         Failed;
     }
 
+    /** {@link #JoinSession(String,Short,SessionOpts,Integer,SessionOpts)} return values. */
+    public class JoinSessionReturns {
+        @Position(0) public JoinSessionResult rc;
+        @Position(1) public int sessionId;
+        @Position(2) public SessionOpts sessionOpts;
+    }
+
     /**
      * Requests the local daemon to join to a session hosted on a given bus
      * address, over a given contact session port.
      *
-     * @param sessionHost  The bus name of an endpoint that is hosting the 
-     *     session.
+     * @param sessionHost  The bus name of an endpoint that is hosting the session.
      * @param sessionPort  The contact session port of the hosted session.
-     * @param inOpts       The session options describing the desired
-     *                     characteristics of the new session.
-     * @param sessionId    The session identifier of the resulting session.
-     * @param outOpts      The session options describing the actual
-     *                     characteristics of the new session.
+     * @param sessionOpts  The session options describing the desired characteristics of the new session.
      *
      * @return a status code indicating success or failure
      * @throws BusException
      */
     @BusMethod(signature = "sq(yyq)", replySignature = "uu(yyq)")
-    JoinSessionResult JoinSession(String sessionHost, Short sessionPort, SessionOpts inOpts, Integer sessionId, SessionOpts outOpts) throws BusException;
+    JoinSessionReturns JoinSession(String sessionHost, Short sessionPort, SessionOpts sessionOpts) throws BusException;
 
     /** {@link #LeaveSession(Integer)} return value. */
     enum LeaveSessionResult {

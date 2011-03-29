@@ -322,16 +322,15 @@ public class AllJoynChat extends Activity {
                 Short contactPortRequested = 42;
                 Boolean isMultipoint = false;
                 AllJoynProxyObj.SessionOpts sessionOpts = new AllJoynProxyObj.SessionOpts();
-                sessionOpts.traffic = AllJoynProxyObj.SessionOpts.TRAFFIC_MESSAGES;
-                sessionOpts.proximity = AllJoynProxyObj.SessionOpts.PROXIMITY_ANY;
-                sessionOpts.transports = AllJoynProxyObj.SessionOpts.TRANSPORT_ANY;
-                Short contactPortAssigned = 0;
+                sessionOpts.traffic = AllJoynProxyObj.TRAFFIC_MESSAGES;
+                sessionOpts.proximity = AllJoynProxyObj.PROXIMITY_ANY;
+                sessionOpts.transports = AllJoynProxyObj.TRANSPORT_ANY;
 
                 try {
-					AllJoynProxyObj.BindSessionPortResult bindSessionPortResult = 
-					    alljoynProxy.BindSessionPort(contactPortRequested, isMultipoint, sessionOpts, contactPortAssigned);
+					AllJoynProxyObj.BindSessionPortReturns bindSessionPortReturns = 
+					    alljoynProxy.BindSessionPort(contactPortRequested, isMultipoint, sessionOpts);
                 } catch (BusException ex) {
-                    logException("BusException while trying to Advertise service", ex);
+                    logException("BusException while trying to bind to session contact port", ex);
                 }
 
 
@@ -462,19 +461,21 @@ public class AllJoynChat extends Activity {
                      */
                     Short contactPort = 42;
                     AllJoynProxyObj.SessionOpts requestedOpts = new AllJoynProxyObj.SessionOpts();
-                    requestedOpts.traffic = AllJoynProxyObj.SessionOpts.TRAFFIC_MESSAGES;
-                    requestedOpts.proximity = AllJoynProxyObj.SessionOpts.PROXIMITY_ANY;
-                    requestedOpts.transports = AllJoynProxyObj.SessionOpts.TRANSPORT_ANY;
-                    AllJoynProxyObj.SessionOpts actualOpts = new AllJoynProxyObj.SessionOpts();
-                    Integer sessionId = 0;
+                    requestedOpts.traffic = AllJoynProxyObj.TRAFFIC_MESSAGES;
+                    requestedOpts.proximity = AllJoynProxyObj.PROXIMITY_ANY;
+                    requestedOpts.transports = AllJoynProxyObj.TRANSPORT_ANY;
 
-                    AllJoynProxyObj.JoinSessionResult joinSessionResult = 
-                        alljoynProxy.JoinSession((String) msg.obj, 
-                            contactPort, requestedOpts, sessionId, actualOpts);
-                    logStatus("AllJoynProxyObj.JoinSessionResult()", joinSessionResult,
+                    /*
+                     * JoinSession has multiple return values so we must stick them
+                     * into a structure.  One of the return values is the return code
+                     * for the JoinSession call and the other is the new session ID.
+                     */
+                    AllJoynProxyObj.JoinSessionReturns joinSessionReturns = 
+                        alljoynProxy.JoinSession((String) msg.obj, contactPort, requestedOpts);
+                    logStatus("AllJoynProxyObj.JoinSessionReturns.rc", joinSessionReturns.rc,
                         AllJoynProxyObj.JoinSessionResult.Success);
-                    if (AllJoynProxyObj.JoinSessionResult.Success == joinSessionResult) {
-                        mSessionList.add(sessionId);
+                    if (AllJoynProxyObj.JoinSessionResult.Success == joinSessionReturns.rc) {
+                        mSessionList.add(joinSessionReturns.sessionId);
                         mIsConnected = true; 
                     }
                 } catch (BusException ex) {

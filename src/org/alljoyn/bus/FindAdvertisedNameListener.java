@@ -18,35 +18,35 @@ package org.alljoyn.bus;
 
 /**
  * Called by AllJoyn to inform users of found names.
- * @see BusAttachment#findName(String, FindNameListener)
+ * @see BusAttachment#findAdvertisedName(String, FindAdvetisedNameListener)
  */
-public interface FindNameListener {
+public interface FindAdvertisedNameListener {
 
     /**
      * Called by the bus when an external bus is discovered that is advertising
      * a well-known name that this attachment has registered interest in via
-     * {@link BusAttachment#findName(String, FindNameListener)}.
+     * {@link BusAttachment#findAdvertisedName(String, FindAdvertisedNameListener)}.
      *
      * @param name a well known name that the remote bus is advertising that is
      *             of interest to this attachment
      * @param guid the GUID of the remote bus daemon
      * @param namePrefix the well-known name prefix that was used in a call to
-     *                   {@code findName} that triggered this callback
+     *                   {@code findAdvertisedName} that triggered this callback
      * @param busAddress the connection address of the remote bus (used for
      *                   informational purposes only)
      */
-    void foundName(String name, String guid, String namePrefix, String busAddress);
+    void foundAdvertisedName(String name, String guid, String namePrefix, String busAddress);
 
     /**
      * Called by the bus when a previously discovered name advertisement (reported
      * through foundName) is determined to have become unavailable.
-     * {@link BusAttachment#findName(String, FindNameListener)}.
+     * {@link BusAttachment#findAdvertisedName(String, FindAdvertisedNameListener)}.
      *
      * @param name a well-known name that the remote bus was advertising that is
      *             of interest to this attachment.
      * @param guid the GUID of the remote bus daemon.
      * @param namePrefix the well-known name prefix that was used in a call to
-     *                   {@code findName} that triggered this callback.
+     *                   {@code findAdvertisedName} that triggered this callback.
      * @param busAddress the connection address of the remote bus (used for
      *                   informational purposes only)
      */

@@ -85,6 +85,9 @@ public class AllJoynProxyObjTest extends TestCase {
     }
 
     public void testConnectDisconnect() throws Exception {
+//
+// TODO:  No such thing as connect
+//
 //        daemon = new AllJoynDaemon();
 //        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
 //        assertEquals(AllJoynProxyObj.DisconnectResult.Success, alljoyn.Disconnect(daemon.remoteAddress()));
@@ -145,15 +148,18 @@ public class AllJoynProxyObjTest extends TestCase {
     }
 
     public void testBusConnectionLost() throws Exception {
-//        daemon = new AllJoynDaemon();
-//        bus.registerSignalHandlers(this);
-//        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
-//        lostAddress = null;
-//        daemon.stop();
+        daemon = new AllJoynDaemon();
+        bus.registerSignalHandlers(this);
 //
-//        Thread.currentThread().sleep(1000);
-//        assertEquals(daemon.remoteAddress(), lostAddress);
-//        daemon = null;
+// TODO:  No such thing as connect
+//
+//        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
+        lostAddress = null;
+        daemon.stop();
+
+        Thread.currentThread().sleep(1000);
+        assertEquals(daemon.remoteAddress(), lostAddress);
+        daemon = null;
     }
 
     @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "LostAdvertisedName")
@@ -182,18 +188,30 @@ public class AllJoynProxyObjTest extends TestCase {
     }
 
     public void testNullDisconnect() throws Exception {
+//
+// TODO:  No such thing as disconnect
+//
 //        assertEquals(AllJoynProxyObj.DisconnectResult.Failed, alljoyn.Disconnect(""));
     }
 
     public void testInvalidDisconnect() throws Exception {
+//
+// TODO:  No such thing as disconnect
+//
 //        assertEquals(AllJoynProxyObj.DisconnectResult.Failed, alljoyn.Disconnect("unix:abstract=InvalidAddress"));
     }
 
     public void testNullConnect() throws Exception {
+//
+// TODO:  No such thing as connect
+//
 //        assertEquals(AllJoynProxyObj.ConnectResult.InvalidSpec, alljoyn.Connect(""));
     }
 
     public void testInvalidConnect() throws Exception {
+//
+// TODO:  No such thing as connect
+//
 //        assertEquals(AllJoynProxyObj.ConnectResult.Failed, alljoyn.Connect("unix:abstract=InvalidAddress"));
     }
 }
