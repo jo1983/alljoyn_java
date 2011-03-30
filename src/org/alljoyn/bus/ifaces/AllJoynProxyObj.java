@@ -30,24 +30,84 @@ import org.alljoyn.bus.annotation.Signature;
  */
 @BusInterface(name = "org.alljoyn.Bus")
 public interface AllJoynProxyObj {
+
+    /**
+     * Use reliable message-based communication to move data between session endpoints.
+     */
+    public static Byte TRAFFIC_MESSAGES       = 0x01;
+
+    /**
+     * Use unreliable (e.g., UDP) socket-based communication to move data between
+     * session endpoints.  RAW does not imply raw sockets (that bypass ALL
+     * enapsulation possibly down to the MAC level), it implies raw in an AllJoyn
+     * sense --MESSAGE encapsulation is not used, but for example UDP + IP + MAC
+     * encapsulation is used.
+     */
+    public static Byte TRAFFIC_RAW_UNRELIABLE = 0x02;
+
+    /**
+     * Use reliable (e.g., TCP) socket-based communication to move data between
+     * session endpoints.  RAW does not imply raw sockets (that bypass ALL
+     * enapsulation possibly down to the MAC level), it implies raw in an AllJoyn
+     * sense --MESSAGE encapsulation is not used, but for example UDP + IP + MAC
+     * encapsulation is used.
+     */
+    public static Byte TRAFFIC_RAW_RELIABLE   = 0x04;
+    
+    /**
+     * Do not limit the spatial scope of sessions.  This means that sessions may
+     * be joined by jointers located anywhere.
+     */
+    public static Byte PROXIMITY_ANY      = (byte)0xff;
+
+    /**
+     * Limit the spatial scope of sessions to the local host.  Interpret as 
+     * "the same physical machine."  This means that sessions may be joined by
+     * jointers located only on the same physical machine as the one hosting the
+     * session.
+     */
+    public static Byte PROXIMITY_PHYSICAL = 0x01;
+
+    /**
+     * Limit the spatial scope of sessions to anwhere on the local logical
+     * network segment.  This means that sessions may be joined by jointers
+     * located somewhere on the network.
+     */
+    public static Byte PROXIMITY_NETWORK  = 0x02;
+    
+    /**
+     * Use no transport to communicate with a given session.
+     */
+    public static Short TRANSPORT_NONE      = 0x0000;
+
+    /**
+     * Use any available transport to communicate with a given session.
+     */
+    public static Short TRANSPORT_ANY       = (short)0xffff;
+
+    /**
+     * Use only the local transport to communicate with a given session.
+     */
+    public static Short TRANSPORT_LOCAL     = 0x0001;
+
+    /**
+     * Use only Bluetooth transport to communicate with a given session.
+     */
+    public static Short TRANSPORT_BLUETOOTH = 0x0002;
+
+    /**
+     * Use only a wireless local area network to communicate with a given session.
+     */
+    public static Short TRANSPORT_WLAN      = 0x0004;
+
+    /**
+     * Use only a wireless wide area network to communicate with a given session.
+     */
+    public static Short TRANSPORT_WWAN      = 0x0008;
+
     /** 
      * The session options (characteristics) used by sessions (cf. socket options).
      */
-    public static Byte TRAFFIC_MESSAGES       = 0x01;
-    public static Byte TRAFFIC_RAW_UNRELIABLE = 0x02;
-    public static Byte TRAFFIC_RAW_RELIABLE   = 0x04;
-    
-    public static Byte PROXIMITY_ANY      = (byte)0xff;
-    public static Byte PROXIMITY_PHYSICAL = 0x01;
-    public static Byte PROXIMITY_NETWORK  = 0x02;
-    
-    public static Short TRANSPORT_NONE      = 0x0000;
-    public static Short TRANSPORT_ANY       = (short)0xffff;
-    public static Short TRANSPORT_LOCAL     = 0x0001;
-    public static Short TRANSPORT_BLUETOOTH = 0x0002;
-    public static Short TRANSPORT_WLAN      = 0x0004;
-    public static Short TRANSPORT_WWAN      = 0x0008;
-
     public class SessionOpts {
 
         @Position(0) 
@@ -123,7 +183,7 @@ public interface AllJoynProxyObj {
     @BusMethod(signature = "qb(yyq)", replySignature = "uq")
     BindSessionPortReturns BindSessionPort(Short sessionPort, Boolean isMultipoint, SessionOpts sessionOpts) throws BusException;
 
-    /** {@link #JoinSession(String,Short,SessionOpts)} result codess. */
+    /** {@link #JoinSession(String,Short,SessionOpts)} result codes. */
     enum JoinSessionResult {
         /** Invalid. */
         Invalid,
@@ -199,7 +259,7 @@ public interface AllJoynProxyObj {
     @BusMethod(signature = "u", replySignature = "u")
     LeaveSessionResult LeaveSession(Integer sessionId) throws BusException;
 
-    /** {@link #AdvertiseName(String)} return value.*/
+    /** {@link #AdvertiseName(String, Short)} return value.*/
     enum AdvertiseNameResult {
 
         /** Invalid. */
@@ -222,11 +282,13 @@ public interface AllJoynProxyObj {
      * 
      * @param wellKnownName well-known name of the attachment that wishes to be
      *                      advertised to remote AllJoyn instances
+     * @param transports    a 16-bit bit-field with '1's indicating the transports
+     *                      over which this advertisement should be made
      * @return a status code indicating success or failure
      * @throws BusException
      */
-    @BusMethod(signature = "s", replySignature = "u")
-    AdvertiseNameResult AdvertiseName(String wellKnownName) throws BusException;
+    @BusMethod(signature = "sq", replySignature = "u")
+    AdvertiseNameResult AdvertiseName(String wellKnownName, Short transports) throws BusException;
 
     /** {@link #CancelAdvertiseName(String)} return value.*/
     enum CancelAdvertiseNameResult {
@@ -273,10 +335,11 @@ public interface AllJoynProxyObj {
     /**
      * Registers interest in a well-known attachment name being advertised by a
      * remote AllJoyn instance.  When the local AllJoyn daemon receives such an
-     * advertisement it will send a {@link #FoundAdvertisedName(String, String,
-     * String, String)} signal. This attachment can then choose to ignore the
-     * advertisement or to connect to the remote bus by calling {@link
-     * #Connect(String)}.
+     * advertisement it will send a {@link #FoundAdvertisedName(String, Short,
+     * String)} signal. This attachment can then choose to ignore the
+     * advertisement or to join the corresponding session {@link 
+     * #JoinSession(String,Short,SessionOpts)}
+     * 
      *
      * @param wellKnownNamePrefix well-known name prefix of the attachment that client is
      *                            interested in
@@ -334,29 +397,28 @@ public interface AllJoynProxyObj {
      * well-known names from a remote AllJoyn instance.
      *
      * @param name well-known name that was found
-     * @param guid the GUID of the remote bus that was found to be advertising name
+     * @param transport the bit-field indicating the kind of transport over which the
+     *        advertisement was received.
      * @param namePrefix well-known name prefix used in call to {@link
      *                   #FindName(String)} that triggered this notification
-     * @param busAddress the bus address of the remote bus
      * @throws BusException
      */
-    @BusSignal(signature = "ssss")
-    void FoundAdvertisedName(String name, String guid, String namePrefix, String busAddress) 
+    @BusSignal(signature = "sqs")
+    void FoundAdvertisedName(String name, Short transport, String namePrefix) 
         throws BusException;
 
     /**
-     * Called by the bus when an advertisement previously reported through FoundName has become
-     * unavailable.
+     * Called by the bus when an advertisement previously reported through
+     * FoundAdvertisedName has become unavailable.
      *
      * @param name a well known name that the remote bus is advertising that is of interest to this
      *             attachment
-     * @param guid the GUID of the remote bus daemon
+     * @param transport the bit-field indicating the kind of transport over which the original
+     *        advertisement was received.
      * @param namePrefix the well-known name prefix that was used in a call to FindName that
      *                   triggered this callback
-     * @param busAddress the connection address of the remote bus (used for informational purposes
-     *                   only)
      */
-    @BusSignal(signature = "ssss")
-    void LostAdvertisedName(String name, String guid, String namePrefix, String busAddress)
+    @BusSignal(signature = "sqs")
+    void LostAdvertisedName(String name, Short transport, String namePrefix)
         throws BusException;
 }

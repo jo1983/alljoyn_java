@@ -230,7 +230,7 @@ public class AllJoynChat extends Activity {
          * will be handled by the Bus. This Method must exist in the ChatInterface
          * so that signals can be sent.  
          */
-        public void Chat(String str) throws BusException {
+        public void Chat(Integer sessionId, String str) throws BusException {
             // Empty method
         }
         
@@ -246,7 +246,7 @@ public class AllJoynChat extends Activity {
         
         public static final int CONNECT = 1;
         public static final int START_DISCOVER = 2;
-        private static final int CONNECT_WITH_REMOTE_BUS = 3;
+        private static final int JOIN_SESSION = 3;
         public static final int END_DISCOVER = 4;
         public static final int CHAT = 5;
         public static final int DISCONNECT = 6;
@@ -329,6 +329,12 @@ public class AllJoynChat extends Activity {
                 try {
 					AllJoynProxyObj.BindSessionPortReturns bindSessionPortReturns = 
 					    alljoynProxy.BindSessionPort(contactPortRequested, isMultipoint, sessionOpts);
+
+	                //logStatus(String.format("AllJoynProxyObj.BindSessionPort(%d, %d, 0x%x 0x%x 0x%x) boundPort %d",
+	                	//	contactPortRequested, isMultipoint, sessionOpts.traffic, sessionOpts.proximity, 
+	                    //	sessionOpts.transports, bindSessionPortReturns.boundPort
+	                	//	), status);
+
                 } catch (BusException ex) {
                     logException("BusException while trying to bind to session contact port", ex);
                 }
@@ -386,10 +392,10 @@ public class AllJoynChat extends Activity {
                     
                     if (requestNameResult == DBusProxyObj.RequestNameResult.PrimaryOwner) {
                         /*
-                         * Advertise the same well-known name.
+                         * Advertise the same well-known name over all of the available transports.
                          */
                         AllJoynProxyObj.AdvertiseNameResult advertiseNameResult = 
-                            alljoynProxy.AdvertiseName(wellKnownName);
+                            alljoynProxy.AdvertiseName(wellKnownName, AllJoynProxyObj.TRANSPORT_ANY);
                         logStatus(String.format("AllJoynProxyObj.AdvertiseName(%s)", wellKnownName), 
                             advertiseNameResult, AllJoynProxyObj.AdvertiseNameResult.Success);
                         
@@ -439,13 +445,13 @@ public class AllJoynChat extends Activity {
 
             /*
              * When the 'FoundAdvertisedName' signal is received it will send
-             * the address of the remote bus to this BusHandler case. The
-             * AllJoyn connect method is used to make a P2P connection between
-             * two separate buses.
+             * the well-known name of the found service to this BusHandler case. The
+             * AllJoyn JoinSession method is used to make a P2P connection between
+             * our client and the remote service.
              */
-            case (CONNECT_WITH_REMOTE_BUS): {
+            case (JOIN_SESSION): {
                 /*
-                 * If discovery is currently being stopped don't connect to any other remote buses.
+                 * If discovery is currently being stopped don't join to any other sessions.
                  */
                 if (mIsStoppingDiscovery) {
                     break;
@@ -453,9 +459,9 @@ public class AllJoynChat extends Activity {
                 try { 
                     /*
                      * We got a discovery event, so let's try and join the chat
-                     * session hosted by the machine itendified in the msg.
-                     * Because it is identified as a chat service, we know what
-                     * contact session port to use.  We use the same session 
+                     * session identified by the well-known-name passed in the msg.
+                     * Because the only thing we are looking for are chat services,
+                     * we know what contact session port to use.  We use the same session 
                      * options as those we create when we're acting as the 
                      * service so we know they will match.
                      */
@@ -527,8 +533,11 @@ public class AllJoynChat extends Activity {
             }
             case (CHAT): {
                 try {
-                    mChatInterface.Chat((String) msg.obj);
-                    Log.i(TAG, String.format("Chat(%s) msg sent", (String) msg.obj));
+                	for (Integer sessionId : mSessionList) {
+                		mChatInterface.Chat(sessionId, (String) msg.obj);
+                        Log.i(TAG, String.format("Chat(%s) msg sent to session %d", (String) msg.obj, sessionId));
+                	}
+
                 } catch (BusException ex) {
                     logException("ChatInterface.Chat()", ex);
                 }
@@ -580,9 +589,10 @@ public class AllJoynChat extends Activity {
          * CONNECT_WITH_REMOTE_BUS case.  
          */
         @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "FoundAdvertisedName")
-        public void FoundAdvertisedName(String name, String guid, String namePrefix, String busAddress) {
-            Log.i(TAG, String.format("org.alljoyn.Bus.FoundName signal detected."));
-            Message msg = obtainMessage(CONNECT_WITH_REMOTE_BUS, busAddress);
+        public void FoundAdvertisedName(String name, Short transport, String namePrefix) {
+            Log.i(TAG, String.format("org.alljoyn.Bus.FoundAdvertisedName(\"%s\", 0x%04x, \"%s\") signal detected.",
+            		name, transport, namePrefix));
+            Message msg = obtainMessage(JOIN_SESSION, name);
             sendMessage(msg);
         }
 

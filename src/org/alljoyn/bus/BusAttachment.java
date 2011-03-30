@@ -188,10 +188,10 @@ public class BusAttachment {
         findAdvertisedNameListeners = Collections.synchronizedMap(new HashMap<String, FindAdvertisedNameListener>());
         try {
             foundAdvertisedName = getClass().getDeclaredMethod(
-                "foundAdvertisedName", String.class, String.class, String.class, String.class);
+                "foundAdvertisedName", String.class, Short.class, String.class);
             foundAdvertisedName.setAccessible(true);
             lostAdvertisedName = getClass().getDeclaredMethod(
-                "lostAdvertisedName", String.class, String.class, String.class, String.class);
+                "lostAdvertisedName", String.class, Short.class, String.class);
             lostAdvertisedName.setAccessible(true);
         } catch (NoSuchMethodException ex) {
             /* This will not happen */
@@ -237,38 +237,36 @@ public class BusAttachment {
             Object obj, Method handlerMethod, String source);
 
     @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "FoundAdvertisedName")
-    private void foundAdvertisedName(String name, String guid, String namePrefix, String busAddress) {
+    private void foundAdvertisedName(String name, Short transport, String namePrefix) {
         final FindAdvertisedNameListener listener;
         synchronized (findAdvertisedNameListeners) {
             listener = findAdvertisedNameListeners.get(namePrefix);
         }
         final String n = name;
-        final String g = guid;
+        final Short t = transport;
         final String np = namePrefix;
-        final String ba = busAddress;
         if (listener != null) {
             execute(new Runnable() {
                     public void run() { 
-                        listener.foundAdvertisedName(n, g, np, ba); 
+                        listener.foundAdvertisedName(n, t, np); 
                     }
                 });
         }
     }
 
     @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "LostAdvertisedName")
-    private void lostAdvertisedName(String name, String guid, String namePrefix, String busAddress) {
+    private void lostAdvertisedName(String name, Short transport, String namePrefix) {
         final FindAdvertisedNameListener listener;
         synchronized (findAdvertisedNameListeners) {
             listener = findAdvertisedNameListeners.get(namePrefix);
         }
         final String n = name;
-        final String g = guid;
+        final Short t = transport;
         final String np = namePrefix;
-        final String ba = busAddress;
         if (listener != null) {
             execute(new Runnable() {
                     public void run() { 
-                        listener.lostAdvertisedName(n, g, np, ba); 
+                        listener.lostAdvertisedName(n, t, np); 
                     }
                 });
         }
@@ -349,15 +347,18 @@ public class BusAttachment {
      *                                             DBusProxyObj.REQUEST_NAME_REPLACE_EXISTING | DBusProxyObj.REQUEST_NAME_DO_NOT_QUEUE);
      * 
      * if (policy == BusAttachment.RemoteMessage.Receive) {
-     *     busAttachment.getAllJoynProxyObj().AdvertiseName(wellKnownName);
+     *     busAttachment.getAllJoynProxyObj().AdvertiseName(wellKnownName, transports);
      * }</pre>
      *
-     * @param wellKnownName the well-known name to request and optionally
-     *                      advertise
+     * @param wellKnownName the well-known name to request.  If the bus attachment allows
+     *                      remote messages, the well-known name will be advertised.
+     * @param transports    transports to advertise over.  If the bus attachemnt allows
+     *                      remote messages, the well-known name will be advertised over
+     *                      the transports specified by '1's in the transports bitfield.
      * @return OK if successful
      * @see #BusAttachment(String, RemoteMessage)
      */
-    public Status connect(String wellKnownName) {
+    public Status connect(String wellKnownName, short transports) {
         try {
             Status status = connect();
             if (status != Status.OK) {
@@ -371,7 +372,7 @@ public class BusAttachment {
                 return Status.BUS_NOT_OWNER;
             }
             if (allowRemoteMessages) {
-                AllJoynProxyObj.AdvertiseNameResult advertiseResult = alljoyn.AdvertiseName(wellKnownName);
+                AllJoynProxyObj.AdvertiseNameResult advertiseResult = alljoyn.AdvertiseName(wellKnownName, transports);
                 if (advertiseResult != AllJoynProxyObj.AdvertiseNameResult.Success 
                     && advertiseResult != AllJoynProxyObj.AdvertiseNameResult.AlreadyAdvertising) {
                     return Status.FAIL;
@@ -686,13 +687,13 @@ public class BusAttachment {
 
     /**
      * Finds instances of a well-known attachment name.  When the name is found,
-     * {@link FindAdvertisedNameListener#foundAdvertisedName(String, String, String, String)} is
-     * called.  The application can then choose to ignore the name or connect a
-     * proxy bus object to it with {@link ProxyBusObject#connect(String)}.
+     * {@link FindAdvertisedNameListener#foundAdvertisedName(String, Short, String)} is
+     * called.  The application can then choose to ignore the name or join the corresponding
+     * session with {@link AllJoynProxyObj##JoinSession(String,Short,SessionOpts)}.
      * <p>
      * This method does the following:
      * <pre>
-     * Method foundAdvertisedName = listener.getClass().getMethod("foundAdvertisedName", String.class, String.class, String.class, String.class);
+     * Method foundAdvertisedName = listener.getClass().getMethod("foundAdvertisedName", String.class, Short.class, String.class);
      * busAttachment.registerSignalHandler("org.alljoyn.Bus", "FoundAdvertisedName", listener, foundAdvertisedName);
      *
      * busAttachment.getAllJoynProxyObj().FindAdvertisedName(wellKnownName);</pre>
@@ -744,7 +745,7 @@ public class BusAttachment {
      * <pre>
      * busAttachment.getAllJoynProxyObj().CancelFindAdvertisedName(wellKnownName);
      *
-     * Method foundAdvertisedName = listener.getClass().getMethod("foundAdvertisedName", String.class, String.class, String.class, String.class);
+     * Method foundAdvertisedName = listener.getClass().getMethod("foundAdvertisedName", String.class, Short.class, String.class);
      * busAttachment.deregisterSignalHandler("org.alljoyn.Bus", "FoundAdvertisedName", listener, foundAdvertisedName);</pre>
      * 
      * @param wellKnownNamePrefix well-known name prefix of the attachment that

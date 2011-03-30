@@ -29,13 +29,12 @@ public interface FindAdvertisedNameListener {
      *
      * @param name a well known name that the remote bus is advertising that is
      *             of interest to this attachment
-     * @param guid the GUID of the remote bus daemon
+     * @param transport the bit-field indicating the kind of transport over which the
+     *        advertisement was received.
      * @param namePrefix the well-known name prefix that was used in a call to
      *                   {@code findAdvertisedName} that triggered this callback
-     * @param busAddress the connection address of the remote bus (used for
-     *                   informational purposes only)
      */
-    void foundAdvertisedName(String name, String guid, String namePrefix, String busAddress);
+    void foundAdvertisedName(String name, Short transport, String namePrefix);
 
     /**
      * Called by the bus when a previously discovered name advertisement (reported
@@ -44,11 +43,10 @@ public interface FindAdvertisedNameListener {
      *
      * @param name a well-known name that the remote bus was advertising that is
      *             of interest to this attachment.
-     * @param guid the GUID of the remote bus daemon.
+     * @param transport the bit-field indicating the kind of transport over which the
+     *        original advertisement was received.
      * @param namePrefix the well-known name prefix that was used in a call to
      *                   {@code findAdvertisedName} that triggered this callback.
-     * @param busAddress the connection address of the remote bus (used for
-     *                   informational purposes only)
      */
-    void lostAdvertisedName(String name, String guid, String namePrefix, String busAddress);
+    void lostAdvertisedName(String name, Short transport, String namePrefix);
 }

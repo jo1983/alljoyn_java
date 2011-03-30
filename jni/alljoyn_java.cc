@@ -729,7 +729,7 @@ class JBusObject : public BusObject {
     void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
-    QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName, 
+    QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
                    const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags);
     QStatus Get(const char* ifcName, const char* propName, MsgArg& val);
     QStatus Set(const char* ifcName, const char* propName, MsgArg& val);

@@ -36,5 +36,5 @@ public interface ChatInterface {
      * this fact.
      */
     @BusSignal
-    public void Chat(String str) throws BusException;
+    public void Chat(Integer sessionId, String str) throws BusException;
 }

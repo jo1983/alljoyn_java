@@ -20,6 +20,8 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
+import org.alljoyn.bus.ifaces.AllJoynProxyObj;
+
 /**
  * A helper proxy used by BusObjects to send signals.  A SignalEmitter
  * instance can be used to send any signal from a given AllJoyn interface.
@@ -31,6 +33,7 @@ public class SignalEmitter {
 
     private BusObject source;
     private String destination;
+    private int sessionId;
     private int timeToLive;
     private int flags;
     private Object proxy;
@@ -59,9 +62,10 @@ public class SignalEmitter {
      * @param globalBroadcast whether to forward broadcast signals
      *                        across bus-to-bus connections
      */
-    public SignalEmitter(BusObject source, String destination, GlobalBroadcast globalBroadcast) {
+    public SignalEmitter(BusObject source, String destination, Integer sessionId, GlobalBroadcast globalBroadcast) {
         this.source = source;
         this.destination = destination;
+        this.sessionId = sessionId;
         this.flags = (globalBroadcast == GlobalBroadcast.On)
             ? this.flags | GLOBAL_BROADCAST 
             : this.flags & ~GLOBAL_BROADCAST;
@@ -77,7 +81,7 @@ public class SignalEmitter {
      *                        across bus-to-bus connections
      */
     public SignalEmitter(BusObject source, GlobalBroadcast globalBroadcast) {
-        this(source, null, globalBroadcast);
+        this(source, null, AllJoynProxyObj.SESSION_ID_ANY, globalBroadcast);
     }
 
     /**
@@ -86,11 +90,11 @@ public class SignalEmitter {
      * @param source the source object of any signals sent from this emitter
      */
     public SignalEmitter(BusObject source) {
-        this(source, null, GlobalBroadcast.Off);
+        this(source, null, AllJoynProxyObj.SESSION_ID_ANY, GlobalBroadcast.Off);
     }
 
     /** Sends the signal. */
-    private native void signal(BusObject busObj, String destination, String ifaceName,
+    private native void signal(BusObject busObj, String destination, Integer sessionId, String ifaceName,
                                String signalName, String inputSig, Object[] args, int timeToLive,
                                int flags) throws BusException;
 
@@ -102,6 +106,7 @@ public class SignalEmitter {
                     if (method.getName().equals(m.getName())) {
                         signal(source,
                                destination,
+                               sessionId,
                                InterfaceDescription.getName(i),
                                InterfaceDescription.getName(m),
                                InterfaceDescription.getInputSig(m),
