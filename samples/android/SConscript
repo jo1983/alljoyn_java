@@ -55,7 +55,7 @@ env.Install(build_dir + '/test/libs', '$JARDIR/alljoyn.jar')
 env.Install(build_dir + '/test/libs', '$JARDIR/alljoyn_test.jar')
 if env['OS'] == 'android' and env['CPU'] == 'arm':
     env.Install(build_dir + '/test/libs/armeabi', '$DISTDIR/lib/liballjoyn_java.so')
-    env.Install('./test/libs/armeabi-v7a', '$DISTDIR/lib/liballjoyn_java.so')
+    env.Install('./test/libs/armeabi', '$DISTDIR/lib/liballjoyn_java.so')
     env.Install('./test/libs', '$JARDIR/alljoyn.jar')
     env.Install('./test/libs', '$JARDIR/alljoyn_test.jar')
    
