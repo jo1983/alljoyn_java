@@ -70,8 +70,14 @@ public class ProxyBusObjectTest extends TestCase {
     }
 
     public void tearDown() throws Exception {
-        proxyObj.disconnect();
-        bus.disconnect();
+        if (null != proxyObj)
+        {
+            proxyObj.disconnect();
+        }
+        if (null != bus)
+        {
+            bus.disconnect();
+        }
 
         if (daemon != null) {
             otherBus.getAllJoynProxyObj().CancelAdvertiseName(name);
