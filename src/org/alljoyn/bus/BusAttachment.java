@@ -16,6 +16,8 @@
 
 package org.alljoyn.bus;
 
+import org.alljoyn.bus.Mutable;
+import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.AuthListener.AuthRequest;
 import org.alljoyn.bus.AuthListener.CertificateRequest;
 import org.alljoyn.bus.AuthListener.Credentials;
@@ -49,6 +51,228 @@ import java.util.concurrent.Executors;
  * objects that have been registered by other processes and/or remote devices.
  */
 public class BusAttachment {
+
+    /** 
+     * When passed to BindSessionPort as the requested port, the system will
+     * assign an ephemeral session port
+     */
+    public static final short SESSION_PORT_ANY = 0;
+
+    /**
+     * When passed to ProxyBusObject, the system will use any available connection.
+     */
+    public static final int SESSION_ID_ANY = 0;
+
+    /**
+     * Make a SessionPort available for external BusAttachments to join.
+     *
+     * Each BusAttachment binds its own set of SessionPorts. Session joiners use
+     * the bound session port along with the name of the attachement to create a
+     * persistent logical connection (called a Session) with the original
+     * BusAttachment.
+     *
+     * A SessionPort and bus name form a unique identifier that BusAttachments
+     * use when joining a session.  SessionPort values can be pre-arranged
+     * between AllJoyn services and their clients (well-known SessionPorts).
+     *
+     * Once a session is joined using one of the service's well-known
+     * SessionPorts, the service may bind additional SessionPorts (dyanamically)
+     * and share these SessionPorts with the joiner over the original
+     * session. The joiner can then create additional sessions with the service
+     * by calling JoinSession with these dynamic SessionPort ids.
+     *
+     * There are really two error codes returned from this method.  The first,
+     * the actual return value indicates whether or not the command made it to
+     * the daemon and reflects errors possibly encountered in moving the request
+     * to the daemon process.  The second result, returned in the disposition
+     * parameter, indicates the actual response of the daemon; and is only valid
+     * if the request made it to the daemon and back -- i.e., if the return
+     * status is ER_OK.
+     *
+     * @param sessionPort SessionPort value to bind or SESSION_PORT_ANY to allow
+     *                    this method to choose an available port. On successful
+     *                    return, this value contains the chosen SessionPort.
+     *
+     * @param opts        Session options that joiners must agree to in order to                                          
+     *                    successfully join the session.                                                                  
+     *
+     * @param disposition One of ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS,
+     *                           ALLJOYN_BINDSESSIONPORT_REPLY_ALREADY_EXISTS,
+     *                           ALLJOYN_BINDSESSIONPORT_REPLY_FAILED.
+     *
+     * @return ER_OK if daemon response was received. ER_OK indicates that
+     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
+     */
+    public native Status bindSessionPort(Mutable.ShortValue sessionPort,
+                                         SessionOpts sessionOpts, 
+                                         Mutable.IntegerValue disposition);
+
+    /**
+     * Value from bindSessionPort disposition corresponding to a successful bind
+     * operation.
+     */
+    public static final int ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from bindSessionPort disposition corresponding to an attempt to bind
+     * a sessionport that is already bound.
+     */
+    public static final int ALLJOYN_BINDSESSIONPORT_REPLY_ALREADY_EXISTS = 2;
+
+    /**
+     * Value from bindSessionPort disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_BINDSESSIONPORT_REPLY_FAILED = 3;
+
+    /**
+     * Join a session.
+     *
+     * This method is a shortcut/helper that issues an
+     * org.codeauora.AllJoyn.Bus.JoinSession method call to the local daemon and
+     * interprets the response.
+     *
+     * There are really two error codes returned from this method.  The first,
+     * the actual return value indicates whether or not the command made it to
+     * the daemon and reflects errors possibly encountered in moving the request
+     * to the daemon process.  The second result, returned in the disposition
+     * parameter, indicates the actual response of the daemon; and is only valid
+     * if the request made it to the daemon and back -- i.e., if the return
+     * status is ER_OK.
+     *
+     * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
+     * @param sessionPort   SessionPort of sessionHost to be joined.                                                           
+     * @param disposition   One of ALLJOYN_JOINSESSION_REPLY_SUCCESS,
+     *                             ALLJOYN_JOINSESSION_REPLY_NO_SESSION,
+     *                             ALLJOYN_JOINSESSION_REPLY_UNREACHABLE,
+     *                             ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED,
+     *                             ALLJOYN_JOINSESSION_REPLY_REJECTED,
+     *                             ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS,
+     *                             ALLJOYN_JOINSESSION_REPLY_FAILED.
+     * @param sessionId     Set to the unique identifier for session. Valid if disposition is 
+     *                      ALLJOYN_CREATESESSION_REPLY_SUCCESS.        
+     * @param opts          Set to the actual session options of the joined session.
+     *
+     * @return ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
+     *         ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus; other error status codes
+     *         indicating a failure.                                                                        
+     */
+    public native Status joinSession(String sessionHost,
+                                     short sessionPort,
+                                     Mutable.IntegerValue disposition, 
+                                     Mutable.IntegerValue sessionId,
+                                     SessionOpts opts);
+
+    /**
+     * Value from joinSession disposition corresponding to a successful join
+     * operation.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from joinSession disposition corresponding to an attempt to join
+     * a session in which a session with the given name does not exist.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_NO_SESSION = 2;
+
+    /**
+     * Value from joinSession disposition corresponding to an attempt to join
+     * a session for which a suitable transport was not found.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_UNREACHABLE = 3;
+
+    /**
+     * Value from joinSession disposition corresponding to an attempt to join
+     * a session where the connecttion to the remote address failed.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED = 4;
+
+    /**
+     * Value from joinSession disposition corresponding to an attempt to join
+     * a session where the session host explicitly rejected the join request.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_REJECTED = 5;
+
+    /**
+     * Value from joinSession disposition corresponding to an attempt to join
+     * a session with incmpatible session options.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS = 6;
+
+    /**
+     * Value from joinSession disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_JOINSESSION_REPLY_FAILED = 10;
+
+    /**
+     * Leave an existing session.
+     *
+     * This method is a shortcut/helper that issues an
+     * org.codeauora.AllJoyn.Bus.LeaveSession method call to the local daemon
+     * and interprets the response.
+     *
+     * There are really two error codes returned from this method.  The first,
+     * the actual return value indicates whether or not the command made it to
+     * the daemon and reflects errors possibly encountered in moving the request
+     * to the daemon process.  The second result, returned in the disposition
+     * parameter, indicates the actual response of the daemon; and is only valid
+     * if the request made it to the daemon and back -- i.e., if the return
+     * status is ER_OK.
+     *
+     * @param sessionId     Session id.
+     * @param disposition   One of ALLJOYN_LEAVESESSION_REPLY_SUCCESS,
+     *                             ALLJOYN_LEAVESESSION_REPLY_NO_SESSION,
+     *                             ALLJOYN_LEAVESESSION_REPLY_FAILED.
+     *
+     * @return ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
+     *         ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus; other error status codes
+     *         indicating failures.                                                                        
+     */
+    public native Status leaveSession(int sessionId, Mutable.IntegerValue disposition);
+
+    /**
+     * Value from leaveSession disposition corresponding to a successful leave
+     * operation.
+     */
+    public static final int ALLJOYN_LEAVESESSION_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from joinSession disposition corresponding to an attempt to leave
+     * a session that does not exist.
+     */
+    public static final int ALLJOYN_LEAVESESSION_REPLY_NO_SESSION = 2;
+
+    /**
+     * Value from joinSession disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_LEAVESESSION_REPLY_FAILED = 3;
+
+    /**
+     * Register an object that will receive bus event notifications.
+     *
+     * @param listener  Object instance that will receive bus event notifications.
+     */
+    public native void registerBusListener(BusListener listener);
+
+    /**
+     * unregister an object that was previously registered with RegisterBusListener.
+     *
+     * @param listener  Object instance to un-register as a listener.
+     */
+    public native void unRegisterBusListener(BusListener listener);
+
+
+
+
+
+
+
+
+
 
     /** The native connection handle. */
     private long handle;
@@ -197,9 +421,9 @@ public class BusAttachment {
             /* This will not happen */
         }
         create(applicationName, allowRemoteMessages);
-        dbus = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", AllJoynProxyObj.SESSION_ID_ANY,
+        dbus = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", SESSION_ID_ANY,
                                   new Class[] { DBusProxyObj.class }).getInterface(DBusProxyObj.class);        
-        alljoyn = new ProxyBusObject(this, "org.alljoyn.Bus", "/org/alljoyn/Bus", AllJoynProxyObj.SESSION_ID_ANY,
+        alljoyn = new ProxyBusObject(this, "org.alljoyn.Bus", "/org/alljoyn/Bus", SESSION_ID_ANY,
                                   new Class[] { AllJoynProxyObj.class }).getInterface(AllJoynProxyObj.class);
         executor = Executors.newSingleThreadExecutor();
     }
@@ -318,7 +542,7 @@ public class BusAttachment {
      * @return OK if successful
      */
     public Status connect() {
-        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=bluebus");
+        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
         if (address != null) {
             Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener,
                                     keyStoreFileName);

@@ -20,7 +20,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
+import org.alljoyn.bus.BusAttachment;
 
 /**
  * A helper proxy used by BusObjects to send signals.  A SignalEmitter
@@ -81,7 +81,7 @@ public class SignalEmitter {
      *                        across bus-to-bus connections
      */
     public SignalEmitter(BusObject source, GlobalBroadcast globalBroadcast) {
-        this(source, null, AllJoynProxyObj.SESSION_ID_ANY, globalBroadcast);
+        this(source, null, BusAttachment.SESSION_ID_ANY, globalBroadcast);
     }
 
     /**
@@ -90,7 +90,7 @@ public class SignalEmitter {
      * @param source the source object of any signals sent from this emitter
      */
     public SignalEmitter(BusObject source) {
-        this(source, null, AllJoynProxyObj.SESSION_ID_ANY, GlobalBroadcast.Off);
+        this(source, null, BusAttachment.SESSION_ID_ANY, GlobalBroadcast.Off);
     }
 
     /** Sends the signal. */

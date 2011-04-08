@@ -56,6 +56,7 @@ static jclass CLS_Signature = NULL;
 static jclass CLS_Status = NULL;
 static jclass CLS_Variant = NULL;
 static jclass CLS_BusAttachment = NULL;
+static jclass CLS_SessionOpts = NULL;
 
 static jmethodID MID_Object_equals = NULL;
 static jmethodID MID_BusException_log = NULL;
@@ -193,6 +194,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
             return JNI_ERR;
         }
         CLS_BusAttachment = (jclass)env->NewGlobalRef(clazz);
+        clazz = env->FindClass("org/alljoyn/bus/SessionOpts");
+        if (!clazz) {
+            return JNI_ERR;
+        }
+        CLS_SessionOpts = (jclass)env->NewGlobalRef(clazz);
 
         return JNI_VERSION_1_2;
     }
@@ -517,6 +523,98 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
         return ER_FAIL;
     }
     return ER_OK;
+}
+
+class JBusListener : public BusListener {
+  public:
+    JBusListener(jobject jlistener);
+    ~JBusListener();
+
+    void ListenerRegistered(BusAttachment* bus) { }
+    void ListenerUnRegistered() { }
+    void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) { }
+    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) { }
+    void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner) { }
+    void SessionLost(const SessionId& sessionId) { }
+    bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
+    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner) { }
+    void BusStopping() { }
+
+  private:
+    jweak jbusListener;
+    jmethodID MID_acceptSessionJoiner;
+};
+
+JBusListener::JBusListener(jobject jlistener)
+    : jbusListener(NULL)
+{
+    QCC_LogError(ER_OK, ("JBusListener::JBusListener()\n"));
+    JNIEnv* env = GetEnv();
+    jbusListener = (jweak)env->NewGlobalRef(jlistener);
+    if (!jbusListener) {
+        return;
+    }
+    
+    JLocalRef<jclass> clazz = env->GetObjectClass(jbusListener);
+    MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner",
+                                                      "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
+
+    if (!MID_acceptSessionJoiner) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find acceptSessionJoiner() in jbusListener\n"));
+        return;
+    }
+}
+
+JBusListener::~JBusListener()
+{
+    JNIEnv* env = GetEnv();
+    if (jbusListener) {
+        env->DeleteGlobalRef(jbusListener);
+    }
+}
+
+bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts)
+{
+    QCC_LogError(ER_OK, ("JBusListener::AcceptSessionJoiner()\n"));
+    JScopedEnv env;
+
+    JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Exception\n"));
+        return false;
+    }
+
+    jmethodID mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
+    if (!mid) {
+        QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Can't find SessionOpts.<init>\n"));
+        return false;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Create new SessionOpts\n"));
+    JLocalRef<jobject> jsessionopts = env->NewObject(CLS_SessionOpts, mid);
+
+    QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Load SessionOpts\n"));
+    jfieldID fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
+    env->SetByteField(CLS_SessionOpts, fid, opts.traffic);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "isMultipoint", "Z");
+    env->SetBooleanField(CLS_SessionOpts, fid, opts.isMultipoint);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "proximity", "B");
+    env->SetByteField(CLS_SessionOpts, fid, opts.proximity);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
+    env->SetShortField(CLS_SessionOpts, fid, opts.transports);
+ 
+    QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
+    bool result = env->CallBooleanMethod(jbusListener, MID_acceptSessionJoiner, sessionPort, joiner, (jobject)jsessionopts);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Exception\n"));
+        return false;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Return result %d\n", result));
+    return result;
 }
 
 class JAuthListener : public AuthListener {
@@ -1594,13 +1692,248 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
     SetHandle(thiz, NULL);
 }
 
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JNIEnv* env, jobject thiz, jobject jlistener)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_registerBusListener()\n"));
+
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception\n"));
+        return;
+    }
+    assert(bus);
+
+    //
+    // TODO:  Memory leak
+    //
+    QCC_LogError(ER_OK, ("BusAttachment_registerBusListener(): Creating JBusListener\n"));
+    JBusListener *busListener = new JBusListener(jlistener);
+
+    QCC_LogError(ER_OK, ("BusAttachment_registerBusListener(): Call RegisterBusListener()\n"));
+    (*bus)->RegisterBusListener(*busListener);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener(JNIEnv* env, jobject thiz, jobject jbusListener)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_unRegisterBusListener()\n"));
+
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unRegisterBusListener(): Exception\n"));
+        return;
+    }
+
+    //
+    // TODO:  Plug memory leak of bus listeners
+    //
+    // assert(bus);
+    // (*bus)->UnRegisterBusListener(jbuslistener);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNIEnv* env, jobject thiz,
+    jobject jsessionPort, jobject jsessionOpts, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort()\n"));
+
+    //
+    // Load the C++ session port from the Java session port.
+    //
+    SessionPort sessionPort;
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionPort);
+    jfieldID spValueFid = env->GetFieldID(clazz, "value", "S");
+    assert(spValueFid);
+    sessionPort = env->GetShortField(jsessionPort, spValueFid);
+
+    //
+    // Load the C++ session options from the Java session options.
+    //
+    SessionOpts sessionOpts;
+    clazz = env->GetObjectClass(jsessionOpts);
+
+    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %d)\n",
+        sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, disposition));
+
+    QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts, disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Back from BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %d)\n",
+        sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, disposition));
+
+    //
+    // Store the actual session port back in the session port out parameter
+    //
+    env->SetShortField(jsessionPort, spValueFid, sessionPort);
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    clazz = env->GetObjectClass(jdisposition);
+    fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv* env, jobject thiz,
+    jstring jsessionHost, jshort jsessionPort, jobject jdisposition, jobject jsessionId, jobject jsessionOpts)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_joinSession()\n"));
+
+    //
+    // Load the C++ session host string from the java parameter
+    //
+    JString sessionHost(jsessionHost);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0x01234567;
+    SessionId sessionId = 0x12345678;
+    SessionOpts sessionOpts;
+
+    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Call JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+        sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
+        sessionOpts.proximity, sessionOpts.transports));
+
+    QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Back from JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+        sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
+        sessionOpts.proximity, sessionOpts.transports));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    //
+    // Store the session ID back in its out parameter.
+    //
+    clazz = env->GetObjectClass(jsessionId);
+    fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jsessionId, fid, sessionId);
+
+    //
+    // Store the Java session options from the returned C++ session options.
+    //
+    clazz = env->GetObjectClass(jsessionOpts);
+
+    fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    env->SetByteField(jsessionOpts, fid, sessionOpts.traffic);
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    env->SetBooleanField(jsessionOpts, fid, sessionOpts.isMultipoint);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    env->SetByteField(jsessionOpts, fid, sessionOpts.proximity);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    env->SetShortField(jsessionOpts, fid, sessionOpts.transports);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv* env, jobject thiz,
+    jint jsessionId, jobject jdisposition)
+{
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition;
+    QStatus status = (*bus)->LeaveSession(jsessionId, disposition);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env,
                                                                      jobject thiz,
                                                                      jstring jconnectArgs,
                                                                      jobject jkeyStoreListener,
                                                                      jstring jauthMechanisms,
                                                                      jobject jauthListener,
-                                                                     jstring jkeyStoreFileName)
+                                                                     jstring jkeyStoreFileName
+)
 {
     JString connectArgs(jconnectArgs);
     if (env->ExceptionCheck()) {
@@ -1619,6 +1952,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env
         return NULL;
     }
     assert(bus);
+
     QStatus status = (*bus)->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
                                      jauthListener, keyStoreFileName.c_str());
     if (env->ExceptionCheck()) {
@@ -2230,7 +2564,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env,
                                                                  jobject thiz,
                                                                  jobject jbusObj,
                                                                  jstring jdestination,
-                                                                 short sessionId,
+                                                                 jint sessionId,
                                                                  jstring jifaceName,
                                                                  jstring jsignalName,
                                                                  jstring jinputSig,

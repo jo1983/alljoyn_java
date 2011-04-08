@@ -68,6 +68,46 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    bindSessionPort
+ * Signature: (Lorg/alljoyn/bus/Mutable$ShortValue;Lorg/alljoyn/bus/SessionOpts;Lorg/alljoyn/bus/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort
+  (JNIEnv *, jobject, jobject, jobject, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    joinSession
+ * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/Mutable$IntegerValue;Lorg/alljoyn/bus/Mutable$IntegerValue;Lorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession
+  (JNIEnv *, jobject, jstring, jshort, jobject, jobject, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    leaveSession
+ * Signature: (ILorg/alljoyn/bus/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession
+  (JNIEnv *, jobject, jint, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    registerBusListener
+ * Signature: (Lorg/alljoyn/bus/BusListener;)V;
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener
+  (JNIEnv *, jobject, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    unRregisterBusListener
+ * Signature: (Lorg/alljoyn/bus/BusListener;)V;
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener
+  (JNIEnv *, jobject, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    enablePeerSecurity
  * Signature: (Ljava/lang/String;Lorg/alljoyn/bus/BusAttachment$AuthListenerInternal;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
@@ -340,10 +380,10 @@ extern "C" {
 /*
  * Class:     org_alljoyn_bus_SignalEmitter
  * Method:    signal
- * Signature: (Lorg/alljoyn/bus/BusObject;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;II)V
+ * Signature: (Lorg/alljoyn/bus/BusObject;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;II)V
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal
-  (JNIEnv *, jobject, jobject, jstring, jstring, jstring, jstring, jobjectArray, jint, jint);
+  (JNIEnv *, jobject, jobject, jstring, jint, jstring, jstring, jstring, jobjectArray, jint, jint);
 
 #ifdef __cplusplus
 }

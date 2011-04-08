@@ -22,6 +22,9 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.alljoyn.bus.BusAttachment;
+import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.Mutable;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.MessageContext;
@@ -89,6 +92,9 @@ public class AllJoynChat extends Activity {
         }
     };
 
+    public void test(Integer i) {
+    	i = 100;
+    }
     /* Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -233,12 +239,11 @@ public class AllJoynChat extends Activity {
         public void Chat(Integer sessionId, String str) throws BusException {
             // Empty method
         }
-        
-        
-        
     }
-    
+     
     public class BusHandler extends Handler {
+    	
+    	private static final short CONTACT_PORT = 42;
         
         private static final String CHAT_SERVICE_PATH = "/chatService";
         private static final String NAME_PREFIX = "org.alljoyn.bus.samples.chat";
@@ -255,7 +260,48 @@ public class AllJoynChat extends Activity {
          * AllJoyn specific elements.
          */
         private BusAttachment mBus;
+        
+    public class MyBusListener implements BusListener {
+    		public void test() {
+    		}
+    		
+            public void listenerRegistered(BusAttachment bus) {
+            }
+
+            public void listenerUnRegistered() {
+            }
+
+            public void foundAdvertisedName(String name, short transport, String namePrefix) {
+            }
+
+            public void lostAdvertisedName(String name, short transport, String namePrefix) {
+            }
+
+            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
+            }
+
+            public void sessionLost(int sessionId) {
+            }
+            
+            public boolean acceptSessionJoiner(short sessionPort, String joiner) {
+            	return true;
+            }
+
+            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+            	return true;
+            }
+
+            public void sessionJoined(short sessionPort, int id, String joiner) {
+            }
+
+            public void busStopping() {
+            }
+        }
+        
+        public MyBusListener mMyBusListener;
+                
         private ChatInterface mChatInterface;
+        
         private boolean mIsConnected;
         private boolean mIsStoppingDiscovery;
         
@@ -264,9 +310,7 @@ public class AllJoynChat extends Activity {
         
         DBusProxyObj dbusProxy;
         AllJoynProxyObj alljoynProxy;
-        
-        
-        
+
         public BusHandler(Looper looper) {
             super(looper);
             
@@ -283,6 +327,13 @@ public class AllJoynChat extends Activity {
                  * Create a new BusAttachment.
                  */
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+
+                /*
+                 * Create a bus listener class to handle callbacks from the
+                 * BusAttachment and tell the attachment about it
+                 */
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
 
                 /*
                  * Register the BusObject with the path "/chatService"
@@ -311,35 +362,25 @@ public class AllJoynChat extends Activity {
                 alljoynProxy = mBus.getAllJoynProxyObj();
 
                 /*
-                 * Identify the contact port for the chat service session and create a
-                 * new session listening on that contact port.  We are going to create
-                 * a point-to-point session (one in which there are a maximum of two
-                 * participants).  We need to set up the session options and we choose
-                 * to exhange reliable messages (TRAFFIC_MESSAGES) and allow these
-                 * messages to flow to a client anywhere (PROXIMITY_ANY) over any 
-                 * available transport (TRANSPORTS_ANY).
+                 * Create a new session listening on the contact port of the chat service.
                  */
-                Short contactPortRequested = 42;
-                Boolean isMultipoint = false;
-                AllJoynProxyObj.SessionOpts sessionOpts = new AllJoynProxyObj.SessionOpts();
-                sessionOpts.traffic = AllJoynProxyObj.TRAFFIC_MESSAGES;
-                sessionOpts.proximity = AllJoynProxyObj.PROXIMITY_ANY;
-                sessionOpts.transports = AllJoynProxyObj.TRANSPORT_ANY;
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+                
+                SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.isMultipoint = false;
+                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+                
+                Mutable.IntegerValue disposition = new Mutable.IntegerValue();
 
-                try {
-					AllJoynProxyObj.BindSessionPortReturns bindSessionPortReturns = 
-					    alljoynProxy.BindSessionPort(contactPortRequested, isMultipoint, sessionOpts);
-
-	                //logStatus(String.format("AllJoynProxyObj.BindSessionPort(%d, %d, 0x%x 0x%x 0x%x) boundPort %d",
-	                	//	contactPortRequested, isMultipoint, sessionOpts.traffic, sessionOpts.proximity, 
-	                    //	sessionOpts.transports, bindSessionPortReturns.boundPort
-	                	//	), status);
-
-                } catch (BusException ex) {
-                    logException("BusException while trying to bind to session contact port", ex);
+                status = mBus.bindSessionPort(contactPort, sessionOpts, disposition);
+                logStatus("BusAttachment.bindSessionPort()", status);
+                if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS) {
+                    finish();
+                    return;
                 }
-
-
+                
                 /*
                  *  Create a signal emitter to send out the Chat signal.
                  *  
@@ -350,8 +391,7 @@ public class AllJoynChat extends Activity {
                  *  signals need to be available to other devices so global broadcasting of 
                  *  signals has been set to true. 
                  */
-                SignalEmitter emitter = new SignalEmitter(mChatService, 
-                    SignalEmitter.GlobalBroadcast.On);
+                SignalEmitter emitter = new SignalEmitter(mChatService, SignalEmitter.GlobalBroadcast.On);
                 mChatInterface = emitter.getInterface(ChatInterface.class);
 
                 /*
@@ -360,7 +400,7 @@ public class AllJoynChat extends Activity {
                  * this informs AllJoyn that this program is interested in the 
                  * signals. 
                  * 
-                 * This is registers for the Chat signal and the FoundName signal.  
+                 * This is registers for the Chat signal and the FoundAvertisedName signal.  
                  */
                 status = mBus.registerSignalHandlers(this);
                 logStatus("BusAttachement.registerSignalHandlers()", status);
@@ -395,7 +435,7 @@ public class AllJoynChat extends Activity {
                          * Advertise the same well-known name over all of the available transports.
                          */
                         AllJoynProxyObj.AdvertiseNameResult advertiseNameResult = 
-                            alljoynProxy.AdvertiseName(wellKnownName, AllJoynProxyObj.TRANSPORT_ANY);
+                            alljoynProxy.AdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
                         logStatus(String.format("AllJoynProxyObj.AdvertiseName(%s)", wellKnownName), 
                             advertiseNameResult, AllJoynProxyObj.AdvertiseNameResult.Success);
                         
@@ -456,36 +496,18 @@ public class AllJoynChat extends Activity {
                 if (mIsStoppingDiscovery) {
                     break;
                 }
-                try { 
-                    /*
-                     * We got a discovery event, so let's try and join the chat
-                     * session identified by the well-known-name passed in the msg.
-                     * Because the only thing we are looking for are chat services,
-                     * we know what contact session port to use.  We use the same session 
-                     * options as those we create when we're acting as the 
-                     * service so we know they will match.
-                     */
-                    Short contactPort = 42;
-                    AllJoynProxyObj.SessionOpts requestedOpts = new AllJoynProxyObj.SessionOpts();
-                    requestedOpts.traffic = AllJoynProxyObj.TRAFFIC_MESSAGES;
-                    requestedOpts.proximity = AllJoynProxyObj.PROXIMITY_ANY;
-                    requestedOpts.transports = AllJoynProxyObj.TRANSPORT_ANY;
-
-                    /*
-                     * JoinSession has multiple return values so we must stick them
-                     * into a structure.  One of the return values is the return code
-                     * for the JoinSession call and the other is the new session ID.
-                     */
-                    AllJoynProxyObj.JoinSessionReturns joinSessionReturns = 
-                        alljoynProxy.JoinSession((String) msg.obj, contactPort, requestedOpts);
-                    logStatus("AllJoynProxyObj.JoinSessionReturns.rc", joinSessionReturns.rc,
-                        AllJoynProxyObj.JoinSessionResult.Success);
-                    if (AllJoynProxyObj.JoinSessionResult.Success == joinSessionReturns.rc) {
-                        mSessionList.add(joinSessionReturns.sessionId);
-                        mIsConnected = true; 
-                    }
-                } catch (BusException ex) {
-                    logException("BusException while trying to join with remote session", ex);
+                
+                short contactPort = CONTACT_PORT;
+                Mutable.IntegerValue disposition = new Mutable.IntegerValue(-1);
+                SessionOpts sessionOpts = new SessionOpts();
+                Mutable.IntegerValue sessionId = new Mutable.IntegerValue(-1);
+                
+                Status status = mBus.joinSession((String) msg.obj, contactPort, disposition, sessionId, sessionOpts);
+                logStatus("BusAttachment.joinSession()", status);
+                    
+                if (status == Status.OK && disposition.value == BusAttachment.ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
+                	mSessionList.add(sessionId.value);
+                	mIsConnected = true; 
                 }
                 break;
             }
@@ -501,11 +523,9 @@ public class AllJoynChat extends Activity {
                 mIsStoppingDiscovery = true;
                 try {
                     for (Integer sid : mSessionList) {
-                        AllJoynProxyObj.LeaveSessionResult leaveSessionResult = alljoynProxy.LeaveSession(sid);
-                        logStatus("AllJoynProxyObj.LeaveSession()", leaveSessionResult, 
-                            AllJoynProxyObj.LeaveSessionResult.Success);
-                        if (AllJoynProxyObj.LeaveSessionResult.Success == leaveSessionResult) {
-                        }
+                    	Mutable.IntegerValue disposition = new Mutable.IntegerValue();
+                    	Status status = mBus.leaveSession(sid, disposition);
+                        logStatus("BusAttachment.leaveSession()", status);
                     }
                     
                     mIsConnected = false;
