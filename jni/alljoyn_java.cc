@@ -1836,8 +1836,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0x01234567;
-    SessionId sessionId = 0x12345678;
+    uint32_t disposition;
+    SessionId sessionId;
     SessionOpts sessionOpts;
 
     QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Call JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",

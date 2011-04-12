@@ -62,7 +62,7 @@ public class SignalEmitter {
      * @param globalBroadcast whether to forward broadcast signals
      *                        across bus-to-bus connections
      */
-    public SignalEmitter(BusObject source, String destination, Integer sessionId, GlobalBroadcast globalBroadcast) {
+    public SignalEmitter(BusObject source, String destination, int sessionId, GlobalBroadcast globalBroadcast) {
         this.source = source;
         this.destination = destination;
         this.sessionId = sessionId;
@@ -94,7 +94,7 @@ public class SignalEmitter {
     }
 
     /** Sends the signal. */
-    private native void signal(BusObject busObj, String destination, Integer sessionId, String ifaceName,
+    private native void signal(BusObject busObj, String destination, int sessionId, String ifaceName,
                                String signalName, String inputSig, Object[] args, int timeToLive,
                                int flags) throws BusException;
 

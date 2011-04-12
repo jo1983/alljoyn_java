@@ -18,8 +18,8 @@
  */
 package org.alljoyn.bus.sample.chat;
 
-import java.util.LinkedList;
 import java.util.List;
+import java.util.LinkedList;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusListener;
@@ -221,24 +221,20 @@ public class AllJoynChat extends Activity {
     }
     
     /*
-     * This empty class must be implemented in order to provide a reference BusObject
-     * to use when registering for the BusAttachement and when Creating a new signal 
-     * emitter. See the BusHandler CONNECT and the BusHandler DISCONNECT state to see 
-     * how this class is used in the code.
+     * This class must be implemented in order to provide a reference
+     * BusObject to use when registering for the BusAttachement.
      */
-    
     class ChatService implements ChatInterface, BusObject {
-        
-        /*
-         * Empty implementation of Chat method.  Since the Chat Method is only 
-         * used as a signal emitter this will never be called directly. This 
-         * class will always be called from an emitter interface and all values
-         * will be handled by the Bus. This Method must exist in the ChatInterface
-         * so that signals can be sent.  
+    	/*                                                                                                                          
+         * Intentionally empty implementation of Chat method.  Since the Chat
+         * Method is only used as a signal emitter this will never be called
+         * directly. This method will always be called from an emitter 
+         * interface and all values will be handled by the bus.
+         * 
+         * @see org.alljoyn.bus.sample.chat.ChatInterface#Chat(java.lang.String)
          */
-        public void Chat(Integer sessionId, String str) throws BusException {
-            // Empty method
-        }
+    	public void Chat(String str) throws BusException {                                                                                              
+        }     
     }
      
     public class BusHandler extends Handler {
@@ -299,23 +295,28 @@ public class AllJoynChat extends Activity {
         }
         
         public MyBusListener mMyBusListener;
-                
-        private ChatInterface mChatInterface;
         
         private boolean mIsConnected;
         private boolean mIsStoppingDiscovery;
         
         private ChatService mChatService;
+        private List<ChatInterface> mChatList;
         private List<Integer> mSessionList;
         
         DBusProxyObj dbusProxy;
         AllJoynProxyObj alljoynProxy;
 
         public BusHandler(Looper looper) {
-            super(looper);
-            
+            super(looper);          
+
+            /*
+             * Create an instance of the chat service.  This is the bus object
+             * that implements the chat on the local service side. 
+             */
             mChatService = new ChatService();
+            mChatList = new LinkedList<ChatInterface>();
             mSessionList = new LinkedList<Integer>();
+
             mIsStoppingDiscovery = false;
         }
         
@@ -382,19 +383,6 @@ public class AllJoynChat extends Activity {
                 }
                 
                 /*
-                 *  Create a signal emitter to send out the Chat signal.
-                 *  
-                 *  When using signals a signal emitter is used to control the signals. 
-                 *  
-                 *  SignalEmitter allows us to set the behavior of signals when they are sent.  
-                 *  For the most part the default behavior will be fine.  In this sample the 
-                 *  signals need to be available to other devices so global broadcasting of 
-                 *  signals has been set to true. 
-                 */
-                SignalEmitter emitter = new SignalEmitter(mChatService, SignalEmitter.GlobalBroadcast.On);
-                mChatInterface = emitter.getInterface(ChatInterface.class);
-
-                /*
                  * When a signal handler  that has been implemented in this 
                  * class using the @BusSignalHandler annotation is detected 
                  * this informs AllJoyn that this program is interested in the 
@@ -456,11 +444,11 @@ public class AllJoynChat extends Activity {
                     }
                 
                     /*
-                     * Each device running the the AllJoyn Chat sample
-                     * advertises a name NAME_PREFIX.<a_user_entered_name> for
-                     * example if the user uses foo as there name the name
-                     * requested from the bus and advertised is
-                     * "org.alljoyn.bus.samples.chat.foo" since buses must
+                     * Each device running the AllJoyn Chat sample advertises
+                     * a name that looks like "NAME_PREFIX.<a_user_entered_name>".
+                     * For example, if the user uses foo as their name, the 
+                     * well-known name requested from the bus and advertised is
+                     * "org.alljoyn.bus.samples.chat.foo".  Since buses must
                      * advertise a unique name we don't know the name the other
                      * buses will advertise however we can know part of the name
                      * each bus will advertise.
@@ -469,9 +457,7 @@ public class AllJoynChat extends Activity {
                      * advertised will start with "org.alljoyn.bus.samples.chat"
                      * this will tell the local bus to look for any remote bus
                      * that is advertising a name that uses that prefix. If
-                     * found the bus will send out a "FoundName" signal We must
-                     * register a signal handler for the 'FoundName' signal to
-                     * know about any remote buses.
+                     * found the bus will send out a "FoundAdvertisedName" signal.
                      */
                     AllJoynProxyObj.FindAdvertisedNameResult findAdvertisedNameResult = 
                         alljoynProxy.FindAdvertisedName(NAME_PREFIX);
@@ -497,16 +483,57 @@ public class AllJoynChat extends Activity {
                     break;
                 }
                 
+                /*
+                 * In order to join the session, we need to provide the well-known
+                 * contact port.  This is pre-arranged between both sides as part
+                 * of the definition of the chat service.  As a result of joining
+                 * the session, we get a session identifier which we must use to 
+                 * identify the created session communication channel whenever we
+                 * talk to the remote side.
+                 */
                 short contactPort = CONTACT_PORT;
-                Mutable.IntegerValue disposition = new Mutable.IntegerValue(-1);
+                Mutable.IntegerValue disposition = new Mutable.IntegerValue();
                 SessionOpts sessionOpts = new SessionOpts();
-                Mutable.IntegerValue sessionId = new Mutable.IntegerValue(-1);
+                Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
                 Status status = mBus.joinSession((String) msg.obj, contactPort, disposition, sessionId, sessionOpts);
                 logStatus("BusAttachment.joinSession()", status);
                     
                 if (status == Status.OK && disposition.value == BusAttachment.ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
-                	mSessionList.add(sessionId.value);
+
+                	/*
+                     * Create a signal emitter to send out the Chat signal on
+                     * the new session.  The mChatService identifies the source
+                     * of the signals which is the local service; the string in
+                     * msg.obj is the well-known name of the discovered remote
+                     * service and serves as the destination.  The sessionId
+                     * serves to identify the communication path established in
+                     * the joinSession.  We turn off the global broadcast bit
+                     * since we are in a one-to-one relationship with the
+                     * remote side.
+                     */
+                    SignalEmitter emitter = new SignalEmitter(mChatService, (String) msg.obj, sessionId.value,
+                    		SignalEmitter.GlobalBroadcast.Off);
+                    
+                    /*
+                     * The SignalEmitter we just created knows how to send
+                     * signals and how to arrange for the session ID and
+                     * destination to be passed.  We now need to get an
+                     * instance of an interface which defines which signals
+                     * are sent and the associated formal parameters.  This
+                     * interface was defined in ChatInterface.java and we 
+                     * use this interface to actually send the signals. 
+                     */
+                    ChatInterface chatInterface = emitter.getInterface(ChatInterface.class);
+                	
+                	/*
+                	 * Add the new interface to a list so that we can send 
+                	 * chat messages out over each one when our user types a
+                	 * message; and add the session ID corresponding to the 
+                	 * chat to a list so we can leave the session when we exit. 
+                	 */
+                    mChatList.add(chatInterface);
+                    mSessionList.add(sessionId.value);
                 	mIsConnected = true; 
                 }
                 break;
@@ -553,9 +580,9 @@ public class AllJoynChat extends Activity {
             }
             case (CHAT): {
                 try {
-                	for (Integer sessionId : mSessionList) {
-                		mChatInterface.Chat(sessionId, (String) msg.obj);
-                        Log.i(TAG, String.format("Chat(%s) msg sent to session %d", (String) msg.obj, sessionId));
+                	for (ChatInterface chatInterface : mChatList) {
+                		chatInterface.Chat((String) msg.obj);
+                        Log.i(TAG, String.format("Chat(%s) msg sent to session", (String) msg.obj));
                 	}
 
                 } catch (BusException ex) {
@@ -564,7 +591,6 @@ public class AllJoynChat extends Activity {
                 break;
             }
             case (DISCONNECT): {
-                
                 mBus.deregisterSignalHandlers(this);
                 mBus.deregisterSignalHandlers(mChatService);
                 mBus.deregisterBusObject(mChatService);

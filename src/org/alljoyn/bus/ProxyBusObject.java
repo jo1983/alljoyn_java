@@ -73,7 +73,7 @@ public class ProxyBusObject {
      * @param sessionId      The session ID corresponding to the connection to the object.
      * @param busInterfaces  A list of BusInterfaces that this proxy should respond to.
      */
-    protected ProxyBusObject(BusAttachment busAttachment, String busName, String objPath, Integer sessionId,
+    protected ProxyBusObject(BusAttachment busAttachment, String busName, String objPath, int sessionId,
                              Class[] busInterfaces) {
         this.bus = busAttachment;
         this.busName = busName;

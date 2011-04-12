@@ -678,7 +678,7 @@ public class BusAttachment {
      */
     public ProxyBusObject getProxyBusObject(String busName,
                                             String objPath,
-                                            Integer sessionId,
+                                            int sessionId,
                                             Class[] busInterfaces) {
         return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces);
     }
