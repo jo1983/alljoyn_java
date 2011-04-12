@@ -279,10 +279,6 @@ public class AllJoynChat extends Activity {
             public void sessionLost(int sessionId) {
             }
             
-            public boolean acceptSessionJoiner(short sessionPort, String joiner) {
-            	return true;
-            }
-
             public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
             	return true;
             }
