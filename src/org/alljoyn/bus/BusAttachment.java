@@ -52,16 +52,140 @@ import java.util.concurrent.Executors;
  */
 public class BusAttachment {
 
-    /** 
-     * When passed to BindSessionPort as the requested port, the system will
-     * assign an ephemeral session port
+    /**
+     * Advertise the existence of a well-known name to other (possibly disconnected) AllJoyn daemons.
+     *
+     * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.AdvertisedName method call to the local daemon
+     * and interprets the response.
+     *
+     * @param name         The well-known name to advertise. (Must be owned by the caller via RequestName).
+     * @param transports   Set of transports to use for sending advertisment.
+     * @param disposition  One of ALLJOYN_ADVERTISENAME_REPLY_SUCCESS
+     *                            ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING
+     *                            ALLJOYN_ADVERTISENAME_REPLY_FAILED
+     *
+     * @return
+     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
      */
-    public static final short SESSION_PORT_ANY = 0;
+    public native Status advertiseName(String name, short transports, Mutable.IntegerValue disposition);
 
     /**
-     * When passed to ProxyBusObject, the system will use any available connection.
+     * Value from advertiseName disposition corresponding to a successful
+     * advertise operation.
      */
-    public static final int SESSION_ID_ANY = 0;
+    public static final int ALLJOYN_ADVERTISENAME_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from advertiseName disposition corresponding to an attempt to
+     * advertise a name multiple times.
+     */
+    public static final int ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING = 2;
+
+    /**
+     * Value from advertiseName disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_ADVERTISENAME_REPLY_FAILED = 3;
+
+    /**
+     * Stop advertising the existence of a well-known name to other AllJoyn daemons.
+     *
+     * This method is a shortcut/helper that issues an
+     * org.codeauora.AllJoyn.Bus.CancelAdvertiseName method call to the local
+     * daemon and interprets the response.
+     *
+     * @param name          A well-known name that was previously advertised via AdvertiseName.
+     * @param transports    Set of transports whose name advertisment will be cancelled.
+     * @param disposition   One of ALLJOYN_CANCELADVERTISENAME_REPLY_SUCCESS
+     *                             ALLJOYN_CANCELADVERTISENAME_REPLY_FAILED
+
+     *
+     * @return
+     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
+     */
+    public native Status cancelAdvertiseName(String name, short transports, Mutable.IntegerValue disposition);
+
+    /**
+     * Value from cancelAdvertiseName disposition corresponding to a successful
+     * cancel operation.
+     */
+    public static final int ALLJOYN_CANCELADVERTISENAME_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from cancelAdvertiseName disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_CANCELADVERTISENAME_REPLY_FAILED = 2;
+
+    /**
+     * Register interest in a well-known name prefix for the purpose of discovery.
+     * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.FindAdvertisedName method call to the local daemon
+     * and interprets the response.
+     *
+     * @param namePrefix    Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
+     *                      notifications about.
+     * @param disposition   One of ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS
+     *                             ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING
+     *                             ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED
+     *
+     * @return
+     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
+     */
+    public native Status findAdvertisedName(String namePrefix, Mutable.IntegerValue disposition);
+
+    /**
+     * Value from findAdvertisedName disposition corresponding to a successful
+     * advertise operation.
+     */
+    public static final int ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from findAdvertisedName disposition corresponding to an attempt to discover
+     * a name that is already being discovered.
+     */
+    public static final int ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING = 2;
+
+    /**
+     * Value from findAdvertisedName disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED = 3;
+
+    /**
+     * Cancel interest in a well-known name prefix that was previously
+     * registered with FindAdvertisedName.  This method is a shortcut/helper
+     * that issues an org.codeauora.AllJoyn.Bus.CancelFindAdvertisedName method
+     * call to the local daemon and interprets the response.
+     *
+     * @param namePrefix    Well-known name prefix that application is no longer interested in receiving
+     *                      BusListener::FoundAdvertisedName notifications about.
+     * @param disposition   One of ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS
+     *                             ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED
+     *
+     * @return
+     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
+     */
+    public native Status cancelFindAdvertisedName(String namePrefix, Mutable.IntegerValue disposition);
+
+    /**
+     * Value from cancelFindAdvertiseName disposition corresponding to a successful
+     * cancel operation.
+     */
+    public static final int ALLJOYN_CANCELFINDADVERTISENAME_REPLY_SUCCESS = 1;
+
+    /**
+     * Value from cancelFindAdvertiseName disposition corresponding to a general error
+     * condition.
+     */
+    public static final int ALLJOYN_CANCELFINDADVERTISENAME_REPLY_FAILED = 2;
 
     /**
      * Make a SessionPort available for external BusAttachments to join.
@@ -108,6 +232,17 @@ public class BusAttachment {
     public native Status bindSessionPort(Mutable.ShortValue sessionPort,
                                          SessionOpts sessionOpts, 
                                          Mutable.IntegerValue disposition);
+
+    /** 
+     * When passed to BindSessionPort as the requested port, the system will
+     * assign an ephemeral session port
+     */
+    public static final short SESSION_PORT_ANY = 0;
+
+    /**
+     * When passed to ProxyBusObject, the system will use any available connection.
+     */
+    public static final int SESSION_ID_ANY = 0;
 
     /**
      * Value from bindSessionPort disposition corresponding to a successful bind

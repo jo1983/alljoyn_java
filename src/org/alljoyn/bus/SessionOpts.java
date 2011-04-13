@@ -52,7 +52,7 @@ public class SessionOpts {
     /**
      * Use reliable message-based communication to move data between session endpoints.
      */
-    public static final Byte TRAFFIC_MESSAGES       = 0x01;
+    public static final byte TRAFFIC_MESSAGES       = 0x01;
 
     /**
      * Use unreliable (e.g., UDP) socket-based communication to move data between
@@ -61,7 +61,7 @@ public class SessionOpts {
      * sense --MESSAGE encapsulation is not used, but for example UDP + IP + MAC
      * encapsulation is used.
      */
-    public static final Byte TRAFFIC_RAW_UNRELIABLE = 0x02;
+    public static final byte TRAFFIC_RAW_UNRELIABLE = 0x02;
 
     /**
      * Use reliable (e.g., TCP) socket-based communication to move data between
@@ -70,13 +70,13 @@ public class SessionOpts {
      * sense --MESSAGE encapsulation is not used, but for example UDP + IP + MAC
      * encapsulation is used.
      */
-    public static final Byte TRAFFIC_RAW_RELIABLE   = 0x04;
+    public static final byte TRAFFIC_RAW_RELIABLE   = 0x04;
     
     /**
      * Do not limit the spatial scope of sessions.  This means that sessions may
      * be joined by jointers located anywhere.
      */
-    public static final Byte PROXIMITY_ANY      = (byte)0xff;
+    public static final byte PROXIMITY_ANY      = (byte)0xff;
 
     /**
      * Limit the spatial scope of sessions to the local host.  Interpret as 
@@ -84,42 +84,75 @@ public class SessionOpts {
      * jointers located only on the same physical machine as the one hosting the
      * session.
      */
-    public static final Byte PROXIMITY_PHYSICAL = 0x01;
+    public static final byte PROXIMITY_PHYSICAL = 0x01;
 
     /**
      * Limit the spatial scope of sessions to anwhere on the local logical
      * network segment.  This means that sessions may be joined by jointers
      * located somewhere on the network.
      */
-    public static final Byte PROXIMITY_NETWORK  = 0x02;
+    public static final byte PROXIMITY_NETWORK  = 0x02;
     
     /**
      * Use no transport to communicate with a given session.
      */
-    public static final Short TRANSPORT_NONE      = 0x0000;
+    public static final short TRANSPORT_NONE      = 0x0000;
 
     /**
      * Use any available transport to communicate with a given session.
      */
-    public static final Short TRANSPORT_ANY       = (short)0xffff;
+    public static final short TRANSPORT_ANY       = (short)0xffff;
 
     /**
      * Use only the local transport to communicate with a given session.
      */
-    public static final Short TRANSPORT_LOCAL     = 0x0001;
+    public static final short TRANSPORT_LOCAL     = 0x0001;
 
     /**
      * Use only Bluetooth transport to communicate with a given session.
      */
-    public static final Short TRANSPORT_BLUETOOTH = 0x0002;
+    public static final short TRANSPORT_BLUETOOTH = 0x0002;
 
     /**
      * Use only a wireless local area network to communicate with a given session.
      */
-    public static final Short TRANSPORT_WLAN      = 0x0004;
+    public static final short TRANSPORT_WLAN      = 0x0004;
 
     /**
      * Use only a wireless wide area network to communicate with a given session.
      */
-    public static final Short TRANSPORT_WWAN      = 0x0008;
+    public static final short TRANSPORT_WWAN      = 0x0008;
+
+    public String toString( ) {
+        StringBuilder result = new StringBuilder();
+        result.append(this.getClass().getName() + " Object {");
+
+        result.append("traffic = ");
+        String value = String.format(" 0x%02x:", traffic);
+        result.append(value);
+        if ((traffic & TRAFFIC_MESSAGES) != 0) result.append(" TRAFFIC_MESSAGES");
+        if ((traffic & TRAFFIC_RAW_UNRELIABLE) != 0) result.append(" TRAFFIC_RAW_UNRELIABLE");
+        if ((traffic & TRAFFIC_RAW_RELIABLE) != 0) result.append(" TRAFFIC_RAW_RELIABLE");
+
+        result.append(", isMultipoint = ");
+        value = String.format("%d:", isMultipoint);
+        result.append(value);
+        
+        result.append(", proximity =");
+        value = String.format(" 0x%02x:", proximity);
+        result.append(value);
+        if ((proximity & PROXIMITY_PHYSICAL) != 0) result.append(" PROXIMITY_PHYSICAL");
+        if ((proximity & PROXIMITY_NETWORK) != 0) result.append(" PROXIMITY_NETWORK");
+
+        result.append(", transports =");
+        value = String.format(" 0x%04x:", transports);
+        result.append(value);
+        if ((transports & TRANSPORT_LOCAL) != 0) result.append(" TRANSPORT_LOCAL");
+        if ((transports & TRANSPORT_BLUETOOTH) != 0) result.append(" TRANSPORT_BLUETOOTH");
+        if ((transports & TRANSPORT_WLAN) != 0) result.append(" TRANSPORT_WLAN");
+        if ((transports & TRANSPORT_WWAN) != 0) result.append(" TRANSPORT_WWAN");
+        
+        result.append("}");
+        return result.toString();
+    }
 }

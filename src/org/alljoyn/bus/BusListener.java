@@ -24,20 +24,7 @@ import org.alljoyn.bus.SessionOpts;
  * It is expected that a user of the AllJoyn bus will specialize this class in
  * order to handle required events from the bus.
  */
-public interface BusListener {
-
-    /**
-     * Called by the bus when the listener is registered. This give the listener
-     * implementation the opportunity to save a reference to the bus.
-     *
-     * @param bus  The bus the listener is registered with.
-     */
-    void listenerRegistered(BusAttachment bus);
-
-    /**
-     * Called by the bus when the listener is unegistered.
-     */
-    void listenerUnRegistered();
+public class BusListener {
 
     /**
      * Called by the bus when an external bus is discovered that is advertising
@@ -49,7 +36,7 @@ public interface BusListener {
      * @param namePrefix   The well-known name prefix used in call to
      *                     FindAdvertisedName that triggered this callback.
      */
-    void foundAdvertisedName(String name, short transport, String namePrefix);
+    public void foundAdvertisedName(String name, short transport, String namePrefix) {}
 
     /**
      * Called by the bus when an advertisement previously reported through
@@ -61,7 +48,7 @@ public interface BusListener {
      * @param namePrefix   The well-known name prefix that was used in a call to
      *                     FindAdvertisedName that triggered this callback.
      */
-    void lostAdvertisedName(String name, short transport, String namePrefix);
+    public void lostAdvertisedName(String name, short transport, String namePrefix) {}
 
     /**
      * Called by the bus when the ownership of any well-known name changes.
@@ -72,14 +59,14 @@ public interface BusListener {
      * @param newOwner       The unique name that now owns the name or NULL if 
      *                       there is no new owner.
      */
-    void nameOwnerChanged(String busName, String previousOwner, String newOwner);
+    public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {}
 
     /**
      * Called by the bus when a session becomes disconnected.
      *
      * @param sessionId     Id of session that was lost.
      */
-    void sessionLost(int sessionId);
+    public void sessionLost(int sessionId) {}
 
     /**
      * Accept or reject an incoming JoinSession request. The session does not
@@ -91,7 +78,7 @@ public interface BusListener {
      *
      * @return Return true if JoinSession request is accepted. false if rejected.
      */
-    boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts);
+    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {return false;}
 
     /**
      * Called by the bus when a session has been successfully joined. The
@@ -101,10 +88,10 @@ public interface BusListener {
      * @param id             Id of session.
      * @param joiner         Unique name of the joiner.
      */
-    void sessionJoined(short sessionPort, int id, String joiner);
+    public void sessionJoined(short sessionPort, int id, String joiner) {}
 
     /**
      * Called when a bus that this listener is registered with is stopping.
      */
-    void busStopping();
+    public void busStopping() {}
 }

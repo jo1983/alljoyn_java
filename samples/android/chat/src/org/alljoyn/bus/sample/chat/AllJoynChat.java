@@ -257,36 +257,45 @@ public class AllJoynChat extends Activity {
          */
         private BusAttachment mBus;
         
-    public class MyBusListener implements BusListener {
-    		public void test() {
-    		}
-    		
-            public void listenerRegistered(BusAttachment bus) {
+        public class MyBusListener extends BusListener {
+
+        	@Override
+    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            	Message msg = obtainMessage(JOIN_SESSION, name);
+            	sendMessage(msg);
             }
 
-            public void listenerUnRegistered() {
-            }
-
-            public void foundAdvertisedName(String name, short transport, String namePrefix) {
-            }
-
+            @Override
             public void lostAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
             }
 
+            @Override
             public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
+                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
             }
 
+            @Override
             public void sessionLost(int sessionId) {
+                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
             }
             
+            @Override
             public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-            	return true;
+                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
+                		sessionOpts.toString()));
+                return true;
             }
 
+            @Override
             public void sessionJoined(short sessionPort, int id, String joiner) {
+                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
             }
 
+            @Override
             public void busStopping() {
+                logInfo("MyBusListener.busStopping()");
             }
         }
         
@@ -401,9 +410,12 @@ public class AllJoynChat extends Activity {
                 break;
             }
             case (START_DISCOVER): {
-                /*
-                 * Request a well-known Name.
+            	/*
+                 * Request that a well-known Name be assigned to our bus attachment.
                  */
+                Status status;
+                Mutable.IntegerValue disposition = new Mutable.IntegerValue();
+                
                 try {
                     int flags = (DBusProxyObj.REQUEST_NAME_REPLACE_EXISTING |
                                  DBusProxyObj.REQUEST_NAME_ALLOW_REPLACEMENT |
@@ -416,18 +428,17 @@ public class AllJoynChat extends Activity {
                     
                     if (requestNameResult == DBusProxyObj.RequestNameResult.PrimaryOwner) {
                         /*
-                         * Advertise the same well-known name over all of the available transports.
+                         * Advertise the same well-known name over all of the
+                         * available transports.
                          */
-                        AllJoynProxyObj.AdvertiseNameResult advertiseNameResult = 
-                            alljoynProxy.AdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
-                        logStatus(String.format("AllJoynProxyObj.AdvertiseName(%s)", wellKnownName), 
-                            advertiseNameResult, AllJoynProxyObj.AdvertiseNameResult.Success);
-                        
-                        if (advertiseNameResult != AllJoynProxyObj.AdvertiseNameResult.Success && 
-                            advertiseNameResult != AllJoynProxyObj.AdvertiseNameResult.AlreadyAdvertising) {
+                    	status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
+                        logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x, %d)", 
+                                wellKnownName, SessionOpts.TRANSPORT_ANY, disposition.value), status, Status.OK);
+
+                        if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_ADVERTISENAME_REPLY_SUCCESS) {
                             /*
-                             * If we are unable to advertise Name release the
-                             * name from the local bus.
+                             * If we are unable to advertise the name, release
+                             * the name from the local bus.
                              */
                             DBusProxyObj.ReleaseNameResult releaseNameRes = 
                                 dbusProxy.ReleaseName(wellKnownName);
@@ -455,10 +466,10 @@ public class AllJoynChat extends Activity {
                      * that is advertising a name that uses that prefix. If
                      * found the bus will send out a "FoundAdvertisedName" signal.
                      */
-                    AllJoynProxyObj.FindAdvertisedNameResult findAdvertisedNameResult = 
-                        alljoynProxy.FindAdvertisedName(NAME_PREFIX);
-                    logStatus("AllJoynProxyObj.FindAdvertisedName()", 
-                    	findAdvertisedNameResult, AllJoynProxyObj.FindAdvertisedNameResult.Success);
+                	status = mBus.findAdvertisedName(wellKnownName, disposition);
+                    logStatus(String.format("BusAttachment.findAdvertisedName(%s, %d)", 
+                        wellKnownName, disposition.value), status, Status.OK);
+
                 } catch (BusException ex) {
                     logException("BusException while trying to Advertise service", ex);
                 }
@@ -544,27 +555,38 @@ public class AllJoynChat extends Activity {
              */
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;
+                Status status;
+            	Mutable.IntegerValue disposition = new Mutable.IntegerValue();
                 try {
                     for (Integer sid : mSessionList) {
-                    	Mutable.IntegerValue disposition = new Mutable.IntegerValue();
-                    	Status status = mBus.leaveSession(sid, disposition);
+                    	status = mBus.leaveSession(sid, disposition);
                         logStatus("BusAttachment.leaveSession()", status);
                     }
                     
                     mIsConnected = false;
-                    mSessionList.clear();               
-
-                    AllJoynProxyObj.CancelFindAdvertisedNameResult cancelFindAdvertisedNameResult =
-                        alljoynProxy.CancelFindAdvertisedName(NAME_PREFIX);
-                    logStatus("AllJoynProxyObj.CancelFindAdvertisedName()", cancelFindAdvertisedNameResult, 
-                        AllJoynProxyObj.CancelFindAdvertisedNameResult.Success);
-
-                    String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                    AllJoynProxyObj.CancelAdvertiseNameResult cancelAdvertiseNameResult = 
-                        alljoynProxy.CancelAdvertiseName(wellKnownName);
-                    logStatus(String.format("AllJoynProxyObj.CancelAdvertiseName(%s)", wellKnownName), 
-                              cancelAdvertiseNameResult, AllJoynProxyObj.CancelAdvertiseNameResult.Success);
+                    mSessionList.clear();
+                    mChatList.clear();
                     
+                    /*
+                     * Ask the bus to stop telling us about new instances of
+                     * the NAME_PREFIX service we've been hunting for.
+                     */
+                	status = mBus.cancelFindAdvertisedName(NAME_PREFIX, disposition);
+                    logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, %d)", 
+                        NAME_PREFIX, disposition), status, Status.OK);
+                    /*
+                     * Ask the bus to stop advertising us as an instance of
+                     * the chat service.
+                     */
+                    String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
+                	status = mBus.cancelAdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
+                    logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, 0x%04x, %d)", 
+                        NAME_PREFIX, SessionOpts.TRANSPORT_ANY, disposition), status, Status.OK);
+                                       
+                    /*
+                     * Ask the bus to release the well-known name we have had
+                     * reserved as an alias for our bus attachment.
+                     */
                     DBusProxyObj.ReleaseNameResult releaseNameResult = dbusProxy.ReleaseName(wellKnownName);
                     logStatus(String.format("DBusProxyObj.ReleaseName(%s)", wellKnownName), 
                               releaseNameResult, DBusProxyObj.ReleaseNameResult.Released);
@@ -621,23 +643,6 @@ public class AllJoynChat extends Activity {
             msg.obj = "Message from " + sender + " : " + str;
             mHandler.sendMessage(msg);
         }
-        
-        /*
-         * The BusSignalHandler is subscribing to the 'FoundName' signal.  
-         * The found name signal is part of the AllJoyn interface built into AllJoyn.
-         * In this example we are interested in the busAddress of the remote bus 
-         * that was found advertising a specified well-known name. 
-         * The bus address is sent to the AllJoyn connect method using the BusHandler 
-         * CONNECT_WITH_REMOTE_BUS case.  
-         */
-        @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "FoundAdvertisedName")
-        public void FoundAdvertisedName(String name, Short transport, String namePrefix) {
-            Log.i(TAG, String.format("org.alljoyn.Bus.FoundAdvertisedName(\"%s\", 0x%04x, \"%s\") signal detected.",
-            		name, transport, namePrefix));
-            Message msg = obtainMessage(JOIN_SESSION, name);
-            sendMessage(msg);
-        }
-
     }
     
     private void logStatus(String msg, Status status) {
@@ -667,5 +672,14 @@ public class AllJoynChat extends Activity {
         String log = String.format("%s: %s", msg, ex);
         Toast.makeText(this, log, Toast.LENGTH_LONG).show();
         Log.e(TAG, log, ex);
+    }
+    
+    /*
+     * print the status or result to the Android log. If the result is the expected
+     * result only print it to the log.  Otherwise print it to the error log and
+     * Sent a Toast to the users screen. 
+     */
+    private void logInfo(String msg) {
+            Log.i(TAG, msg);
     }
 }
