@@ -532,17 +532,22 @@ class JBusListener : public BusListener {
 
     void ListenerRegistered(BusAttachment* bus) { }
     void ListenerUnRegistered() { }
-    void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) { }
-    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) { }
-    void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner) { }
-    void SessionLost(const SessionId& sessionId) { }
+    void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
+    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
+    void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
+    void SessionLost(const SessionId& sessionId);
     bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
     void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner) { }
-    void BusStopping() { }
+    void BusStopping();
 
   private:
     jweak jbusListener;
+    jmethodID MID_foundAdvertisedName;
+    jmethodID MID_lostAdvertisedName;
+    jmethodID MID_nameOwnerChanged;
+    jmethodID MID_sessionLost;
     jmethodID MID_acceptSessionJoiner;
+    jmethodID MID_busStopping;
 };
 
 JBusListener::JBusListener(jobject jlistener)
@@ -556,12 +561,35 @@ JBusListener::JBusListener(jobject jlistener)
     }
     
     JLocalRef<jclass> clazz = env->GetObjectClass(jbusListener);
-    MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner",
-                                                      "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
 
+    MID_foundAdvertisedName = env->GetMethodID(clazz, "foundAdvertisedName", "(Ljava/lang/String;SLjava/lang/String;)V");
+    if (!MID_foundAdvertisedName) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find foundAdvertisedName() in jbusListener\n"));
+    }
+
+    MID_lostAdvertisedName = env->GetMethodID(clazz, "lostAdvertisedName", "(Ljava/lang/String;SLjava/lang/String;)V");
+    if (!MID_lostAdvertisedName) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find lostAdvertisedName() in jbusListener\n"));
+    }
+
+    MID_nameOwnerChanged = env->GetMethodID(clazz, "nameOwnerChanged", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    if (!MID_nameOwnerChanged) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find nameOwnerChanged() in jbusListener\n"));
+    }
+
+    MID_sessionLost = env->GetMethodID(clazz, "sessionLost", "(I)V");
+    if (!MID_sessionLost) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find sessionLost() in jbusListener\n"));
+    }
+
+    MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner", "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
     if (!MID_acceptSessionJoiner) {
         QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find acceptSessionJoiner() in jbusListener\n"));
-        return;
+    }
+
+    MID_busStopping = env->GetMethodID(clazz, "busStopping", "()V");
+    if (!MID_busStopping) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't find busStopping() in jbusListener\n"));
     }
 }
 
@@ -571,6 +599,126 @@ JBusListener::~JBusListener()
     if (jbusListener) {
         env->DeleteGlobalRef(jbusListener);
     }
+}
+
+void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
+{
+    QCC_LogError(ER_OK, ("JBusListener::FoundAdvertisedName()\n"));
+    JScopedEnv env;
+
+    //
+    // Translate the C++ formal parameters into their JNI counterparts.
+    //
+    JLocalRef<jstring> jname = env->NewStringUTF(name);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+        return;
+    }
+
+    jshort jtransport = transport;
+
+    JLocalRef<jstring> jnamePrefix = env->NewStringUTF(namePrefix);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_foundAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Return\n"));
+}
+
+void JBusListener::LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
+{
+    QCC_LogError(ER_OK, ("JBusListener::LostAdvertisedName()\n"));
+    JScopedEnv env;
+
+    //
+    // Translate the C++ formal parameters into their JNI counterparts.
+    //
+    JLocalRef<jstring> jname = env->NewStringUTF(name);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+        return;
+    }
+
+    jshort jtransport = transport;
+
+    JLocalRef<jstring> jnamePrefix = env->NewStringUTF(namePrefix);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_lostAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Return\n"));
+}
+
+void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
+{
+    QCC_LogError(ER_OK, ("JBusListener::NameOwnerChanged()\n"));
+    JScopedEnv env;
+
+    //
+    // Translate the C++ formal parameters into their JNI counterparts.
+    //
+    JLocalRef<jstring> jbusName = env->NewStringUTF(busName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        return;
+    }
+
+    JLocalRef<jstring> jpreviousOwner = env->NewStringUTF(previousOwner);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        return;
+    }
+
+    JLocalRef<jstring> jnewOwner = env->NewStringUTF(newOwner);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_nameOwnerChanged, (jstring)jbusName, (jstring)jpreviousOwner, (jstring)jnewOwner);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Return\n"));
+}
+
+void JBusListener::SessionLost(const SessionId& sessionId)
+{
+    QCC_LogError(ER_OK, ("JBusListener::SessionLost()\n"));
+    JScopedEnv env;
+
+    //
+    // Translate the C++ formal parameters into their JNI counterparts.
+    //
+    jint jsessionId = sessionId;
+
+    QCC_LogError(ER_FAIL, ("JBusListener::SessionLost(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_sessionLost, jsessionId);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::SessionLost(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::SessionLost(): Return\n"));
 }
 
 bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts)
@@ -615,6 +763,21 @@ bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* join
 
     QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Return result %d\n", result));
     return result;
+}
+
+void JBusListener::BusStopping(void)
+{
+    QCC_LogError(ER_OK, ("JBusListener::BusStopping()\n"));
+    JScopedEnv env;
+
+    QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_sessionLost);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Exception\n"));
+        return;
+    }
+
+    QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Return\n"));
 }
 
 class JAuthListener : public AuthListener {
@@ -1730,6 +1893,214 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener(
     // (*bus)->UnRegisterBusListener(jbuslistener);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEnv* env, jobject thiz,
+    jstring jname, jshort jtransports, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_advertiseName()\n"));
+
+    //
+    // Load the C++ well-known name with the Java well-known name.
+    //
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_advertiseName(): Call AdvertiseName(%s, 0x%04x, %d)\n", 
+        name.c_str(), jtransports, disposition));
+
+    QStatus status = (*bus)->AdvertiseName(name.c_str(), jtransports, disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_advertiseName(): Back from AdvertiseName(%s, %d)\n", 
+            name.c_str(), disposition));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName(JNIEnv* env, jobject thiz,
+    jstring jname, jshort jtransports, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_cancelAdvertiseName()\n"));
+
+    //
+    // Load the C++ well-known name Java well-known name.
+    //
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_cancelAdvertiseName(): Call CancelAdvertiseName(%s, 0x%04x, %d)\n", 
+        name.c_str(), disposition));
+
+    QStatus status = (*bus)->CancelAdvertiseName(name.c_str(), jtransports, disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_cancelAdvertiseName(): Back from CancelAdvertiseName(%s, %d)\n", 
+        name.c_str(), disposition));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(JNIEnv* env, jobject thiz,
+    jstring jname, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_findAdvertisedName()\n"));
+
+    //
+    // Load the C++ well-known name Java well-known name.
+    //
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_findAdvertisedName(): Call FindAdvertisedName(%s, %d)\n", 
+        name.c_str(), disposition));
+
+    QStatus status = (*bus)->FindAdvertisedName(name.c_str(), disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_findAdvertisedName(): Back from FindAdvertiseName(%s, %d)\n", 
+        name.c_str(), disposition));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName(JNIEnv* env, jobject thiz,
+    jstring jname, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_cancelFindAdvertisedName()\n"));
+
+    //
+    // Load the C++ well-known name Java well-known name.
+    //
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_cancelFindAdvertisedName(): Call CancelFindAdvertisedName(%s, %d)\n",
+        name.c_str(), disposition));
+
+    QStatus status = (*bus)->CancelFindAdvertisedName(name.c_str(), disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_cancelFindAdvertisedName(): Back from CancelFindAdvertiseName(%s, %d)\n", 
+        name.c_str(), disposition));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNIEnv* env, jobject thiz,
     jobject jsessionPort, jobject jsessionOpts, jobject jdisposition)
 {
@@ -1840,7 +2211,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     SessionId sessionId;
     SessionOpts sessionOpts;
 
-    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Call JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+    QCC_LogError(ER_OK, ("BusAttachment_joinSession(): Call JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
         sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
         sessionOpts.proximity, sessionOpts.transports));
 
@@ -1850,7 +2221,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
         return NULL;
     }
 
-    QCC_LogError(ER_OK, ("BusAttachment_bindSessionPort(): Back from JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+    QCC_LogError(ER_OK, ("BusAttachment_joinSession(): Back from JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
         sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
         sessionOpts.proximity, sessionOpts.transports));
 
@@ -1910,10 +2281,18 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
     // Make the AllJoyn call.
     //
     uint32_t disposition;
+
+    QCC_LogError(ER_OK, ("BusAttachment_leaveSession(): Call LeaveSession(%d, %d)\n",
+        jsessionId, disposition));
+
     QStatus status = (*bus)->LeaveSession(jsessionId, disposition);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
+    QCC_LogError(ER_OK, ("BusAttachment_leaveSession(): back from LeaveSession(%d, %d)\n",
+        jsessionId, disposition));
+
 
     //
     // Store the disposition back in its out parameter.
