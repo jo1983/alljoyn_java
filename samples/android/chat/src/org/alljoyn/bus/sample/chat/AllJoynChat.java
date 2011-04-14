@@ -307,12 +307,8 @@ public class AllJoynChat extends Activity {
         private List<ChatInterface> mChatList;
         private List<Integer> mSessionList;
         
-        DBusProxyObj dbusProxy;
-        AllJoynProxyObj alljoynProxy;
-
         public BusHandler(Looper looper) {
             super(looper);          
-
             /*
              * Create an instance of the chat service.  This is the bus object
              * that implements the chat on the local service side. 
@@ -361,12 +357,6 @@ public class AllJoynChat extends Activity {
                 }
 
                 /*
-                 * The AllJoynProxyObj enables a way to make calls to methods
-                 * that are part of AllJoyn interface.
-                 */
-                alljoynProxy = mBus.getAllJoynProxyObj();
-
-                /*
                  * Create a new session listening on the contact port of the chat service.
                  */
                 Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
@@ -403,77 +393,67 @@ public class AllJoynChat extends Activity {
                     return;
                 }
                 
-                /*
-                 * The DBusProxyObj creates a way to make calls to methods built
-                 * into the DBus standard.
-                 */
-                dbusProxy = mBus.getDBusProxyObj();
                 break;
             }
             case (START_DISCOVER): {
             	/*
-                 * Request that a well-known Name be assigned to our bus attachment.
+                 * Request that a well-known bus name (composed of the chat 
+                 * service well-known name prefix and the user-entered 
+                 * nickname) be assigned to our bus attachment.  Tell the
+                 * bus that we want to own the name immediately and not to
+                 * queue the request.
                  */
                 Status status;
                 Mutable.IntegerValue disposition = new Mutable.IntegerValue();
                 
-                try {
-                    int flags = (DBusProxyObj.REQUEST_NAME_REPLACE_EXISTING |
-                                 DBusProxyObj.REQUEST_NAME_ALLOW_REPLACEMENT |
-                                 DBusProxyObj.REQUEST_NAME_DO_NOT_QUEUE);
-                    String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                    DBusProxyObj.RequestNameResult requestNameResult = 
-                        dbusProxy.RequestName(wellKnownName, flags);
-                    logStatus("DBusProxyObj.RequestName()", requestNameResult, 
-                        DBusProxyObj.RequestNameResult.PrimaryOwner);
-                    
-                    if (requestNameResult == DBusProxyObj.RequestNameResult.PrimaryOwner) {
-                        /*
-                         * Advertise the same well-known name over all of the
-                         * available transports.
-                         */
-                    	status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
-                        logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x, %d)", 
-                                wellKnownName, SessionOpts.TRANSPORT_ANY, disposition.value), status, Status.OK);
-
-                        if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_ADVERTISENAME_REPLY_SUCCESS) {
-                            /*
-                             * If we are unable to advertise the name, release
-                             * the name from the local bus.
-                             */
-                            DBusProxyObj.ReleaseNameResult releaseNameRes = 
-                                dbusProxy.ReleaseName(wellKnownName);
-                            logStatus(String.format("DBusProxyObj.ReleaseName(%s)", wellKnownName), 
-                                releaseNameRes, DBusProxyObj.ReleaseNameResult.Released);
-                            mIsConnected = false;
-                        } else {
-                            mIsConnected = true;
-                        }
-                    }
+                String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
                 
+                status = mBus.requestName(wellKnownName, ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE, disposition);
+                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x, %d)", 
+                    wellKnownName, flags, disposition.value), status);
+                        
+                if (status == Status.OK && disposition.value == BusAttachment.ALLJOYN_REQUESTNAME_REPLY_PRIMARY_OWNER) {
                     /*
-                     * Each device running the AllJoyn Chat sample advertises
-                     * a name that looks like "NAME_PREFIX.<a_user_entered_name>".
-                     * For example, if the user uses foo as their name, the 
-                     * well-known name requested from the bus and advertised is
-                     * "org.alljoyn.bus.samples.chat.foo".  Since buses must
-                     * advertise a unique name we don't know the name the other
-                     * buses will advertise however we can know part of the name
-                     * each bus will advertise.
-                     * 
-                     * For the AllJoyn Chat sample all of the Bus names
-                     * advertised will start with "org.alljoyn.bus.samples.chat"
-                     * this will tell the local bus to look for any remote bus
-                     * that is advertising a name that uses that prefix. If
-                     * found the bus will send out a "FoundAdvertisedName" signal.
+                     * Advertise the same well-known name over all of the
+                     * available transports.
                      */
-                	status = mBus.findAdvertisedName(NAME_PREFIX, disposition);
-                    logStatus(String.format("BusAttachment.findAdvertisedName(%s, %d)", 
-                        wellKnownName, disposition.value), status, Status.OK);
+                 	status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
+                    logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x, %d)", 
+                        wellKnownName, SessionOpts.TRANSPORT_ANY, disposition.value), status, Status.OK);
 
-                } catch (BusException ex) {
-                    logException("BusException while trying to Advertise service", ex);
+                    if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_ADVERTISENAME_REPLY_SUCCESS) {
+                        /*
+                         * If we are unable to advertise the name, release
+                         * the name from the local bus.
+                         */
+                        status = mBus.releaseName(wellKnownName, disposition);
+                        logStatus(String.format("BusAttachment.releaseName(%s, %d)", wellKnownName, disposition.value), 
+                            status);
+                        mIsConnected = false;
+                    } else {
+                        mIsConnected = true;
+                    }
                 }
+                
+                /*
+                 * Each device running the AllJoyn Chat sample advertises
+                 * a name that looks like "NAME_PREFIX.<a_user_entered_name>".
+                 * For example, if the user uses foo as their name, the 
+                 * well-known name requested from the bus and advertised is
+                 * "org.alljoyn.bus.samples.chat.foo".  Since buses must
+                 * advertise a unique name we don't know the name the other
+                 * buses will advertise however we can know part of the name
+                 * each bus will advertise.
+                 * 
+                 * For the AllJoyn Chat sample all of the Bus names
+                 * advertised will start with "org.alljoyn.bus.samples.chat"
+                 * this will tell the local bus to look for any remote bus
+                 * that is advertising a name that uses that prefix. If
+                 * found the bus will send out a "FoundAdvertisedName" signal.
+                 */
+              	status = mBus.findAdvertisedName(NAME_PREFIX, disposition);
+                logStatus(String.format("BusAttachment.findAdvertisedName(%s, %d)", 
+                    wellKnownName, disposition.value), status, Status.OK);
                 break;
             }
 
@@ -558,42 +538,40 @@ public class AllJoynChat extends Activity {
                 mIsStoppingDiscovery = true;
                 Status status;
             	Mutable.IntegerValue disposition = new Mutable.IntegerValue();
-                try {
-                    for (Integer sid : mSessionList) {
-                    	status = mBus.leaveSession(sid, disposition);
-                        logStatus("BusAttachment.leaveSession()", status);
-                    }
-                    
-                    mIsConnected = false;
-                    mSessionList.clear();
-                    mChatList.clear();
-                    
-                    /*
-                     * Ask the bus to stop telling us about new instances of
-                     * the NAME_PREFIX service we've been hunting for.
-                     */
-                	status = mBus.cancelFindAdvertisedName(NAME_PREFIX, disposition);
-                    logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, %d)", 
-                        NAME_PREFIX, disposition), status, Status.OK);
-                    /*
-                     * Ask the bus to stop advertising us as an instance of
-                     * the chat service.
-                     */
-                    String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                	status = mBus.cancelAdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
-                    logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, 0x%04x, %d)", 
-                        NAME_PREFIX, SessionOpts.TRANSPORT_ANY, disposition), status, Status.OK);
-                                       
-                    /*
-                     * Ask the bus to release the well-known name we have had
-                     * reserved as an alias for our bus attachment.
-                     */
-                    DBusProxyObj.ReleaseNameResult releaseNameResult = dbusProxy.ReleaseName(wellKnownName);
-                    logStatus(String.format("DBusProxyObj.ReleaseName(%s)", wellKnownName), 
-                              releaseNameResult, DBusProxyObj.ReleaseNameResult.Released);
-                } catch (BusException ex) {
-                    logException("BusException while trying to stop advertising", ex);
+
+                for (Integer sid : mSessionList) {
+                	status = mBus.leaveSession(sid, disposition);
+                    logStatus("BusAttachment.leaveSession()", status);
                 }
+                    
+                mIsConnected = false;
+                mSessionList.clear();
+                mChatList.clear();
+                    
+                /*
+                 * Ask the bus to stop telling us about new instances of
+                 * the NAME_PREFIX service we've been hunting for.
+                 */
+             	status = mBus.cancelFindAdvertisedName(NAME_PREFIX, disposition);
+                logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, %d)", 
+                    NAME_PREFIX, disposition), status, Status.OK);
+                /*
+                 * Ask the bus to stop advertising us as an instance of
+                 * the chat service.
+                 */
+                String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
+                status = mBus.cancelAdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
+                logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, 0x%04x, %d)", 
+                    NAME_PREFIX, SessionOpts.TRANSPORT_ANY, disposition), status, Status.OK);
+                                       
+                /*
+                 * Ask the bus to release the well-known name we have had
+                 * reserved as an alias for our bus attachment.
+                 */
+                status = mBus.releaseName(wellKnownName, disposition);
+                logStatus(String.format("BusAttachment.releaseName(%s, %d)", wellKnownName, disposition.value), 
+                    status);
+
                 mIsStoppingDiscovery = false;
                 break;
             }
@@ -603,7 +581,6 @@ public class AllJoynChat extends Activity {
                 		chatInterface.Chat((String) msg.obj);
                         Log.i(TAG, String.format("Chat(%s) msg sent to session", (String) msg.obj));
                 	}
-
                 } catch (BusException ex) {
                     logException("ChatInterface.Chat()", ex);
                 }

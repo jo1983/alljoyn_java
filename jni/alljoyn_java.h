@@ -68,6 +68,33 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    requestName
+ * Signature: (Ljava/lang/String;I;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName
+  (JNIEnv *, jobject,
+   jstring, jint, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    releaseName
+ * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName
+  (JNIEnv *, jobject,
+   jstring, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    addMatch
+ * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch
+  (JNIEnv *, jobject,
+   jstring);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    advertiseName
  * Signature: (Ljava/lang/String;SLorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
  */

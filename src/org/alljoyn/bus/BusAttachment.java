@@ -53,6 +53,115 @@ import java.util.concurrent.Executors;
 public class BusAttachment {
 
     /**
+     * Request a well-known name.
+     * This method is a shortcut/helper that issues an org.freedesktop.DBus.RequestName method call to the local daemon
+     * and interprets the response.
+     *
+     * @param requestedName  Well-known name being requested.
+     * @param flags          Bitmask of DBUS_NAME_FLAG_* defines (see DBusStd.h)
+     * @param disposition    One of DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER
+     *                              DBUS_REQUEST_NAME_REPLY_IN_QUEUE
+     *                              DBUS_REQUEST_NAME_REPLY_EXISTS
+     *                              DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER
+     *
+     * @return ER_OK if daemon response was received. ER_OK indicates that
+     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
+     */
+    public native Status requestName(String name, int flags, Mutable.IntegerValue disposition);
+
+    /**
+     * Value for requestName flags bit corresponding to allowing another bus
+     * attachment to take ownership of this name.
+     */
+    public static final int ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT = 0x01;
+
+    /**
+     * Value for requestName flags bit corresponding to a request to take
+     * ownership of the name in question if it is already taken.
+     */
+    public static final int ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING = 0x02;
+
+    /**
+     * Value for requestName flags bit corresponding to a request to 
+     * fail if the name in question cannot be immediately obtained.
+     */
+    public static final int ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE = 0x04;     /**< RequestName input flag: \
+
+    /**
+     * Value from requestName disposition corresponding to a successful
+     * request name operation.
+     */
+    public static final int ALLJOYN_REQUESTNAME_REPLY_PRIMARY_OWNER = 1;
+
+    /**
+     * Value from requestName disposition corresponding to a situation where
+     * the name is already owned, and the ownership request has been queued.
+     */
+    public static final int ALLJOYN_REQUESTNAME_REPLY_IN_QUEUE = 2;
+
+    /**
+     * Value from requestName disposition corresponding to a situation where
+     * the name is already owned, and DO_NOT_QUEUE was specified.
+     */
+    public static final int ALLJOYN_REQUESTNAME_REPLY_EXISTS = 3;
+
+    /**
+     * Value from requestName disposition corresponding to a situation where
+     * the name is already owned by the requesting endpoint.
+     */
+    public static final int ALLJOYN_REQUESTNAME_REPLY_ALREADY_OWNER = 4;
+
+    /**
+     * Release a previously requeted well-known name.
+     * This method is a shortcut/helper that issues an org.freedesktop.DBus.ReleaseName method call to the local daemon
+     * and interprets the response.
+     *
+     * @param name          Well-known name being released.
+     * @param disposition   DBUS_RELEASE_NAME_REPLY_* response to org.freedesktop.DBus.ReleaseName (see DBusStd.h).
+     *                           disposition is only valid if return value is #ER_OK.
+     *
+     * @return ER_OK if daemon response was received. ER_OK indicates that
+     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
+     */
+    public native Status releaseName(String name, Mutable.IntegerValue disposition);
+
+    /**
+     * Value from releaseName disposition corresponding to a successful
+     * release operation.
+     */
+    public static final int ALLJOYN_RELEASENAME_REPLY_RELEASED = 1;
+
+    /**
+     * Value from releaseName disposition corresponding to a situation where
+     * the name to be released does not exist anywhere on the bus.
+     */
+    public static final int ALLJOYN_RELEASENAME_REPLY_NON_EXISTENT = 2;
+
+    /**
+     * Value from releaseName disposition corresponding to a situation where
+     * the name to be released exists on the bus but is not currently owned by
+     * the endpoint.
+     */
+    public static final int ALLJOYN_RELEASENAME_REPLY_NOT_OWNER = 3;
+
+    /**
+     * Add a DBus match rule.
+     * This method is a shortcut/helper that issues an org.freedesktop.DBus.AddMatch method call to the local daemon.
+     *
+     * @param rule  Match rule to be added (see the DBus specification for the
+     *              format of this string).
+     *
+     * @return ER_OK if daemon response was received.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
+     */
+    public native Status addMatch(String rule);
+
+    /**
      * Advertise the existence of a well-known name to other (possibly disconnected) AllJoyn daemons.
      *
      * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.AdvertisedName method call to the local daemon
@@ -64,10 +173,10 @@ public class BusAttachment {
      *                            ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING
      *                            ALLJOYN_ADVERTISENAME_REPLY_FAILED
      *
-     * @return
-     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
-     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
-     *      - Other error status codes indicating a failure.
+     * @return ER_OK if daemon response was received. ER_OK indicates that
+     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
      */
     public native Status advertiseName(String name, short transports, Mutable.IntegerValue disposition);
 
@@ -100,12 +209,11 @@ public class BusAttachment {
      * @param transports    Set of transports whose name advertisment will be cancelled.
      * @param disposition   One of ALLJOYN_CANCELADVERTISENAME_REPLY_SUCCESS
      *                             ALLJOYN_CANCELADVERTISENAME_REPLY_FAILED
-
      *
-     * @return
-     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
-     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
-     *      - Other error status codes indicating a failure.
+     * @return ER_OK if daemon response was received. ER_OK indicates that
+     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
      */
     public native Status cancelAdvertiseName(String name, short transports, Mutable.IntegerValue disposition);
 
@@ -132,10 +240,10 @@ public class BusAttachment {
      *                             ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING
      *                             ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED
      *
-     * @return
-     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
-     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
-     *      - Other error status codes indicating a failure.
+     * @return ER_OK if daemon response was received. ER_OK indicates that
+     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.
      */
     public native Status findAdvertisedName(String namePrefix, Mutable.IntegerValue disposition);
 
@@ -168,10 +276,9 @@ public class BusAttachment {
      * @param disposition   One of ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS
      *                             ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED
      *
-     * @return
-     *      - #ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
-     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
-     *      - Other error status codes indicating a failure.
+     * @return One of ER_OK if daemon response was received (indicates that disposition is valid)
+     *                ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus
+     *                Other error status codes indicating a general failure condition.
      */
     public native Status cancelFindAdvertisedName(String namePrefix, Mutable.IntegerValue disposition);
 
@@ -399,15 +506,6 @@ public class BusAttachment {
      * @param listener  Object instance to un-register as a listener.
      */
     public native void unRegisterBusListener(BusListener listener);
-
-
-
-
-
-
-
-
-
 
     /** The native connection handle. */
     private long handle;

@@ -1894,6 +1894,152 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener(
     // (*bus)->UnRegisterBusListener(jbuslistener);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv *env, jobject thiz,
+   jstring jname, jint jflags, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_requestName()\n"));
+
+    //
+    // Load the C++ well-known name with the Java well-known name.
+    //
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_requestName(): Call RequestName(%s, 0x%08x, %d)\n", 
+        name.c_str(), jflags, disposition));
+
+    QStatus status = (*bus)->RequestName(name.c_str(), jflags, disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_requestName(): Back from RequestName(%s, 0x%08x, %d)\n", 
+	name.c_str(), jflags, disposition));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv *env, jobject thiz,
+   jstring jname, jobject jdisposition)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_releaseName()\n"));
+
+    //
+    // Load the C++ well-known name with the Java well-known name.
+    //
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    uint32_t disposition = 0;
+
+    QCC_LogError(ER_OK, ("BusAttachment_releaseName(): Call ReleaseName(%s, %d)\n", 
+        name.c_str(), disposition));
+
+    QStatus status = (*bus)->ReleaseName(name.c_str(), disposition);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_releaseName(): Back from ReleaseName(%s, %d)\n", 
+	name.c_str(), disposition));
+
+    //
+    // Store the disposition back in its out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jdisposition, fid, disposition);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv *env, jobject thiz,
+   jstring jrule)
+{
+    QCC_LogError(ER_OK, ("BusAttachment_addMatch()\n"));
+
+    //
+    // Load the C++ well-known name with the Java well-known name.
+    //
+    JString rule(jrule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_LogError(ER_OK, ("BusAttachment_addMatch(): Call AddMatch(%s)\n", 
+        rule.c_str()));
+
+    QStatus status = (*bus)->AddMatch(rule.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_LogError(ER_OK, ("BusAttachment_addMatch(): Back from AddMatch(%s)\n", 
+	rule.c_str()));
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEnv* env, jobject thiz,
     jstring jname, jshort jtransports, jobject jdisposition)
 {
