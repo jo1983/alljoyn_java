@@ -17,7 +17,10 @@
 package org.alljoyn.bus.samples.simpleservice;
 
 import org.alljoyn.bus.BusAttachment;
+import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.BusObject;
+import org.alljoyn.bus.Mutable;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
@@ -151,13 +154,61 @@ public class Service extends Activity {
     /* This class will handle all AllJoyn calls. See onCreate(). */
     class BusHandler extends Handler {
 
+    	/*
+    	 * Extend the BusListener class to respond to AllJoyn's bus signals
+    	 */
+    	public class MyBusListener extends BusListener {
+    		@Override
+    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            }
+
+            @Override
+            public void lostAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            }
+
+            @Override
+            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
+                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
+            }
+
+            @Override
+            public void sessionLost(int sessionId) {
+                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+            }
+
+            @Override
+            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
+                	sessionOpts.toString()));
+        		if (sessionPort == CONTACT_PORT) {
+        			return true;
+        		} else {
+        			return false;
+        		}
+        	}
+
+            @Override
+            public void sessionJoined(short sessionPort, int id, String joiner) {
+                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+            }
+
+            @Override
+            public void busStopping() {
+                logInfo("MyBusListener.busStopping()");
+            }
+        }
+    	
         /*
          * Name used as the well-known name and the advertised name.  This name must be a unique name
          * both to the bus and to the network as a whole.  The name uses reverse URL style of naming.
          */
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.simple";
+        private static final short CONTACT_PORT=42;
         
         private BusAttachment mBus;
+        private MyBusListener mMyBusListener;
 
         /* These are the messages sent to the BusHandler from the UI. */
         public static final int CONNECT = 1;
@@ -184,6 +235,13 @@ public class Service extends Activity {
                  */ 
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
                 
+                /*
+                 * Create a bus listener class to handle callbacks from the 
+                 * BusAttachement and tell the attachment about the callbacks
+                 */
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
+                
                 /* 
                  * To make a service available to other AllJoyn peers, first register a BusObject with
                  * the BusAttachment at a specific path.
@@ -197,23 +255,72 @@ public class Service extends Activity {
                     return;
                 }
                 
+                
+                
                 /*
                  * The next step in making a service available to other AllJoyn peers is to connect the
-                 * BusAttachment to the bus at a well-known name.  This advertises the BusAttachment
-                 * to the peers.  Once a peer has found the advertised BusAttachment, it can then
-                 * communicate with any registered BusObjects.
+                 * BusAttachment to the bus with a well-known name.  
                  */
-                status = mBus.connect(SERVICE_NAME);
+                /*
+                 * connect the BusAttachement to the bus
+                 */
+                status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
                 if (status != Status.OK) {
                     finish();
                     return;
                 }
+                
+                /*
+                 * request a well-known name from the bus
+                 */
+                int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
+                
+                status = mBus.requestName(SERVICE_NAME, flag);
+                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", SERVICE_NAME, flag), status);
+                if (status == Status.OK) {
+                	/*
+                	 * If we successfully obtain a well-known name from the bus 
+                	 * advertise the same well-known name
+                	 */
+                	status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
+                    logStatus(String.format("BusAttachement.advertiseName(%s)", SERVICE_NAME), status);
+                    if (status != Status.OK) {
+                    	/*
+                         * If we are unable to advertise the name, release
+                         * the well-known name from the local bus.
+                         */
+                        status = mBus.releaseName(SERVICE_NAME);
+                        logStatus(String.format("BusAttachment.releaseName(%s)", SERVICE_NAME), status);
+                    	finish();
+                    	return;
+                    }
+                }
+                
+                /*
+                 * Create a new session listening on the contact port of the chat service.
+                 */
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+                
+                SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.isMultipoint = false;
+                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                logStatus("BusAttachment.bindSessionPort()", status);
+                if (status != Status.OK) {
+                    finish();
+                    return;
+                }
+                
                 break;
             }
             
             /* Release all resources acquired in connect. */
             case DISCONNECT: {
+            	mBus.unRegisterBusListener(mMyBusListener);
                 /* 
                  * It is important to deregister the BusObject before disconnecting from the bus.
                  * Failing to do so could result in a resource leak.
@@ -239,5 +346,14 @@ public class Service extends Activity {
             mHandler.sendMessage(toastMsg);
             Log.e(TAG, log);
         }
+    }
+    
+    /*
+     * print the status or result to the Android log. If the result is the expected
+     * result only print it to the log.  Otherwise print it to the error log and
+     * Sent a Toast to the users screen. 
+     */
+    private void logInfo(String msg) {
+            Log.i(TAG, msg);
     }
 }

@@ -18,8 +18,10 @@ package org.alljoyn.bus.samples.simpleclient;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
-import org.alljoyn.bus.FindNameListener;
+import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
@@ -145,6 +147,54 @@ public class Client extends Activity {
     /* This class will handle all AllJoyn calls. See onCreate(). */
     class BusHandler extends Handler {
         
+    	/*
+    	 * Extend the BusListener class to respond to AllJoyn's bus signals
+    	 */
+    	public class MyBusListener extends BusListener {
+        	@Override
+    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            	Message msg = obtainMessage(JOIN_SESSION, name);
+            	sendMessage(msg);
+            }
+
+            @Override
+            public void lostAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            }
+
+            @Override
+            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
+                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
+            }
+
+            @Override
+            public void sessionLost(int sessionId) {
+                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+            }
+            
+            @Override
+            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
+                	sessionOpts.toString()));
+        		if (sessionPort == CONTACT_PORT) {
+        			return true;
+        		} else {
+        			return false;
+        		}
+        	}
+
+            @Override
+            public void sessionJoined(short sessionPort, int id, String joiner) {
+                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+            }
+
+            @Override
+            public void busStopping() {
+                logInfo("MyBusListener.busStopping()");
+            }
+        }
+    	
         /*
          * Name used as the well-known name and the advertised name of the service this client is
          * interested in.  This name must be a unique name both to the bus and to the network as a
@@ -153,18 +203,28 @@ public class Client extends Activity {
          * The name uses reverse URL style of naming, and matches the name used by the service.
          */
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.simple";
+        private static final short CONTACT_PORT=42;
 
         private BusAttachment mBus;
         private ProxyBusObject mProxyObj;
+        private MyBusListener mMyBusListener;
         private SimpleInterface mSimpleInterface;
+        
+        private int 	mSessionId;
+        private boolean mIsConnected;
+        private boolean mIsStoppingDiscovery;
         
         /* These are the messages sent to the BusHandler from the UI. */
         public static final int CONNECT = 1;
-        public static final int DISCONNECT = 2;
-        public static final int PING = 3;
+        public static final int JOIN_SESSION = 2;
+        public static final int DISCONNECT = 3;
+        public static final int PING = 4;
 
         public BusHandler(Looper looper) {
             super(looper);
+            
+            mIsConnected = false;
+            mIsStoppingDiscovery = false;
         }
 
         @Override
@@ -183,6 +243,13 @@ public class Client extends Activity {
                  * between devices.
                  */
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+                
+                /*
+                 * Create a bus listener class to handle callbacks from the 
+                 * BusAttachement and tell the attachment about it
+                 */
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
 
                 /* To communicate with AllJoyn objects, we must connect the BusAttachment to the bus. */
                 Status status = mBus.connect();
@@ -191,19 +258,6 @@ public class Client extends Activity {
                     finish();
                     return;
                 }
-                
-                /*
-                 * To communicate with an AllJoyn object, we create a ProxyBusObject.  A ProxyBusObject
-                 * is composed of a name, path, and interfaces.
-                 * 
-                 * This ProxyBusObject is located at the well-known SERVICE_NAME, under path
-                 * "/SimpleService", and implements the SimpleInterface.
-                 */ 
-                mProxyObj = mBus.getProxyBusObject(SERVICE_NAME, "/SimpleService", 
-                                                   new Class[] { SimpleInterface.class });
-
-                /* We make calls to the methods of the AllJoyn object through one of its interfaces. */
-                mSimpleInterface = mProxyObj.getInterface(SimpleInterface.class);
 
                 /*
                  * Now find an instance of the AllJoyn object we want to call.  We start by looking for
@@ -211,42 +265,67 @@ public class Client extends Activity {
                  *
                  * In this case, we are looking for the well-known SERVICE_NAME.
                  */
-                status = mBus.findName(SERVICE_NAME, new FindNameListener() {
-                        public void foundName(String name, String guid, String namePrefix, 
-                                              String busAddress) {
-                            /*
-                             * We found the name we are looking for, so connect to the device at the
-                             * busAddress parameter.  Now we can make calls on the object instance
-                             * through the ProxyBusObject.
-                             */
-                            Status status = mProxyObj.connect(busAddress);
-                            logStatus("ProxyBusObject.connect()", status);
-                            if (status != Status.OK) {
-                                finish();
-                                return;
-                            }
-                            
-                            /* We're only looking for one instance, so stop looking for the name. */
-                            mBus.cancelFindName(SERVICE_NAME);
-                            logStatus("BusAttachment.cancelFindName()", status);
-                            if (status != Status.OK) {
-                                finish();
-                                return;
-                            }
-                        }
-                    public void lostAdvertisedName(String name, String guid, String namePrefix, String busAddr) { }
-                    });
-                logStatus("BusAttachment.findName()", status);
-                if (status != Status.OK) {
-                    finish();
-                    return;
+                status = mBus.findAdvertisedName(SERVICE_NAME);
+                logStatus(String.format("BusAttachement.findAdvertisedName(%s)", SERVICE_NAME), status);
+                if (Status.OK != status) {
+                	finish();
+                	return;
+                }
+
+                break;
+            }
+            case (JOIN_SESSION): {
+            	/*
+                 * If discovery is currently being stopped don't join to any other sessions.
+                 */
+                if (mIsStoppingDiscovery) {
+                    break;
+                }
+                
+                /*
+                 * In order to join the session, we need to provide the well-known
+                 * contact port.  This is pre-arranged between both sides as part
+                 * of the definition of the chat service.  As a result of joining
+                 * the session, we get a session identifier which we must use to 
+                 * identify the created session communication channel whenever we
+                 * talk to the remote side.
+                 */
+                short contactPort = CONTACT_PORT;
+                SessionOpts sessionOpts = new SessionOpts();
+                Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+                
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                logStatus("BusAttachment.joinSession()", status);
+                    
+                if (status == Status.OK) {
+                	/*
+                     * To communicate with an AllJoyn object, we create a ProxyBusObject.  
+                     * A ProxyBusObject is composed of a name, path, sessionID and interfaces.
+                     * 
+                     * This ProxyBusObject is located at the well-known SERVICE_NAME, under path
+                     * "/SimpleService", uses sessionID of CONTACT_PORT, and implements the SimpleInterface.
+                     */
+                	mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME, 
+                										"/SimpleService",
+                										sessionId.value,
+                										new Class<?>[] { SimpleInterface.class });
+
+                	/* We make calls to the methods of the AllJoyn object through one of its interfaces. */
+                	mSimpleInterface =  mProxyObj.getInterface(SimpleInterface.class);
+                	
+                	mSessionId = sessionId.value;
+                	mIsConnected = true;
                 }
                 break;
             }
             
             /* Release all resources acquired in the connect. */
             case DISCONNECT: {
-                mProxyObj.disconnect();
+            	mIsStoppingDiscovery = true;
+            	if (mIsConnected) {
+                	Status status = mBus.leaveSession(mSessionId);
+                    logStatus("BusAttachment.leaveSession()", status);
+            	}
                 mBus.disconnect();
                 getLooper().quit();
                 break;
@@ -260,9 +339,11 @@ public class Client extends Activity {
              */
             case PING: {
                 try {
-                    sendUiMessage(MESSAGE_PING, msg.obj);
-                    String reply = mSimpleInterface.Ping((String) msg.obj);
-                    sendUiMessage(MESSAGE_PING_REPLY, reply);
+                	if (mSimpleInterface != null) {
+                		sendUiMessage(MESSAGE_PING, msg.obj);
+                		String reply = mSimpleInterface.Ping((String) msg.obj);
+                		sendUiMessage(MESSAGE_PING_REPLY, reply);
+                	}
                 } catch (BusException ex) {
                     logException("SimpleInterface.Ping()", ex);
                 }
@@ -295,5 +376,14 @@ public class Client extends Activity {
         Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST, log);
         mHandler.sendMessage(toastMsg);
         Log.e(TAG, log, ex);
+    }
+    
+    /*
+     * print the status or result to the Android log. If the result is the expected
+     * result only print it to the log.  Otherwise print it to the error log and
+     * Sent a Toast to the users screen. 
+     */
+    private void logInfo(String msg) {
+            Log.i(TAG, msg);
     }
 }
