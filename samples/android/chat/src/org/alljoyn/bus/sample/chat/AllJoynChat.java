@@ -258,7 +258,6 @@ public class AllJoynChat extends Activity {
         private BusAttachment mBus;
         
         public class MyBusListener extends BusListener {
-
         	@Override
     		public void foundAdvertisedName(String name, short transport, String namePrefix) {
                 logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
@@ -284,7 +283,7 @@ public class AllJoynChat extends Activity {
             @Override
             public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
                 logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
-                		sessionOpts.toString()));
+                	sessionOpts.toString()));
                 return true;
             }
 
@@ -380,8 +379,10 @@ public class AllJoynChat extends Activity {
                 
                 Mutable.IntegerValue disposition = new Mutable.IntegerValue();
 
-                status = mBus.bindSessionPort(contactPort, sessionOpts, disposition);
-                logStatus("BusAttachment.bindSessionPort()", status);
+                status = mBus.bindSessionPort(contactPort, sessionOpts, disposition);                
+                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s, %d)", 
+                    contactPort.value, sessionOpts.toString(), disposition.value), status);
+                
                 if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS) {
                     finish();
                     return;
@@ -466,7 +467,7 @@ public class AllJoynChat extends Activity {
                      * that is advertising a name that uses that prefix. If
                      * found the bus will send out a "FoundAdvertisedName" signal.
                      */
-                	status = mBus.findAdvertisedName(wellKnownName, disposition);
+                	status = mBus.findAdvertisedName(NAME_PREFIX, disposition);
                     logStatus(String.format("BusAttachment.findAdvertisedName(%s, %d)", 
                         wellKnownName, disposition.value), status, Status.OK);
 
@@ -551,7 +552,7 @@ public class AllJoynChat extends Activity {
              * - Stop looking for the NAME_PREFIX
              * - Stop the local bus from advertising its own well known name so
              *   no other buses will try and connect with the local bus.
-             * - Remove the wellKnownName from the local bus.
+             * - Remove the sess from the local bus.
              */
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;

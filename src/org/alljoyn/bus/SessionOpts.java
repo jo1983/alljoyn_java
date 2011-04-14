@@ -125,27 +125,27 @@ public class SessionOpts {
 
     public String toString( ) {
         StringBuilder result = new StringBuilder();
-        result.append(this.getClass().getName() + " Object {");
+        result.append(this.getClass().getName() + " {");
 
         result.append("traffic = ");
-        String value = String.format(" 0x%02x:", traffic);
+        String value = String.format("(0x%02x)", traffic);
         result.append(value);
         if ((traffic & TRAFFIC_MESSAGES) != 0) result.append(" TRAFFIC_MESSAGES");
         if ((traffic & TRAFFIC_RAW_UNRELIABLE) != 0) result.append(" TRAFFIC_RAW_UNRELIABLE");
         if ((traffic & TRAFFIC_RAW_RELIABLE) != 0) result.append(" TRAFFIC_RAW_RELIABLE");
 
         result.append(", isMultipoint = ");
-        value = String.format("%d:", isMultipoint);
+        value = String.format("%b", isMultipoint);
         result.append(value);
         
         result.append(", proximity =");
-        value = String.format(" 0x%02x:", proximity);
+        value = String.format("(0x%02x)", proximity);
         result.append(value);
         if ((proximity & PROXIMITY_PHYSICAL) != 0) result.append(" PROXIMITY_PHYSICAL");
         if ((proximity & PROXIMITY_NETWORK) != 0) result.append(" PROXIMITY_NETWORK");
 
         result.append(", transports =");
-        value = String.format(" 0x%04x:", transports);
+        value = String.format("(0x%04x)", transports);
         result.append(value);
         if ((transports & TRANSPORT_LOCAL) != 0) result.append(" TRANSPORT_LOCAL");
         if ((transports & TRANSPORT_BLUETOOTH) != 0) result.append(" TRANSPORT_BLUETOOTH");

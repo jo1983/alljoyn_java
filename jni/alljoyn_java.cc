@@ -755,7 +755,8 @@ bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* join
     env->SetShortField(CLS_SessionOpts, fid, opts.transports);
  
     QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
-    bool result = env->CallBooleanMethod(jbusListener, MID_acceptSessionJoiner, sessionPort, joiner, (jobject)jsessionopts);
+    bool result = env->CallBooleanMethod(jbusListener, MID_acceptSessionJoiner, 
+        sessionPort, (jstring)jjoiner, (jobject)jsessionopts);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("JBusListener::AcceptSessionJoiner(): Exception\n"));
         return false;
@@ -2035,7 +2036,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
         return NULL;
     }
 
-    QCC_LogError(ER_OK, ("BusAttachment_findAdvertisedName(): Back from FindAdvertiseName(%s, %d)\n", 
+    QCC_LogError(ER_OK, ("BusAttachment_findAdvertisedName(): Back from FindAdvertisedName(%s, %d)\n", 
         name.c_str(), disposition));
 
     //
@@ -2087,7 +2088,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
         return NULL;
     }
 
-    QCC_LogError(ER_OK, ("BusAttachment_cancelFindAdvertisedName(): Back from CancelFindAdvertiseName(%s, %d)\n", 
+    QCC_LogError(ER_OK, ("BusAttachment_cancelFindAdvertisedName(): Back from CancelFindAdvertisedName(%s, %d)\n", 
         name.c_str(), disposition));
 
     //
