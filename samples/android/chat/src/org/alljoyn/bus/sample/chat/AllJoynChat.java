@@ -365,13 +365,11 @@ public class AllJoynChat extends Activity {
                 sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
                 sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
                 
-                Mutable.IntegerValue disposition = new Mutable.IntegerValue();
-
-                status = mBus.bindSessionPort(contactPort, sessionOpts, disposition);                
-                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s, %d)", 
-                    contactPort.value, sessionOpts.toString(), disposition.value), status);
+                status = mBus.bindSessionPort(contactPort, sessionOpts);                
+                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)", 
+                    contactPort.value, sessionOpts.toString()), status);
                 
-                if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS) {
+                if (status != Status.OK) {
                     finish();
                     return;
                 }
@@ -402,30 +400,29 @@ public class AllJoynChat extends Activity {
                  * queue the request.
                  */
                 Status status;
-                Mutable.IntegerValue disposition = new Mutable.IntegerValue();
                 
                 String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
                 
-                status = mBus.requestName(wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE, disposition);
-                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x, %d)", 
-                    wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE, disposition.value), status);
+                status = mBus.requestName(wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
+                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", 
+                    wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE), status);
                         
-                if (status == Status.OK && disposition.value == BusAttachment.ALLJOYN_REQUESTNAME_REPLY_PRIMARY_OWNER) {
+                if (status == Status.OK) {
                     /*
                      * Advertise the same well-known name over all of the
                      * available transports.
                      */
-                 	status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
-                    logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x, %d)", 
-                        wellKnownName, SessionOpts.TRANSPORT_ANY, disposition.value), status, Status.OK);
+                 	status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
+                    logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x)", 
+                        wellKnownName, SessionOpts.TRANSPORT_ANY), status, Status.OK);
 
-                    if (status != Status.OK || disposition.value != BusAttachment.ALLJOYN_ADVERTISENAME_REPLY_SUCCESS) {
+                    if (status != Status.OK) {
                         /*
                          * If we are unable to advertise the name, release
                          * the name from the local bus.
                          */
-                        status = mBus.releaseName(wellKnownName, disposition);
-                        logStatus(String.format("BusAttachment.releaseName(%s, %d)", wellKnownName, disposition.value), 
+                        status = mBus.releaseName(wellKnownName);
+                        logStatus(String.format("BusAttachment.releaseName(%s)", wellKnownName), 
                             status);
                         mIsConnected = false;
                     } else {
@@ -449,9 +446,9 @@ public class AllJoynChat extends Activity {
                  * that is advertising a name that uses that prefix. If
                  * found the bus will send out a "FoundAdvertisedName" signal.
                  */
-              	status = mBus.findAdvertisedName(NAME_PREFIX, disposition);
-                logStatus(String.format("BusAttachment.findAdvertisedName(%s, %d)", 
-                    wellKnownName, disposition.value), status, Status.OK);
+              	status = mBus.findAdvertisedName(NAME_PREFIX);
+                logStatus(String.format("BusAttachment.findAdvertisedName(%s)", 
+                    wellKnownName), status, Status.OK);
                 break;
             }
 
@@ -478,14 +475,13 @@ public class AllJoynChat extends Activity {
                  * talk to the remote side.
                  */
                 short contactPort = CONTACT_PORT;
-                Mutable.IntegerValue disposition = new Mutable.IntegerValue();
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, disposition, sessionId, sessionOpts);
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
                 logStatus("BusAttachment.joinSession()", status);
                     
-                if (status == Status.OK && disposition.value == BusAttachment.ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
+                if (status == Status.OK) {
 
                 	/*
                      * Create a signal emitter to send out the Chat signal on
@@ -535,10 +531,9 @@ public class AllJoynChat extends Activity {
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;
                 Status status;
-            	Mutable.IntegerValue disposition = new Mutable.IntegerValue();
 
                 for (Integer sid : mSessionList) {
-                	status = mBus.leaveSession(sid, disposition);
+                	status = mBus.leaveSession(sid);
                     logStatus("BusAttachment.leaveSession()", status);
                 }
                     
@@ -550,24 +545,24 @@ public class AllJoynChat extends Activity {
                  * Ask the bus to stop telling us about new instances of
                  * the NAME_PREFIX service we've been hunting for.
                  */
-             	status = mBus.cancelFindAdvertisedName(NAME_PREFIX, disposition);
-                logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, %d)", 
-                    NAME_PREFIX, disposition), status, Status.OK);
+             	status = mBus.cancelFindAdvertisedName(NAME_PREFIX);
+                logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s)", 
+                    NAME_PREFIX), status, Status.OK);
                 /*
                  * Ask the bus to stop advertising us as an instance of
                  * the chat service.
                  */
                 String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                status = mBus.cancelAdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY, disposition);
-                logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, 0x%04x, %d)", 
-                    NAME_PREFIX, SessionOpts.TRANSPORT_ANY, disposition), status, Status.OK);
+                status = mBus.cancelAdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
+                logStatus(String.format("BusAttachment.cancelFindAdvertisedName(%s, 0x%04x)", 
+                    NAME_PREFIX, SessionOpts.TRANSPORT_ANY), status, Status.OK);
                                        
                 /*
                  * Ask the bus to release the well-known name we have had
                  * reserved as an alias for our bus attachment.
                  */
-                status = mBus.releaseName(wellKnownName, disposition);
-                logStatus(String.format("BusAttachment.releaseName(%s, %d)", wellKnownName, disposition.value), 
+                status = mBus.releaseName(wellKnownName);
+                logStatus(String.format("BusAttachment.releaseName(%s)", wellKnownName), 
                     status);
 
                 mIsStoppingDiscovery = false;

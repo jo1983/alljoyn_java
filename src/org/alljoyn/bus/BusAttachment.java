@@ -59,17 +59,12 @@ public class BusAttachment {
      *
      * @param requestedName  Well-known name being requested.
      * @param flags          Bitmask of DBUS_NAME_FLAG_* defines (see DBusStd.h)
-     * @param disposition    One of DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER
-     *                              DBUS_REQUEST_NAME_REPLY_IN_QUEUE
-     *                              DBUS_REQUEST_NAME_REPLY_EXISTS
-     *                              DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that
-     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return ER_OK if request completed successfully and primary ownership was
+     *         granted.  ER_BUS_NOT_CONNECTED if a connection has not been made
+     *         with a local bus; other error status codes indicating a failure.
      */
-    public native Status requestName(String name, int flags, Mutable.IntegerValue disposition);
+    public native Status requestName(String name, int flags);
 
     /**
      * Value for requestName flags bit corresponding to allowing another bus
@@ -90,63 +85,17 @@ public class BusAttachment {
     public static final int ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE = 0x04;     /**< RequestName input flag: \
 
     /**
-     * Value from requestName disposition corresponding to a successful
-     * request name operation.
-     */
-    public static final int ALLJOYN_REQUESTNAME_REPLY_PRIMARY_OWNER = 1;
-
-    /**
-     * Value from requestName disposition corresponding to a situation where
-     * the name is already owned, and the ownership request has been queued.
-     */
-    public static final int ALLJOYN_REQUESTNAME_REPLY_IN_QUEUE = 2;
-
-    /**
-     * Value from requestName disposition corresponding to a situation where
-     * the name is already owned, and DO_NOT_QUEUE was specified.
-     */
-    public static final int ALLJOYN_REQUESTNAME_REPLY_EXISTS = 3;
-
-    /**
-     * Value from requestName disposition corresponding to a situation where
-     * the name is already owned by the requesting endpoint.
-     */
-    public static final int ALLJOYN_REQUESTNAME_REPLY_ALREADY_OWNER = 4;
-
-    /**
      * Release a previously requeted well-known name.
      * This method is a shortcut/helper that issues an org.freedesktop.DBus.ReleaseName method call to the local daemon
      * and interprets the response.
      *
-     * @param name          Well-known name being released.
-     * @param disposition   DBUS_RELEASE_NAME_REPLY_* response to org.freedesktop.DBus.ReleaseName (see DBusStd.h).
-     *                           disposition is only valid if return value is #ER_OK.
+     * @param name  Well-known name being released.
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that
-     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     * @return ER_OK if the anme was released.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
-    public native Status releaseName(String name, Mutable.IntegerValue disposition);
-
-    /**
-     * Value from releaseName disposition corresponding to a successful
-     * release operation.
-     */
-    public static final int ALLJOYN_RELEASENAME_REPLY_RELEASED = 1;
-
-    /**
-     * Value from releaseName disposition corresponding to a situation where
-     * the name to be released does not exist anywhere on the bus.
-     */
-    public static final int ALLJOYN_RELEASENAME_REPLY_NON_EXISTENT = 2;
-
-    /**
-     * Value from releaseName disposition corresponding to a situation where
-     * the name to be released exists on the bus but is not currently owned by
-     * the endpoint.
-     */
-    public static final int ALLJOYN_RELEASENAME_REPLY_NOT_OWNER = 3;
+    public native Status releaseName(String name);
 
     /**
      * Add a DBus match rule.
@@ -155,7 +104,7 @@ public class BusAttachment {
      * @param rule  Match rule to be added (see the DBus specification for the
      *              format of this string).
      *
-     * @return ER_OK if daemon response was received.  ER_BUS_NOT_CONNECTED if a
+     * @return ER_OK if the match rule was added.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
@@ -167,36 +116,14 @@ public class BusAttachment {
      * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.AdvertisedName method call to the local daemon
      * and interprets the response.
      *
-     * @param name         The well-known name to advertise. (Must be owned by the caller via RequestName).
-     * @param transports   Set of transports to use for sending advertisment.
-     * @param disposition  One of ALLJOYN_ADVERTISENAME_REPLY_SUCCESS
-     *                            ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING
-     *                            ALLJOYN_ADVERTISENAME_REPLY_FAILED
+     * @param name        The well-known name to advertise. (Must be owned by the caller via RequestName).
+     * @param transports  Set of transports to use for sending advertisment.
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that
-     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     * @return ER_OK if the name was advertised.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
-    public native Status advertiseName(String name, short transports, Mutable.IntegerValue disposition);
-
-    /**
-     * Value from advertiseName disposition corresponding to a successful
-     * advertise operation.
-     */
-    public static final int ALLJOYN_ADVERTISENAME_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from advertiseName disposition corresponding to an attempt to
-     * advertise a name multiple times.
-     */
-    public static final int ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING = 2;
-
-    /**
-     * Value from advertiseName disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_ADVERTISENAME_REPLY_FAILED = 3;
+    public native Status advertiseName(String name, short transports);
 
     /**
      * Stop advertising the existence of a well-known name to other AllJoyn daemons.
@@ -205,65 +132,28 @@ public class BusAttachment {
      * org.codeauora.AllJoyn.Bus.CancelAdvertiseName method call to the local
      * daemon and interprets the response.
      *
-     * @param name          A well-known name that was previously advertised via AdvertiseName.
-     * @param transports    Set of transports whose name advertisment will be cancelled.
-     * @param disposition   One of ALLJOYN_CANCELADVERTISENAME_REPLY_SUCCESS
-     *                             ALLJOYN_CANCELADVERTISENAME_REPLY_FAILED
+     * @param name        A well-known name that was previously advertised via AdvertiseName.
+     * @param transports  Set of transports whose name advertisment will be cancelled.
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that
-     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return ER_OK if the name advertisements were stopped.  ER_BUS_NOT_CONNECTED
+     *         if a connection has not been made with a local bus; other error
+     *         status codes indicating a failure.
      */
-    public native Status cancelAdvertiseName(String name, short transports, Mutable.IntegerValue disposition);
-
-    /**
-     * Value from cancelAdvertiseName disposition corresponding to a successful
-     * cancel operation.
-     */
-    public static final int ALLJOYN_CANCELADVERTISENAME_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from cancelAdvertiseName disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_CANCELADVERTISENAME_REPLY_FAILED = 2;
+    public native Status cancelAdvertiseName(String name, short transports);
 
     /**
      * Register interest in a well-known name prefix for the purpose of discovery.
      * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.FindAdvertisedName method call to the local daemon
      * and interprets the response.
      *
-     * @param namePrefix    Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
-     *                      notifications about.
-     * @param disposition   One of ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS
-     *                             ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING
-     *                             ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED
+     * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
+     *                    notifications about.
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that
-     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
+     * @return ER_OK if discovery was started.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
-    public native Status findAdvertisedName(String namePrefix, Mutable.IntegerValue disposition);
-
-    /**
-     * Value from findAdvertisedName disposition corresponding to a successful
-     * advertise operation.
-     */
-    public static final int ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from findAdvertisedName disposition corresponding to an attempt to discover
-     * a name that is already being discovered.
-     */
-    public static final int ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING = 2;
-
-    /**
-     * Value from findAdvertisedName disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED = 3;
+    public native Status findAdvertisedName(String namePrefix);
 
     /**
      * Cancel interest in a well-known name prefix that was previously
@@ -271,28 +161,14 @@ public class BusAttachment {
      * that issues an org.codeauora.AllJoyn.Bus.CancelFindAdvertisedName method
      * call to the local daemon and interprets the response.
      *
-     * @param namePrefix    Well-known name prefix that application is no longer interested in receiving
-     *                      BusListener::FoundAdvertisedName notifications about.
-     * @param disposition   One of ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS
-     *                             ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED
+     * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
+     *                    BusListener::FoundAdvertisedName notifications about.
      *
-     * @return One of ER_OK if daemon response was received (indicates that disposition is valid)
-     *                ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus
-     *                Other error status codes indicating a general failure condition.
+     * @return ER_OK if discovery was cancelled.   ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error
+     *         status codes indicating a general failure condition.
      */
-    public native Status cancelFindAdvertisedName(String namePrefix, Mutable.IntegerValue disposition);
-
-    /**
-     * Value from cancelFindAdvertiseName disposition corresponding to a successful
-     * cancel operation.
-     */
-    public static final int ALLJOYN_CANCELFINDADVERTISENAME_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from cancelFindAdvertiseName disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_CANCELFINDADVERTISENAME_REPLY_FAILED = 2;
+    public native Status cancelFindAdvertisedName(String namePrefix);
 
     /**
      * Make a SessionPort available for external BusAttachments to join.
@@ -312,14 +188,6 @@ public class BusAttachment {
      * session. The joiner can then create additional sessions with the service
      * by calling JoinSession with these dynamic SessionPort ids.
      *
-     * There are really two error codes returned from this method.  The first,
-     * the actual return value indicates whether or not the command made it to
-     * the daemon and reflects errors possibly encountered in moving the request
-     * to the daemon process.  The second result, returned in the disposition
-     * parameter, indicates the actual response of the daemon; and is only valid
-     * if the request made it to the daemon and back -- i.e., if the return
-     * status is ER_OK.
-     *
      * @param sessionPort SessionPort value to bind or SESSION_PORT_ANY to allow
      *                    this method to choose an available port. On successful
      *                    return, this value contains the chosen SessionPort.
@@ -327,18 +195,12 @@ public class BusAttachment {
      * @param opts        Session options that joiners must agree to in order to                                          
      *                    successfully join the session.                                                                  
      *
-     * @param disposition One of ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS,
-     *                           ALLJOYN_BINDSESSIONPORT_REPLY_ALREADY_EXISTS,
-     *                           ALLJOYN_BINDSESSIONPORT_REPLY_FAILED.
-     *
-     * @return ER_OK if daemon response was received. ER_OK indicates that
-     *         disposition is valid for inspection.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return ER_OK if the new session port was bound.  ER_BUS_NOT_CONNECTED
+     *         if a connection has not been made with a local bus; other error
+     *         status codes indicating a failure.
      */
     public native Status bindSessionPort(Mutable.ShortValue sessionPort,
-                                         SessionOpts sessionOpts, 
-                                         Mutable.IntegerValue disposition);
+                                         SessionOpts sessionOpts);
 
     /** 
      * When passed to BindSessionPort as the requested port, the system will
@@ -352,102 +214,25 @@ public class BusAttachment {
     public static final int SESSION_ID_ANY = 0;
 
     /**
-     * Value from bindSessionPort disposition corresponding to a successful bind
-     * operation.
-     */
-    public static final int ALLJOYN_BINDSESSIONPORT_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from bindSessionPort disposition corresponding to an attempt to bind
-     * a sessionport that is already bound.
-     */
-    public static final int ALLJOYN_BINDSESSIONPORT_REPLY_ALREADY_EXISTS = 2;
-
-    /**
-     * Value from bindSessionPort disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_BINDSESSIONPORT_REPLY_FAILED = 3;
-
-    /**
      * Join a session.
      *
      * This method is a shortcut/helper that issues an
      * org.codeauora.AllJoyn.Bus.JoinSession method call to the local daemon and
      * interprets the response.
      *
-     * There are really two error codes returned from this method.  The first,
-     * the actual return value indicates whether or not the command made it to
-     * the daemon and reflects errors possibly encountered in moving the request
-     * to the daemon process.  The second result, returned in the disposition
-     * parameter, indicates the actual response of the daemon; and is only valid
-     * if the request made it to the daemon and back -- i.e., if the return
-     * status is ER_OK.
-     *
      * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
      * @param sessionPort   SessionPort of sessionHost to be joined.                                                           
-     * @param disposition   One of ALLJOYN_JOINSESSION_REPLY_SUCCESS,
-     *                             ALLJOYN_JOINSESSION_REPLY_NO_SESSION,
-     *                             ALLJOYN_JOINSESSION_REPLY_UNREACHABLE,
-     *                             ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED,
-     *                             ALLJOYN_JOINSESSION_REPLY_REJECTED,
-     *                             ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS,
-     *                             ALLJOYN_JOINSESSION_REPLY_FAILED.
-     * @param sessionId     Set to the unique identifier for session. Valid if disposition is 
-     *                      ALLJOYN_CREATESESSION_REPLY_SUCCESS.        
+     * @param sessionId     Set to the unique identifier for session.
      * @param opts          Set to the actual session options of the joined session.
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
-     *         ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus; other error status codes
-     *         indicating a failure.                                                                        
+     * @return ER_OK if the session was joined.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.                                                                        
      */
     public native Status joinSession(String sessionHost,
                                      short sessionPort,
-                                     Mutable.IntegerValue disposition, 
                                      Mutable.IntegerValue sessionId,
                                      SessionOpts opts);
-
-    /**
-     * Value from joinSession disposition corresponding to a successful join
-     * operation.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from joinSession disposition corresponding to an attempt to join
-     * a session in which a session with the given name does not exist.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_NO_SESSION = 2;
-
-    /**
-     * Value from joinSession disposition corresponding to an attempt to join
-     * a session for which a suitable transport was not found.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_UNREACHABLE = 3;
-
-    /**
-     * Value from joinSession disposition corresponding to an attempt to join
-     * a session where the connecttion to the remote address failed.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED = 4;
-
-    /**
-     * Value from joinSession disposition corresponding to an attempt to join
-     * a session where the session host explicitly rejected the join request.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_REJECTED = 5;
-
-    /**
-     * Value from joinSession disposition corresponding to an attempt to join
-     * a session with incmpatible session options.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS = 6;
-
-    /**
-     * Value from joinSession disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_JOINSESSION_REPLY_FAILED = 10;
 
     /**
      * Leave an existing session.
@@ -456,42 +241,13 @@ public class BusAttachment {
      * org.codeauora.AllJoyn.Bus.LeaveSession method call to the local daemon
      * and interprets the response.
      *
-     * There are really two error codes returned from this method.  The first,
-     * the actual return value indicates whether or not the command made it to
-     * the daemon and reflects errors possibly encountered in moving the request
-     * to the daemon process.  The second result, returned in the disposition
-     * parameter, indicates the actual response of the daemon; and is only valid
-     * if the request made it to the daemon and back -- i.e., if the return
-     * status is ER_OK.
-     *
      * @param sessionId     Session id.
-     * @param disposition   One of ALLJOYN_LEAVESESSION_REPLY_SUCCESS,
-     *                             ALLJOYN_LEAVESESSION_REPLY_NO_SESSION,
-     *                             ALLJOYN_LEAVESESSION_REPLY_FAILED.
      *
-     * @return ER_OK if daemon response was received. ER_OK indicates that disposition is valid for inspection.
-     *         ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus; other error status codes
-     *         indicating failures.                                                                        
+     * @return ER_OK if daemon response was left.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating failures.                                                                        
      */
-    public native Status leaveSession(int sessionId, Mutable.IntegerValue disposition);
-
-    /**
-     * Value from leaveSession disposition corresponding to a successful leave
-     * operation.
-     */
-    public static final int ALLJOYN_LEAVESESSION_REPLY_SUCCESS = 1;
-
-    /**
-     * Value from joinSession disposition corresponding to an attempt to leave
-     * a session that does not exist.
-     */
-    public static final int ALLJOYN_LEAVESESSION_REPLY_NO_SESSION = 2;
-
-    /**
-     * Value from joinSession disposition corresponding to a general error
-     * condition.
-     */
-    public static final int ALLJOYN_LEAVESESSION_REPLY_FAILED = 3;
+    public native Status leaveSession(int sessionId);
 
     /**
      * This sets the debug level of the local AllJoyn daemon if that daemon
@@ -1181,91 +937,4 @@ public class BusAttachment {
      */
     public native MessageContext getMessageContext();
 
-    /**
-     * Finds instances of a well-known attachment name.  When the name is found,
-     * {@link FindAdvertisedNameListener#foundAdvertisedName(String, Short, String)} is
-     * called.  The application can then choose to ignore the name or join the corresponding
-     * session with {@link AllJoynProxyObj##JoinSession(String,Short,SessionOpts)}.
-     * <p>
-     * This method does the following:
-     * <pre>
-     * Method foundAdvertisedName = listener.getClass().getMethod("foundAdvertisedName", String.class, Short.class, String.class);
-     * busAttachment.registerSignalHandler("org.alljoyn.Bus", "FoundAdvertisedName", listener, foundAdvertisedName);
-     *
-     * busAttachment.getAllJoynProxyObj().FindAdvertisedName(wellKnownName);</pre>
-     *
-     * with the addition that further synchronous AllJoyn method calls may be safely
-     * made from inside {@code foundAdvertisedName}.
-     *
-     * @param wellKnownNamePrefix well-known name prefix of the attachment that
-     *                            the client is interested in
-     * @param listener the result listener
-     * @return a status code indicating success or failure
-     * @see #cancelFindAdvertisedName(String)
-     */
-    public Status findAdvertisedName(String wellKnownNamePrefix, FindAdvertisedNameListener listener) {
-        if (wellKnownNamePrefix == null) {
-            throw new IllegalArgumentException("wellKnownNamePrefix");
-        } 
-        if (listener == null) {
-            throw new IllegalArgumentException("listener");
-        }
-        try {
-            synchronized (findAdvertisedNameListeners) {
-                if (findAdvertisedNameListeners.get(wellKnownNamePrefix) != null) {
-                    return Status.ALREADY_FINDING;
-                }
-                findAdvertisedNameListeners.put(wellKnownNamePrefix, listener);
-            }
-            
-            /* Look for any remote names */
-            AllJoynProxyObj.FindAdvertisedNameResult res = getAllJoynProxyObj().FindAdvertisedName(wellKnownNamePrefix);
-            if (res == AllJoynProxyObj.FindAdvertisedNameResult.Success) {
-                return Status.OK;
-            } else if (res == AllJoynProxyObj.FindAdvertisedNameResult.AlreadyDiscovering) {
-                return Status.ALREADY_FINDING;
-            } else {
-                return Status.FAIL;
-            }
-        } catch (BusException ex) {
-            BusException.log(ex);
-            return Status.FAIL;
-        }
-    }
-
-    /**
-     * Cancels interest in a well-known attachment name that was previously
-     * included in a call to {@link #findAdvertisedName(String, FindAdvertisedNameListener)}.
-     * <p>
-     * This method does the following:
-     * <pre>
-     * busAttachment.getAllJoynProxyObj().CancelFindAdvertisedName(wellKnownName);
-     *
-     * Method foundAdvertisedName = listener.getClass().getMethod("foundAdvertisedName", String.class, Short.class, String.class);
-     * busAttachment.deregisterSignalHandler("org.alljoyn.Bus", "FoundAdvertisedName", listener, foundAdvertisedName);</pre>
-     * 
-     * @param wellKnownNamePrefix well-known name prefix of the attachment that
-     *                            client is no longer interested in
-     * @return a status code indicating success or failure
-     */
-    public Status cancelFindAdvertisedName(String wellKnownNamePrefix) {
-        if (wellKnownNamePrefix == null) {
-            throw new IllegalArgumentException("wellKnownNamePrefix");
-        }
-        try {
-            AllJoynProxyObj.CancelFindAdvertisedNameResult res = 
-                getAllJoynProxyObj().CancelFindAdvertisedName(wellKnownNamePrefix);
-            if (res == AllJoynProxyObj.CancelFindAdvertisedNameResult.Success) {
-                synchronized (findAdvertisedNameListeners) {
-                    findAdvertisedNameListeners.remove(wellKnownNamePrefix);
-                }
-                return Status.OK;
-            } else {
-                return Status.FAIL;
-            }
-        } catch (BusException ex) {
-            BusException.log(ex);
-            return Status.FAIL;
-        }
-    }
 }

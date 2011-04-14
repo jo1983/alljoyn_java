@@ -69,20 +69,20 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    requestName
- * Signature: (Ljava/lang/String;I;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;I)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName
   (JNIEnv *, jobject,
-   jstring, jint, jobject);
+   jstring, jint);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    releaseName
- * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName
   (JNIEnv *, jobject,
-   jstring, jobject);
+   jstring);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
@@ -96,11 +96,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    advertiseName
- * Signature: (Ljava/lang/String;SLorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;S)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName
   (JNIEnv *, jobject,
-   jstring, jshort, jobject);
+   jstring, jshort);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
@@ -109,51 +109,52 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName
   (JNIEnv *, jobject,
-   jstring, jobject);
+   jstring, jshort transports);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
- * Method:    findAdvertiseName
- * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Method:    findAdvertisedName
+ * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName
   (JNIEnv *, jobject,
-   jstring, jobject);
+   jstring);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    cancelFindAdvertiseName
- * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName
   (JNIEnv *, jobject,
-   jstring, jobject);
+   jstring);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    bindSessionPort
- * Signature: (Lorg/alljoyn/bus/Mutable$ShortValue;Lorg/alljoyn/bus/SessionOpts;Lorg/alljoyn/bus/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (Lorg/alljoyn/bus/Mutable$ShortValue;Lorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort
   (JNIEnv *, jobject, 
-   jobject, jobject, jobject);
+   jobject, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    joinSession
- * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/Mutable$IntegerValue;Lorg/alljoyn/bus/Mutable$IntegerValue;Lorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession
   (JNIEnv *, jobject, 
-   jstring, jshort, jobject, jobject, jobject);
+   jstring, jshort, jobject, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    leaveSession
- * Signature: (ILorg/alljoyn/bus/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (I)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession
-  (JNIEnv *, jobject, jint, jobject);
+  (JNIEnv *, jobject,
+   jint);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment

@@ -1895,7 +1895,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener(
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv *env, jobject thiz,
-   jstring jname, jint jflags, jobject jdisposition)
+   jstring jname, jint jflags)
 {
     QCC_DbgPrintf(("BusAttachment_requestName()\n"));
 
@@ -1921,37 +1921,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv 
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
+    QCC_DbgPrintf(("BusAttachment_requestName(): Call RequestName(%s, 0x%08x)\n", 
+        name.c_str(), jflags));
 
-    QCC_DbgPrintf(("BusAttachment_requestName(): Call RequestName(%s, 0x%08x, %d)\n", 
-        name.c_str(), jflags, disposition));
-
-    QStatus status = (*bus)->RequestName(name.c_str(), jflags, disposition);
+    QStatus status = (*bus)->RequestName(name.c_str(), jflags);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_requestName(): Back from RequestName(%s, 0x%08x, %d)\n", 
-        name.c_str(), jflags, disposition));
+    QCC_DbgPrintf(("BusAttachment_requestName(): Back from RequestName(%s, 0x%08x)\n", 
+        name.c_str(), jflags));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_requestName(): RequestName() fails\n"));
     }
 
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
     return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv *env, jobject thiz,
-   jstring jname, jobject jdisposition)
+   jstring jname)
 {
     QCC_DbgPrintf(("BusAttachment_releaseName()\n"));
 
@@ -1977,31 +1967,22 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv 
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
 
-    QCC_LogError(ER_OK, ("BusAttachment_releaseName(): Call ReleaseName(%s, %d)\n", 
-        name.c_str(), disposition));
+    QCC_LogError(ER_OK, ("BusAttachment_releaseName(): Call ReleaseName(%s)\n", 
+        name.c_str()));
 
-    QStatus status = (*bus)->ReleaseName(name.c_str(), disposition);
+    QStatus status = (*bus)->ReleaseName(name.c_str());
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_releaseName(): Back from ReleaseName(%s, %d)\n", 
-        name.c_str(), disposition));
+    QCC_DbgPrintf(("BusAttachment_releaseName(): Back from ReleaseName(%s)\n", 
+        name.c_str()));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_releaseName(): ReleaseName() fails\n"));
     }
-
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
 
     return JStatus(status);
 }
@@ -2053,7 +2034,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv *en
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEnv* env, jobject thiz,
-    jstring jname, jshort jtransports, jobject jdisposition)
+    jstring jname, jshort jtransports)
 {
     QCC_DbgPrintf(("BusAttachment_advertiseName()\n"));
 
@@ -2079,37 +2060,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEn
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
+    QCC_DbgPrintf(("BusAttachment_advertiseName(): Call AdvertiseName(%s, 0x%04x)\n", 
+        name.c_str(), jtransports));
 
-    QCC_DbgPrintf(("BusAttachment_advertiseName(): Call AdvertiseName(%s, 0x%04x, %d)\n", 
-        name.c_str(), jtransports, disposition));
-
-    QStatus status = (*bus)->AdvertiseName(name.c_str(), jtransports, disposition);
+    QStatus status = (*bus)->AdvertiseName(name.c_str(), jtransports);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_advertiseName(): Back from AdvertiseName(%s, %d)\n", 
-        name.c_str(), disposition));
+    QCC_DbgPrintf(("BusAttachment_advertiseName(): Back from AdvertiseName(%s)\n", 
+        name.c_str()));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_advertiseName(): AdvertiseName() fails\n"));
     }
 
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
     return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName(JNIEnv* env, jobject thiz,
-    jstring jname, jshort jtransports, jobject jdisposition)
+    jstring jname, jshort jtransports)
 {
     QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName()\n"));
 
@@ -2135,37 +2106,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
+    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Call CancelAdvertiseName(%s, 0x%04x)\n", 
+        name.c_str()));
 
-    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Call CancelAdvertiseName(%s, 0x%04x, %d)\n", 
-        name.c_str(), disposition));
-
-    QStatus status = (*bus)->CancelAdvertiseName(name.c_str(), jtransports, disposition);
+    QStatus status = (*bus)->CancelAdvertiseName(name.c_str(), jtransports);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Back from CancelAdvertiseName(%s, %d)\n", 
-        name.c_str(), disposition));
+    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Back from CancelAdvertiseName(%s)\n", 
+        name.c_str()));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_cancelAdvertiseName(): CancelAdvertiseName() fails\n"));
     }
 
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
     return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(JNIEnv* env, jobject thiz,
-    jstring jname, jobject jdisposition)
+    jstring jname)
 {
     QCC_DbgPrintf(("BusAttachment_findAdvertisedName()\n"));
 
@@ -2191,37 +2152,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Call FindAdvertisedName(%s)\n", 
+        name.c_str()));
 
-    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Call FindAdvertisedName(%s, %d)\n", 
-        name.c_str(), disposition));
-
-    QStatus status = (*bus)->FindAdvertisedName(name.c_str(), disposition);
+    QStatus status = (*bus)->FindAdvertisedName(name.c_str());
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Back from FindAdvertisedName(%s, %d)\n", 
-        name.c_str(), disposition));
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Back from FindAdvertisedName(%s)\n", 
+        name.c_str()));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_findAdvertsiedName(): FindAdvertisedName() fails\n"));
     }
 
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
     return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName(JNIEnv* env, jobject thiz,
-    jstring jname, jobject jdisposition)
+    jstring jname)
 {
     QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName()\n"));
 
@@ -2247,37 +2198,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Call CancelFindAdvertisedName(%s)\n",
+        name.c_str()));
 
-    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Call CancelFindAdvertisedName(%s, %d)\n",
-        name.c_str(), disposition));
-
-    QStatus status = (*bus)->CancelFindAdvertisedName(name.c_str(), disposition);
+    QStatus status = (*bus)->CancelFindAdvertisedName(name.c_str());
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Back from CancelFindAdvertisedName(%s, %d)\n", 
-        name.c_str(), disposition));
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Back from CancelFindAdvertisedName(%s)\n", 
+        name.c_str()));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_cancelfindAdvertisedName(): CancelFindAdvertisedName() fails\n"));
     }
 
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
     return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNIEnv* env, jobject thiz,
-    jobject jsessionPort, jobject jsessionOpts, jobject jdisposition)
+    jobject jsessionPort, jobject jsessionOpts)
 {
     QCC_DbgPrintf(("BusAttachment_bindSessionPort()\n"));
 
@@ -2325,19 +2266,17 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition = 0;
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+        sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports));
 
-    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %d)\n",
-        sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, disposition));
-
-    QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts, disposition);
+    QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Back from BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %d)\n",
-        sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, disposition));
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Back from BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+        sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_bindSessionPort(): BindSessionPort() fails\n"));
@@ -2348,19 +2287,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     //
     env->SetShortField(jsessionPort, spValueFid, sessionPort);
 
-    //
-    // Store the disposition back in its out parameter.
-    //
-    clazz = env->GetObjectClass(jdisposition);
-    fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
     return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv* env, jobject thiz,
-    jstring jsessionHost, jshort jsessionPort, jobject jdisposition, jobject jsessionId, jobject jsessionOpts)
+    jstring jsessionHost, jshort jsessionPort, jobject jsessionId, jobject jsessionOpts)
 {
     QCC_DbgPrintf(("BusAttachment_joinSession()\n"));
 
@@ -2386,22 +2317,21 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition;
     SessionId sessionId;
     SessionOpts sessionOpts;
 
-    QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
-        sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
+    QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+        sessionHost.c_str(), jsessionPort, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
         sessionOpts.proximity, sessionOpts.transports));
 
-    QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts);
+    QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, sessionId, sessionOpts);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_joinSession(): Back from JoinSession(%s, %d, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
-        sessionHost.c_str(), jsessionPort, disposition, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
+    QCC_DbgPrintf(("BusAttachment_joinSession(): Back from JoinSession(%s, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+        sessionHost.c_str(), jsessionPort, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint, 
         sessionOpts.proximity, sessionOpts.transports));
 
     if (status != ER_OK) {
@@ -2409,18 +2339,10 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     }
 
     //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
-
-    //
     // Store the session ID back in its out parameter.
     //
-    clazz = env->GetObjectClass(jsessionId);
-    fid = env->GetFieldID(clazz, "value", "I");
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionId);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
     assert(fid);
     env->SetIntField(jsessionId, fid, sessionId);
 
@@ -2449,7 +2371,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv* env, jobject thiz,
-    jint jsessionId, jobject jdisposition)
+    jint jsessionId)
 {
     QCC_DbgPrintf(("BusAttachment_leaveSession()\n"));
 
@@ -2465,30 +2387,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
     //
     // Make the AllJoyn call.
     //
-    uint32_t disposition;
+    QCC_DbgPrintf(("BusAttachment_leaveSession(): Call LeaveSession(%d)\n",
+        jsessionId));
 
-    QCC_DbgPrintf(("BusAttachment_leaveSession(): Call LeaveSession(%d, %d)\n",
-        jsessionId, disposition));
-
-    QStatus status = (*bus)->LeaveSession(jsessionId, disposition);
+    QStatus status = (*bus)->LeaveSession(jsessionId);
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_leaveSession(): back from LeaveSession(%d, %d)\n",
-        jsessionId, disposition));
+    QCC_DbgPrintf(("BusAttachment_leaveSession(): back from LeaveSession(%d)\n",
+        jsessionId));
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_leaveSession(): LeaveSession() fails\n"));
     }
-
-    //
-    // Store the disposition back in its out parameter.
-    //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jdisposition);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jdisposition, fid, disposition);
 
     return JStatus(status);
 }
