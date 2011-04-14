@@ -21,8 +21,10 @@ package org.alljoyn.bus.samples.properties_client;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
-import org.alljoyn.bus.FindNameListener;
+import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
@@ -306,25 +308,89 @@ public class PropertiesClient extends Activity {
 
         // Values used by mBusHandler to specify different types of messages
         public static final int CONNECT = 1;
-        public static final int DISCONNECT = 2;
-        public static final int GET_BACKGROUND_COLOR_PROPERTY = 3;
-        public static final int SET_BACKGROUND_COLOR_PROPERTY = 4;
-        public static final int GET_TEXT_SIZE_PROPERTY = 5;
-        public static final int SET_TEXT_SIZE_PROPERTY = 6;
+        public static final int JOIN_SESSION = 2;
+        public static final int DISCONNECT = 3;
+        public static final int GET_BACKGROUND_COLOR_PROPERTY = 4;
+        public static final int SET_BACKGROUND_COLOR_PROPERTY = 5;
+        public static final int GET_TEXT_SIZE_PROPERTY = 6;
+        public static final int SET_TEXT_SIZE_PROPERTY = 7;
+        
 
         private BusAttachment mBus;
         private ProxyBusObject mProxyObj;
+        private MyBusListener mMyBusListener;
         private PropertiesInterface mPropertiesInterface;
+        
+        private int 	mSessionId;
+        private boolean mIsConnected;
+        private boolean mIsStoppingDiscovery;
+        
+        private static final short CONTACT_PORT=42;
+        
+        public class MyBusListener extends BusListener {
+        	@Override
+    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            	Message msg = obtainMessage(JOIN_SESSION, name);
+            	sendMessage(msg);
+            }
+
+            @Override
+            public void lostAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            }
+
+            @Override
+            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
+                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
+            }
+
+            @Override
+            public void sessionLost(int sessionId) {
+                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+            }
+            
+            @Override
+            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
+                	sessionOpts.toString()));
+        		if (sessionPort == CONTACT_PORT) {
+        			return true;
+        		} else {
+        			return false;
+        		}
+        	}
+
+            @Override
+            public void sessionJoined(short sessionPort, int id, String joiner) {
+                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+            }
+
+            @Override
+            public void busStopping() {
+                logInfo("MyBusListener.busStopping()");
+            }
+        }
         
         public BusHandler(Looper looper) {
             super(looper);
+            
+            mIsConnected = false;
+            mIsStoppingDiscovery = false;
         }
 
         public void handleMessage(Message msg) {
             switch(msg.what) {
             case (CONNECT): {
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-
+                
+                /*
+                 * Create a bus listener class to handle callbacks from the 
+                 * BusAttachement and tell the attachment about it
+                 */
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
+                
                 // Connect the BusAttachment with the bus.
                 Status status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
@@ -332,58 +398,74 @@ public class PropertiesClient extends Activity {
                     finish();
                     return;
                 }
+                                
+                status = mBus.findAdvertisedName(SERVICE_NAME);
+                logStatus("BusAttachement.findAdvertisedName()", status);
+                if (Status.OK != status) {
+                	finish();
+                	return;
+                }
+                break;
+            }
+            case (JOIN_SESSION): {
+            	/*
+                 * If discovery is currently being stopped don't join to any other sessions.
+                 */
+                if (mIsStoppingDiscovery) {
+                    break;
+                }
+                
+                /*
+                 * In order to join the session, we need to provide the well-known
+                 * contact port.  This is pre-arranged between both sides as part
+                 * of the definition of the chat service.  As a result of joining
+                 * the session, we get a session identifier which we must use to 
+                 * identify the created session communication channel whenever we
+                 * talk to the remote side.
+                 */
+                short contactPort = CONTACT_PORT;
+                SessionOpts sessionOpts = new SessionOpts();
+                Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+                
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                logStatus("BusAttachment.joinSession()", status);
+                if (status == Status.OK) {
+                	mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME,
+                										"/testProperties",
+                										sessionId.value,
+                										new Class<?>[] { PropertiesInterface.class });
 
-                mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME,
-                                                    "/testProperties",
-                                                    new Class<?>[] { PropertiesInterface.class });
-
-                mPropertiesInterface = mProxyObj.getInterface(PropertiesInterface.class);
-
-                status = mBus.findName(SERVICE_NAME, new FindNameListener() {
-                    public void foundName(String name, String guid, String namePrefix, 
-                                          String busAddress) {
-
-                        Status status = mProxyObj.connect(busAddress);
-                        logStatus("ProxyBusObject.connect()", status);
-                        if (status != Status.OK) {
-                            finish();
-                            return;
-                        }
-
-                        mBus.cancelFindName(SERVICE_NAME);
-                        logStatus("BusAttachment.cancelFindName()", status);
-                        if (status != Status.OK) {
-                            finish();
-                            return;
-                        }
-                    }
-                        
-                    public void lostAdvertisedName(String name, String guid, String namePrefix, String busAddr) { }
-
-                });
-                logStatus("BusAttachment.findName()", status);
-                if (status != Status.OK) {
-                    finish();
-                    return;
+                	mPropertiesInterface = mProxyObj.getInterface(PropertiesInterface.class);
+                	mSessionId = sessionId.value;
+                	mIsConnected = true;
                 }
                 break;
             }
             case (DISCONNECT): {
-                mProxyObj.disconnect();
+            	mIsStoppingDiscovery = true;
+            	if (mIsConnected) {
+                	Status status = mBus.leaveSession(mSessionId);
+                    logStatus("BusAttachment.leaveSession()", status);
+            	}
                 mBus.disconnect();
                 getLooper().quit();
                 break;
             }
             case (GET_BACKGROUND_COLOR_PROPERTY): {
+            	if (!mIsConnected) {
+            		break;
+            	}
                 try {
                     String backgroundColor = mPropertiesInterface.getBackGroundColor();
                     mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_UPDATE_BACKGROUND_COLOR, backgroundColor));
                 } catch (BusException e) {
-                    logException(getString(R.string.get_properties_error), e);
                 }
                 break;
             }
             case (SET_BACKGROUND_COLOR_PROPERTY): {
+            	if (!mIsConnected) {
+            		break;
+            	}
                 try {
                     mPropertiesInterface.setBackGroundColor((String)msg.obj);
                     mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_UPDATE_BACKGROUND_COLOR, (String) msg.obj));
@@ -393,6 +475,9 @@ public class PropertiesClient extends Activity {
                 break;
             }
             case (GET_TEXT_SIZE_PROPERTY): {
+            	if (!mIsConnected) {
+            		break;
+            	}
                 try {
                     int textSize = mPropertiesInterface.getTextSize();
                     Message textMsg = mHandler.obtainMessage(MESSAGE_UPDATE_TEXT_SIZE);
@@ -404,6 +489,9 @@ public class PropertiesClient extends Activity {
                 break;
             }
             case (SET_TEXT_SIZE_PROPERTY): {
+            	if (!mIsConnected) {
+            		break;
+            	}
                 try {
                     mPropertiesInterface.setTextSize(msg.arg1);
                     Message textMsg = mHandler.obtainMessage(MESSAGE_UPDATE_TEXT_SIZE);
@@ -436,5 +524,14 @@ public class PropertiesClient extends Activity {
         Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST, log);
         mHandler.sendMessage(toastMsg);
         Log.e(TAG, log, ex);
+    }
+    
+    /*
+     * print the status or result to the Android log. If the result is the expected
+     * result only print it to the log.  Otherwise print it to the error log and
+     * Sent a Toast to the users screen. 
+     */
+    private void logInfo(String msg) {
+            Log.i(TAG, msg);
     }
 }

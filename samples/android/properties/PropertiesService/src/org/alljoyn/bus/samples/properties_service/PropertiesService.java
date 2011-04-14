@@ -20,8 +20,12 @@
 package org.alljoyn.bus.samples.properties_service;
 
 import org.alljoyn.bus.BusAttachment;
+import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.BusObject;
+import org.alljoyn.bus.Mutable;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
+import org.alljoyn.bus.ifaces.DBusProxyObj;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -311,14 +315,60 @@ public class PropertiesService extends Activity {
      * For a detailed description of each part of the code shown in the BusHandler
      * class see the SimpleService sample code. 
      */
-    class BusHandler extends Handler {
+    class BusHandler extends Handler { 
+    	
+    	public class MyBusListener extends BusListener {
+    		@Override
+    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            }
+
+            @Override
+            public void lostAdvertisedName(String name, short transport, String namePrefix) {
+                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+            }
+
+            @Override
+            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
+                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
+            }
+
+            @Override
+            public void sessionLost(int sessionId) {
+                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+            }
+
+            @Override
+            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
+                	sessionOpts.toString()));
+        		if (sessionPort == CONTACT_PORT) {
+        			return true;
+        		} else {
+        			return false;
+        		}
+        	}
+
+            @Override
+            public void sessionJoined(short sessionPort, int id, String joiner) {
+                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+            }
+
+            @Override
+            public void busStopping() {
+                logInfo("MyBusListener.busStopping()");
+            }
+        }
+        
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.properties";
+        private static final short CONTACT_PORT = 42;
         
         public static final int CONNECT = 1;
         public static final int DISCONNECT = 2;
         
         private BusAttachment mBus;
-        
+        public MyBusListener mMyBusListener;      
+    
         public BusHandler(Looper looper) {
             super(looper);
         }
@@ -327,7 +377,17 @@ public class PropertiesService extends Activity {
             switch (msg.what) {
             case CONNECT: {
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-
+                
+                /*
+                 * Create a bus listener class to handle callbacks from the 
+                 * BusAttachement and tell the attachment about it
+                 */
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
+                
+                /*
+                 * Register the BusObject with the path "/testProperties"
+                 */
                 Status status = mBus.registerBusObject(mProperties, "/testProperties");
                 logStatus("BusAttachment.registerBusObject()", status);
                 if (status != Status.OK) {
@@ -335,16 +395,61 @@ public class PropertiesService extends Activity {
                     return;
                 }
 
-                
-                status = mBus.connect(SERVICE_NAME);
+                status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
                 if (status != Status.OK) {
                     finish();
                     return;
                 }
+                
+                /*
+                 * request a well-known name from the bus
+                 */                
+                int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
+                
+                status = mBus.requestName(SERVICE_NAME, flag);
+                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", SERVICE_NAME, flag), status);
+                if (status == Status.OK) {
+                	/*
+                	 * If we successfully obtain a well-known name from the bus 
+                	 * advertise the same well-known name
+                	 */
+                	status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
+                    logStatus("BusAttachement.advertiseName()", status);
+                    if (status != Status.OK) {
+                    	 /*
+                         * If we are unable to advertise the name, release
+                         * the name from the local bus.
+                         */
+                        status = mBus.releaseName(SERVICE_NAME);
+                        logStatus(String.format("BusAttachment.releaseName(%s)", SERVICE_NAME), status);
+                    	finish();
+                    	return;
+                    }
+                }
+                
+                /*
+                 * Create a new session listening on the contact port of the chat service.
+                 */
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+                
+                SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.isMultipoint = false;
+                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                logStatus("BusAttachment.bindSessionPort()", status);
+                if (status != Status.OK) {
+                    finish();
+                    return;
+                }
+                
                 break;
             }
             case DISCONNECT: {
+            	mBus.unRegisterBusListener(mMyBusListener);
                 mBus.deregisterBusObject(mProperties);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
@@ -365,5 +470,14 @@ public class PropertiesService extends Activity {
             mHandler.sendMessage(toastMsg);
             Log.e(TAG, log);
         }
+    }
+    
+    /*
+     * print the status or result to the Android log. If the result is the expected
+     * result only print it to the log.  Otherwise print it to the error log and
+     * Sent a Toast to the users screen. 
+     */
+    private void logInfo(String msg) {
+            Log.i(TAG, msg);
     }
 }
