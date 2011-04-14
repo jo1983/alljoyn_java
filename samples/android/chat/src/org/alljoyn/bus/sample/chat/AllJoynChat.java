@@ -408,9 +408,9 @@ public class AllJoynChat extends Activity {
                 
                 String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
                 
-                status = mBus.requestName(wellKnownName, ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE, disposition);
+                status = mBus.requestName(wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE, disposition);
                 logStatus(String.format("BusAttachment.requestName(%s, 0x%08x, %d)", 
-                    wellKnownName, flags, disposition.value), status);
+                    wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE, disposition.value), status);
                         
                 if (status == Status.OK && disposition.value == BusAttachment.ALLJOYN_REQUESTNAME_REPLY_PRIMARY_OWNER) {
                     /*
