@@ -494,6 +494,45 @@ public class BusAttachment {
     public static final int ALLJOYN_LEAVESESSION_REPLY_FAILED = 3;
 
     /**
+     * This sets the debug level of the local AllJoyn daemon if that daemon
+     * was built in debug mode.
+     *
+     * The debug level can be set for individual subsystems or for "ALL"
+     * subsystems.  Common subsystems are "ALLJOYN" for core AllJoyn code,
+     * "ALLJOYN_OBJ" for the sessions management code, "ALLJOYN_BT" for the
+     * Bluetooth subsystem, "ALLJOYN_BTC" for the Bluetooth topology manager,
+     * and "ALLJOYN_NS" for the TCP name services.  Debug levels for specific
+     * subsystems override the setting for "ALL" subsystems.  For example if
+     * "ALL" is set to 7, but "ALLJOYN_OBJ" is set to 1, then detailed debug
+     * output will be generated for all subsystems expcept for "ALLJOYN_OBJ"
+     * which will only generate high level debug output.  "ALL" defaults to 0
+     * which is off, or no debug output.
+     *
+     * The debug output levels are actually a bit field that controls what
+     * output is generated.  Those bit fields are described below:
+     *
+     *     - 0x1: High level debug prints (these debug printfs are not common)
+     *     - 0x2: Normal debug prints (these debug printfs are common)
+     *     - 0x4: Function call tracing (these debug printfs are used
+     *            sporadically)
+     *     - 0x8: Data dump (really only used in the "SOCKET" module - can
+     *            generate a *lot* of output)
+     *
+     * Typically, when enabling debug for a subsystem, the level would be set
+     * to 7 which enables High level debug, normal debug, and function call
+     * tracing.  Setting the level 0, forces debug output to be off for the
+     * specified subsystem.
+     *
+     * @param module  the name of the module to generate debug output from.
+     * @param level   the debug level to set for the module.
+     *
+     * @return ER_OK if debug request was successfully sent to the AllJoyn
+     *       daemon or ER_BUS_NO_SUCH_OBJECT if daemon was not built in debug
+     *       mode.
+     */
+    public native Status setDaemonDebug(String module, int level);
+
+    /**
      * Register an object that will receive bus event notifications.
      *
      * @param listener  Object instance that will receive bus event notifications.

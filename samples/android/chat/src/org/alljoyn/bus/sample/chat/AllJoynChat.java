@@ -31,8 +31,6 @@ import org.alljoyn.bus.MessageContext;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.annotation.BusSignalHandler;
-import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import android.app.Activity;
 import android.app.Dialog;
