@@ -449,8 +449,8 @@ public class PropertiesService extends Activity {
                 break;
             }
             case DISCONNECT: {
-            	mBus.unRegisterBusListener(mMyBusListener);
-                mBus.deregisterBusObject(mProperties);
+            	mBus.unregisterBusListener(mMyBusListener);
+                mBus.unregisterBusObject(mProperties);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
                 break;

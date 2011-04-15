@@ -597,8 +597,8 @@ public class Service extends Activity {
             }
             
             case DISCONNECT: {
-            	mBus.unRegisterBusListener(mMyBusListener);
-                mBus.deregisterBusObject(mSecureService);
+            	mBus.unregisterBusListener(mMyBusListener);
+                mBus.unregisterBusObject(mSecureService);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
                 break;   

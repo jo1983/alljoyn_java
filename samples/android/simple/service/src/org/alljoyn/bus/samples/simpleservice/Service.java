@@ -320,12 +320,12 @@ public class Service extends Activity {
             
             /* Release all resources acquired in connect. */
             case DISCONNECT: {
-            	mBus.unRegisterBusListener(mMyBusListener);
+            	mBus.unregisterBusListener(mMyBusListener);
                 /* 
-                 * It is important to deregister the BusObject before disconnecting from the bus.
+                 * It is important to unregister the BusObject before disconnecting from the bus.
                  * Failing to do so could result in a resource leak.
                  */
-                mBus.deregisterBusObject(mSimpleService);
+                mBus.unregisterBusObject(mSimpleService);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
                 break;   
