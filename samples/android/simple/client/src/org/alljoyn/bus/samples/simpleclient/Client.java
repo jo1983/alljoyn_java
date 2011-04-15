@@ -160,7 +160,7 @@ public class Client extends Activity {
 
             @Override
             public void lostAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+                logInfo(String.format("MyBusListener.lostAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
             }
 
             @Override

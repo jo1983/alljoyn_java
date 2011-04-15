@@ -21,7 +21,10 @@ package org.alljoyn.bus.samples.contacts_service;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
+import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.BusObject;
+import org.alljoyn.bus.Mutable;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
@@ -75,7 +78,7 @@ public class ContactsService extends Activity {
     };
     
     private ArrayAdapter<String> mListViewArrayAdapter;
-    private Menu menu; 
+    private Menu menu;
     
     /* Called when the activity is first created. */
     @Override
@@ -99,6 +102,7 @@ public class ContactsService extends Activity {
         /* Start our service. */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT); 
     }
+    
     
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -139,11 +143,7 @@ public class ContactsService extends Activity {
          */
         public Contact getContact(String name, int userId) throws BusException {
             Contact contact = new Contact();
-
             contact.name = name;
-            if (null == contact) {
-                throw new BusException("No such contact");
-            }
 
             String contactId = Integer.toString(userId);
             if (contactId != null) {
@@ -300,8 +300,21 @@ public class ContactsService extends Activity {
     
     class BusHandler extends Handler {
         private static final String SERVICE_NAME = "org.alljoyn.bus.addressbook";
+        private static final short CONTACT_PORT = 42;
         
+        public class MyBusListener extends BusListener {
+            @Override
+            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                if (sessionPort == CONTACT_PORT) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+
         BusAttachment mBus;
+        private MyBusListener mMyBusListener;
         
         private AllJoynContactService mService;
 
@@ -321,19 +334,37 @@ public class ContactsService extends Activity {
             case CONNECT: {
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
                 
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
+
                 Status status = mBus.registerBusObject(mService, "/addressbook");
                 logStatus("BusAttachment.registerBusObject()", status);
-                if (status != Status.OK) {
-                    finish();
-                    return;
-                }
-                
-                status = mBus.connect(SERVICE_NAME);
+                              
+                status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
+                
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+
+                SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.isMultipoint = false;
+                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)",
+                    contactPort.value, sessionOpts.toString()), status);
+
                 if (status != Status.OK) {
                     finish();
                     return;
                 }
+ 
+                status = mBus.requestName(SERVICE_NAME, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
+                logStatus("BusAttachment.requestName()", status);
+                
+                status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
+                logStatus(String.format("BusAttachment.advertiseName(%s)", SERVICE_NAME), status);
                 break;
             }
             case DISCONNECT: {

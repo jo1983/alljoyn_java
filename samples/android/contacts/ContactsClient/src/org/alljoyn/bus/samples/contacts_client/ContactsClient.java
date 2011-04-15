@@ -20,8 +20,10 @@
 package org.alljoyn.bus.samples.contacts_client;
 
 import org.alljoyn.bus.BusAttachment;
+import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.Mutable;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.BusException;
-import org.alljoyn.bus.FindNameListener;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.Status;
 
@@ -56,7 +58,6 @@ public class ContactsClient extends Activity {
     static {
         System.loadLibrary("alljoyn_java");
     }
-
 
     private static final int DIALOG_CONTACT = 1;
     
@@ -152,7 +153,6 @@ public class ContactsClient extends Activity {
 	        return super.onOptionsItemSelected(item);
 	    }
 	}
-
     
     /** Called when the activity is exited. */
     @Override
@@ -305,18 +305,36 @@ public class ContactsClient extends Activity {
     class BusHandler extends Handler {
        
         private static final String SERVICE_NAME = "org.alljoyn.bus.addressbook";
+        private static final short CONTACT_PORT = 42;
+        
+        public class MyBusListener extends BusListener {
+            @Override
+            public void foundAdvertisedName(String name, short transport, String namePrefix) {
+        	    logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+                Message msg = obtainMessage(JOIN_SESSION, name);
+                sendMessage(msg);
+            }
+        }
         
         public static final int CONNECT = 1;
         public static final int DISCONNECT = 2;
         public static final int GET_CONTACT = 3;
         public static final int GET_ALL_CONTACT_NAMES = 4;
+        public static final int JOIN_SESSION = 5;
         
         private BusAttachment mBus;
+        private MyBusListener mMyBusListener;
         private ProxyBusObject mProxyObj;
         private AddressBookInterface mAddressBookInterface;
         
+        private int     mSessionId;
+        private boolean mIsConnected;
+        private boolean mIsStoppingDiscovery;
+        
         public BusHandler(Looper looper) {
             super(looper);
+            mIsConnected = false;
+            mIsStoppingDiscovery = false;
         }
         
         @Override
@@ -325,58 +343,57 @@ public class ContactsClient extends Activity {
             case CONNECT: {
                 // Create a bus connection
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+                
+                mMyBusListener = new MyBusListener();
+                mBus.registerBusListener(mMyBusListener);
 
-                // Connect the bus
                 Status status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
-                if (Status.OK != status) {
-                    finish();
-                    return;
-                }
-
-                // Get a remote object
-                mProxyObj = mBus.getProxyBusObject(SERVICE_NAME, "/addressbook",
-                                                   new Class[] { AddressBookInterface.class });
-                mAddressBookInterface = mProxyObj.getInterface(AddressBookInterface.class);
-
-                status = mBus.findName(SERVICE_NAME, new FindNameListener() {
-                    public void foundName(String name, String guid, String namePrefix, 
-                                          String busAddress) {
-
-                        Status status = mProxyObj.connect(busAddress);
-                        logStatus("ProxyBusObject.connect()", status);
-                        if (status != Status.OK) {
-                            finish();
-                            return;
-                        }
-                        
-                        // We're only looking for one instance, so stop looking for the name. 
-                        mBus.cancelFindName(SERVICE_NAME);
-                        logStatus("BusAttachment.cancelFindName()", status);
-                        if (status != Status.OK) {
-                            finish();
-                            return;
-                        }
-                    }
-
-                    public void lostAdvertisedName(String name, String guid, String namePrefix, String busAddr) { }
-                });
-                logStatus("BusAttachment.findName()", status);
-                if (status != Status.OK) {
-                    finish();
-                    return;
-                } 
+                
+                status = mBus.findAdvertisedName(SERVICE_NAME);
+                logStatus(String.format("BusAttachement.findAdvertisedName(%s)", SERVICE_NAME), status);
                 break;
             }
+            case JOIN_SESSION: {
+                if (mIsStoppingDiscovery) {
+                    break;
+                }
+
+                short contactPort = CONTACT_PORT;
+                SessionOpts sessionOpts = new SessionOpts();
+                Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                logStatus("BusAttachment.joinSession()", status);
+
+                if (status == Status.OK) {
+                	mProxyObj = mBus.getProxyBusObject(SERVICE_NAME, "/addressbook", sessionId.value,
+                				                       new Class[] { AddressBookInterface.class });
+                   	mAddressBookInterface = mProxyObj.getInterface(AddressBookInterface.class);
+                	mSessionId = sessionId.value;
+                	mIsConnected = true;
+                }
+                break;
+            }
+
             case DISCONNECT: {
-                mProxyObj.disconnect();
+                mIsStoppingDiscovery = true;
+                if (mIsConnected) {
+                    Status status = mBus.leaveSession(mSessionId);
+                    logStatus("BusAttachment.leaveSession()", status);
+                }
                 mBus.disconnect();
                 getLooper().quit();
                 break;
+
+
             }
             // Call AddressBookInterface.getContact method and send the result to the UI handler.
             case GET_CONTACT: {
-                try {
+                if (mAddressBookInterface == null) {
+                	break;
+                }
+            	try {
                     NameId nameId = (NameId)msg.obj;
                     Contact reply = mAddressBookInterface.getContact(nameId.displayName, nameId.userId);
                     Message replyMsg = mHandler.obtainMessage(MESSAGE_DISPLAY_CONTACT, reply);
@@ -403,7 +420,6 @@ public class ContactsClient extends Activity {
         }
     }
         
-        
     private void logStatus(String msg, Status status) {
         String log = String.format("%s: %s", msg, status);
         if (status == Status.OK) {
@@ -420,5 +436,9 @@ public class ContactsClient extends Activity {
         Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST, log);
         mHandler.sendMessage(toastMsg);
         Log.e(TAG, log, ex);
+    }
+    
+    private void logInfo(String msg) {
+        Log.i(TAG, msg);
     }
 }
