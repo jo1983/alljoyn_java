@@ -193,7 +193,7 @@ public interface AuthListener {
      *         rejected.  If the request is rejected the authentication is
      *         complete.
      */
-    boolean requested(String mechanism, int count, String userName,
+    boolean requested(String mechanism, String peer, int count, String userName,
                       AuthRequest[] requests);
 
     /**

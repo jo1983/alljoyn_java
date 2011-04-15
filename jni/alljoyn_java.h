@@ -175,10 +175,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
- * Method:    unRregisterBusListener
+ * Method:    unrregisterBusListener
  * Signature: (Lorg/alljoyn/bus/BusListener;)V;
  */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener
   (JNIEnv *, jobject, jobject);
 
 /*

@@ -281,11 +281,11 @@ public class Service extends Activity {
          *
          * This simply defers to the specific listener based on the mechanism in use.
          */
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String peer, int count, String userName, 
                                  AuthRequest[] requests) {
             AuthListener listener = mAuthListeners.get(mechanism);
             if (listener != null) {
-                return listener.requested(mechanism, count, userName, requests);
+                return listener.requested(mechanism, peer, count, userName, requests);
             } else {
                 return false;
             }
@@ -318,7 +318,7 @@ public class Service extends Activity {
             mGeneratePassword = true;
         }
             
-        public boolean requested(String mechanism, int count, String userName,
+        public boolean requested(String mechanism, String peer, int count, String userName,
                                  AuthRequest[] requests) {
             if (mGeneratePassword) {
                 mGeneratePassword = false;
@@ -359,7 +359,7 @@ public class Service extends Activity {
          * A pre-computed token called the logon entry may also be supplied instead of the given
          * password.  See LogonEntryRequest.
          */
-        public boolean requested(String mechanism, int count, String userName,
+        public boolean requested(String mechanism, String peer, int count, String userName,
                                  AuthRequest[] requests) {
             char[] password = mUserNamePassword.get(userName);
             if (password != null) {
@@ -379,7 +379,7 @@ public class Service extends Activity {
     /* The RSA Key eXchange listener uses X.509 certificates to authenticate. */
     class RsaKeyXListener implements AuthListener {
 
-        public boolean requested(String mechanism, int count, String userName,
+        public boolean requested(String mechanism, String peer, int count, String userName,
                                  AuthRequest[] requests) {
             /* Collect the requests we're interested in to simplify processing below. */
             PasswordRequest passwordRequest = null;

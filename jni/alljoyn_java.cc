@@ -427,18 +427,22 @@ JKeyStoreListener::JKeyStoreListener(jobject jlistener)
     JLocalRef<jclass> clazz = env->GetObjectClass(jkeyStoreListener);
     MID_getKeys = env->GetMethodID(clazz, "getKeys", "()[B");
     if (!MID_getKeys) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find getKeys() in jListener\n"));
         return;
     }
     MID_getPassword = env->GetMethodID(clazz, "getPassword", "()[C");
     if (!MID_getPassword) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find getPassword() in jListener\n"));
         return;
     }
     MID_putKeys = env->GetMethodID(clazz, "putKeys", "([B)V");
     if (!MID_putKeys) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find putKeys() in jListener\n"));
         return;
     }
     MID_encode = env->GetStaticMethodID(CLS_BusAttachment, "encode", "([C)[B");
     if (!MID_encode) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find endode() in jListener\n"));
         return;
     }
 }
@@ -808,20 +812,24 @@ JAuthListener::JAuthListener(jobject jlistener)
     }
     JLocalRef<jclass> clazz = env->GetObjectClass(jauthListener);
     MID_requestCredentials = env->GetMethodID(clazz, "requestCredentials",
-                                              "(Ljava/lang/String;ILjava/lang/String;I)Lorg/alljoyn/bus/AuthListener$Credentials;");
+                                              "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Lorg/alljoyn/bus/AuthListener$Credentials;");
     if (!MID_requestCredentials) {
+        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find requestCredentials() in jListener\n"));
         return;
     }
     MID_verifyCredentials = env->GetMethodID(clazz, "verifyCredentials", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
     if (!MID_verifyCredentials) {
+        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find verifyCredentials() in jListener\n"));
         return;
     }
     MID_securityViolation = env->GetMethodID(clazz, "securityViolation", "(Lorg/alljoyn/bus/Status;)V");
     if (!MID_securityViolation) {
+        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find securityViolation() in jListener\n"));
         return;
     }
     MID_authenticationComplete = env->GetMethodID(clazz, "authenticationComplete", "(Ljava/lang/String;Z)V");
     if (!MID_authenticationComplete) {
+        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find authenticationComplete() in jListener\n"));
         return;
     }
 }
@@ -842,13 +850,20 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     if (env->ExceptionCheck()) {
         return false;
     }
+    JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
+    if (env->ExceptionCheck()) {
+        return false;
+    }
     JLocalRef<jstring> juserName = env->NewStringUTF(userName);
     if (env->ExceptionCheck()) {
         return false;
     }
     JLocalRef<jobject> jcredentials = env->CallObjectMethod(jauthListener, MID_requestCredentials,
-                                                            (jstring)jauthMechanism, authCount,
-                                                            (jstring)juserName, credMask);
+                                                            (jstring)jauthMechanism, 
+                                                            (jstring)jauthPeer,
+                                                            authCount,
+                                                            (jstring)juserName,
+                                                            credMask);
     if (env->ExceptionCheck()) {
         return false;
     }

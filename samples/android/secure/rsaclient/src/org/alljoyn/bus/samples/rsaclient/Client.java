@@ -239,7 +239,7 @@ public class Client extends Activity {
          * The ALLJOYN_RSA_KEYX mechanism will request the passphrase, certificate chain, and private
          * key, and to verify the certificate chain of the peer.
          */
-        public boolean requested(String authMechanism, int count, String userName,
+        public boolean requested(String authMechanism, String authPeer, int count, String userName,
                                  AuthRequest[] requests) {
             /* Collect the requests we're interested in to simplify processing below. */
             PasswordRequest passwordRequest = null;

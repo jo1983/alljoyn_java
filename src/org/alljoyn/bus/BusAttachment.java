@@ -337,7 +337,7 @@ public class BusAttachment {
             this.violationListener = violationListener;
         }
 
-        public Credentials requestCredentials(String authMechanism, int authCount,
+        public Credentials requestCredentials(String authMechanism, String authPeer, int authCount,
                 String userName, int credMask) throws BusException {
             if (authListener == null) {
                 throw new BusException("No registered application AuthListener");
@@ -363,7 +363,7 @@ public class BusAttachment {
                 requests.add(new LogonEntryRequest(credentials));
             }
 
-            if (authListener.requested(authMechanism, authCount, userName, 
+            if (authListener.requested(authMechanism, authPeer, authCount, userName, 
                                        requests.toArray(new AuthRequest[0]))) {
                 return credentials;
             }
@@ -380,7 +380,7 @@ public class BusAttachment {
              * requestCredentials, and it's assumed that the application will
              * not immediately reject a request with an authCount of 0.
              */
-            return authListener.requested(authMechanism, 0, userName == null ? "" : userName,
+            return authListener.requested(authMechanism, null, 0, userName == null ? "" : userName,
                                           new AuthRequest[] { new VerifyRequest(cert) });
         }
 

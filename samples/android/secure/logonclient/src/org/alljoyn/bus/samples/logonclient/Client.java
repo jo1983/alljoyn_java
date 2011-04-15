@@ -227,7 +227,7 @@ public class Client extends Activity {
          *
          * The ALLJOYN_SRP_LOGON mechanism will request the username and password.
          */
-        public boolean requested(String authMechanism, int count, String userName,
+        public boolean requested(String authMechanism, String authPeer, int count, String userName,
                                  AuthRequest[] requests) {
             /* Collect the requests we're interested in to simplify processing below. */
             PasswordRequest passwordRequest = null;
