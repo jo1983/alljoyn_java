@@ -785,8 +785,8 @@ class JAuthListener : public AuthListener {
   public:
     JAuthListener(jobject jlistener);
     ~JAuthListener();
-    bool RequestCredentials(const char* authMechanism, uint16_t authCount, const char* userName,
-                            uint16_t credMask, Credentials& credentials);
+    bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
+                            const char* userName, uint16_t credMask, Credentials& credentials);
     bool VerifyCredentials(const char* authMechanism, const Credentials& credentials);
     void SecurityViolation(QStatus status, const Message& msg);
     void AuthenticationComplete(const char* authMechanism, bool success);
@@ -834,8 +834,8 @@ JAuthListener::~JAuthListener()
     }
 }
 
-bool JAuthListener::RequestCredentials(const char* authMechanism, uint16_t authCount, const char* userName,
-                                       uint16_t credMask, Credentials& credentials)
+bool JAuthListener::RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
+                                       const char* userName, uint16_t credMask, Credentials& credentials)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
@@ -2320,7 +2320,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     //
     // Make the AllJoyn call.
     //
-    SessionId sessionId;
+    SessionId sessionId = 0;
     SessionOpts sessionOpts;
 
     QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
