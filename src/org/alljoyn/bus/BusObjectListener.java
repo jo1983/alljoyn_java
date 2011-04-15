@@ -18,7 +18,7 @@ package org.alljoyn.bus;
 
 /**
  * Implemented by a user-defined {@link BusObject} that is
- * interested in handling registration and deregistration
+ * interested in handling registration and unregistration
  * notifications.  The notifications are sent when the BusObject
  * is connected or disconnected from a message bus.
  */
@@ -32,7 +32,7 @@ public interface BusObjectListener {
 
     /**
      * Called by the bus when the object has been successfully
-     * deregistered.
+     * unregistered.
      */
-    void deregistered();
+    void unregistered();
 }

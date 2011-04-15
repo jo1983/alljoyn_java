@@ -200,10 +200,10 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
- * Method:    deregisterBusObject
+ * Method:    unregisterBusObject
  * Signature: (Lorg/alljoyn/bus/BusObject;)V
  */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterBusObject
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject
   (JNIEnv *, jobject, jobject);
 
 /*
@@ -216,10 +216,10 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
- * Method:    deregisterSignalHandler
+ * Method:    unregisterSignalHandler
  * Signature: (Ljava/lang/Object;Ljava/lang/reflect/Method;)V
  */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterSignalHandler
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterSignalHandler
   (JNIEnv *, jobject, jobject, jobject);
 
 /*

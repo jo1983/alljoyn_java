@@ -531,7 +531,7 @@ class JBusListener : public BusListener {
     ~JBusListener();
 
     void ListenerRegistered(BusAttachment* bus) { }
-    void ListenerUnRegistered() { }
+    void ListenerUnregistered() { }
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
@@ -997,7 +997,7 @@ class JBusObject : public BusObject {
     QStatus Set(const char* ifcName, const char* propName, MsgArg& val);
     String GenerateIntrospection(bool deep = false, size_t indent = 0) const;
     void ObjectRegistered();
-    void ObjectDeregistered();
+    void ObjectUnregistered();
   private:
     struct Property {
         String signature;
@@ -1009,13 +1009,13 @@ class JBusObject : public BusObject {
     jweak jbusObj;
     jmethodID MID_generateIntrospection;
     jmethodID MID_registered;
-    jmethodID MID_deregistered;
+    jmethodID MID_unregistered;
     JMethod methods;
     JProperty properties;
 };
 
 JBusObject::JBusObject(BusAttachment& bus, const char* path, jobject jobj)
-    : BusObject(bus, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_deregistered(NULL)
+    : BusObject(bus, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_unregistered(NULL)
 {
     JNIEnv* env = GetEnv();
     jbusObj = (jweak)env->NewGlobalRef(jobj);
@@ -1035,8 +1035,8 @@ JBusObject::JBusObject(BusAttachment& bus, const char* path, jobject jobj)
         if (!MID_registered) {
             return;
         }
-        MID_deregistered = env->GetMethodID(clazz, "deregistered", "()V");
-        if (!MID_deregistered) {
+        MID_unregistered = env->GetMethodID(clazz, "unregistered", "()V");
+        if (!MID_unregistered) {
             return;
         }
     }
@@ -1517,12 +1517,12 @@ void JBusObject::ObjectRegistered()
     }
 }
 
-void JBusObject::ObjectDeregistered()
+void JBusObject::ObjectUnregistered()
 {
-    BusObject::ObjectDeregistered();
+    BusObject::ObjectUnregistered();
     if (NULL != MID_registered) {
         JScopedEnv env;
-        env->CallVoidMethod(jbusObj, MID_deregistered);
+        env->CallVoidMethod(jbusObj, MID_unregistered);
     }
 }
 
@@ -1532,7 +1532,7 @@ class JSignalHandler : public MessageReceiver {
     ~JSignalHandler();
     bool IsSameObject(jobject jobj, jobject jmethod);
     QStatus Register(BusAttachment& bus, const char* ifaceName, const char* signalName, const char* srcPath);
-    void Deregister(BusAttachment& bus);
+    void Unregister(BusAttachment& bus);
     void SignalHandler(const InterfaceDescription::Member* member, const char* sourcePath, Message& msg);
   private:
     jweak jsignalHandler;
@@ -1596,7 +1596,7 @@ QStatus JSignalHandler::Register(BusAttachment& bus, const char* ifaceName, cons
     return status;
 }
 
-void JSignalHandler::Deregister(BusAttachment& bus)
+void JSignalHandler::Unregister(BusAttachment& bus)
 {
     if (member) {
         MsgArg arg("s", rule.c_str());
@@ -1604,7 +1604,7 @@ void JSignalHandler::Deregister(BusAttachment& bus)
         const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
         dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "RemoveMatch", &arg, 1, reply);
 
-        bus.UnRegisterSignalHandler(this,
+        bus.UnregisterSignalHandler(this,
                                     static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler),
                                     member,
                                     source.c_str());
@@ -1643,10 +1643,10 @@ class _Bus : public BusAttachment {
     void Disconnect(const char* connectArgs);
     QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName);
     QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces);
-    void DeregisterBusObject(jobject jbusObject);
+    void UnregisterBusObject(jobject jbusObject);
     QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
                                   jobject jsignalHandler, jobject jmethod, const char* srcPath);
-    void DeregisterSignalHandler(jobject jsignalHandler, jobject jmethod);
+    void UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod);
 
   private:
     static vector<JBusObject*> busObjs;
@@ -1717,7 +1717,7 @@ void _Bus::Disconnect(const char* connectArgs)
         }
     }
     // TODO: DisablePeerSecurity
-    // TODO: DeregisterKeyStoreListener
+    // TODO: UnregisterKeyStoreListener
     if (IsStarted()) {
         QStatus status = Stop();
         if (ER_OK != status) {
@@ -1773,11 +1773,11 @@ QStatus _Bus::RegisterBusObject(const char* objPath, jobject jbusObject, jobject
     return status;
 }
 
-void _Bus::DeregisterBusObject(jobject jbusObject)
+void _Bus::UnregisterBusObject(jobject jbusObject)
 {
     JBusObject* busObj = GetBusObject(jbusObject);
     if (busObj) {
-        BusAttachment::DeregisterBusObject(*busObj);
+        BusAttachment::UnregisterBusObject(*busObj);
         for (vector<JBusObject*>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
             if ((*it)->IsSameObject(jbusObject)) {
                 delete (*it);
@@ -1801,11 +1801,11 @@ QStatus _Bus::RegisterSignalHandler(const char* ifaceName, const char* signalNam
     return status;
 }
 
-void _Bus::DeregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
+void _Bus::UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
 {
     for (vector<JSignalHandler*>::iterator it = signalHandlers.begin(); it != signalHandlers.end(); ++it) {
         if ((*it)->IsSameObject(jsignalHandler, jmethod)) {
-            (*it)->Deregister(*this);
+            (*it)->Unregister(*this);
             delete (*it);
             signalHandlers.erase(it);
             break;
@@ -1877,13 +1877,13 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
     (*bus)->RegisterBusListener(*busListener);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener(JNIEnv* env, jobject thiz, jobject jbusListener)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(JNIEnv* env, jobject thiz, jobject jbusListener)
 {
-    QCC_DbgPrintf(("BusAttachment_unRegisterBusListener()\n"));
+    QCC_DbgPrintf(("BusAttachment_unregisterBusListener()\n"));
 
     Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unRegisterBusListener(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception\n"));
         return;
     }
 
@@ -1891,7 +1891,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unRegisterBusListener(
     // TODO:  Plug memory leak of bus listeners
     //
     // assert(bus);
-    // (*bus)->UnRegisterBusListener(jbuslistener);
+    // (*bus)->UnregisterBusListener(jbuslistener);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv*env, jobject thiz,
@@ -2554,7 +2554,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(J
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterBusObject(JNIEnv* env,
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject(JNIEnv* env,
                                                                               jobject thiz,
                                                                               jobject jbusObject)
 {
@@ -2563,7 +2563,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterBusObject(JN
         return;
     }
     assert(bus);
-    (*bus)->DeregisterBusObject(jbusObject);
+    (*bus)->UnregisterBusObject(jbusObject);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSignalHandler(JNIEnv* env,
@@ -2604,7 +2604,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterSignalHandler(JNIEnv* env,
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterSignalHandler(JNIEnv* env,
                                                                                   jobject thiz,
                                                                                   jobject jsignalHandler,
                                                                                   jobject jmethod)
@@ -2614,7 +2614,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_deregisterSignalHandle
         return;
     }
     assert(bus);
-    (*bus)->DeregisterSignalHandler(jsignalHandler, jmethod);
+    (*bus)->UnregisterSignalHandler(jsignalHandler, jmethod);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEnv* env,

@@ -300,7 +300,7 @@ public class BusAttachment {
      *
      * @param listener  Object instance to un-register as a listener.
      */
-    public native void unRegisterBusListener(BusListener listener);
+    public native void unregisterBusListener(BusListener listener);
 
     /** The native connection handle. */
     private long handle;
@@ -642,8 +642,8 @@ public class BusAttachment {
      */
     public void disconnect() {
         if (address != null) {
-            deregisterSignalHandler(this, foundAdvertisedName);
-            deregisterSignalHandler(this, lostAdvertisedName);
+            unregisterSignalHandler(this, foundAdvertisedName);
+            unregisterSignalHandler(this, lostAdvertisedName);
             disconnect(address);
         }
     }
@@ -676,11 +676,11 @@ public class BusAttachment {
     }
 
     /**
-     * Deregisters a bus object.
+     * Unregisters a bus object.
      *
-     * @param obj the BusObject to deregister
+     * @param obj the BusObject to unregister
      */
-    public native void deregisterBusObject(BusObject obj);
+    public native void unregisterBusObject(BusObject obj);
 
     /**
      * Creates a proxy bus object for a remote bus object.
@@ -833,25 +833,25 @@ public class BusAttachment {
     }
 
     /**
-     * Deregisters a signal handler.
+     * Unregisters a signal handler.
      *
      * @param obj the object receiving the signal
      * @param handlerMethod the signal handler method
      */
-    public native void deregisterSignalHandler(Object obj, Method handlerMethod);
+    public native void unregisterSignalHandler(Object obj, Method handlerMethod);
 
     /**
-     * Deregisters all public methods annotated as signal handlers.
+     * Unregisters all public methods annotated as signal handlers.
      *
      * @param obj object with previously annotated signal handlers that have
      *            been registered
      * @see org.alljoyn.bus.annotation.BusSignalHandler
      */
-    public void deregisterSignalHandlers(Object obj) {
+    public void unregisterSignalHandlers(Object obj) {
         for (Method m : obj.getClass().getMethods()) {
             BusSignalHandler a = m.getAnnotation(BusSignalHandler.class);
             if (a != null) {
-                deregisterSignalHandler(obj, m);
+                unregisterSignalHandler(obj, m);
             }
         }
     }
