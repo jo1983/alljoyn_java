@@ -368,7 +368,7 @@ public class ContactsService extends Activity {
                 break;
             }
             case DISCONNECT: {
-                mBus.deregisterBusObject(mService);
+                mBus.unregisterBusObject(mService);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
                 break;
