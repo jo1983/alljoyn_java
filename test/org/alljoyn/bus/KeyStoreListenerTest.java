@@ -56,7 +56,7 @@ public class KeyStoreListenerTest extends TestCase {
     public class BusAuthListener implements AuthListener {
         private String authMechanismRequested;
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             authMechanismRequested = mechanism;
             assertEquals("", userName);
@@ -104,7 +104,7 @@ public class KeyStoreListenerTest extends TestCase {
         assertEquals(Status.OK, otherBus.connect());
         ProxyBusObject proxyObj = otherBus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                              "/secure", 
-                                                             AllJoynProxyObj.SESSION_ID_ANY,
+                                                             BusAttachment.SESSION_ID_ANY,
                                                              new Class[] { SecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
     }
@@ -118,7 +118,7 @@ public class KeyStoreListenerTest extends TestCase {
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, 
                      control.ReleaseName("org.alljoyn.bus.BusAttachmentTest"));
         bus.disconnect();
-        bus.deregisterBusObject(service);
+        bus.unregisterBusObject(service);
         bus = null;
     }
 

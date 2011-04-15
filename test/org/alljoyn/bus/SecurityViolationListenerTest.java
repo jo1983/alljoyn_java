@@ -43,7 +43,7 @@ public class SecurityViolationListenerTest extends TestCase {
     }
 
     public class BusAuthListener implements AuthListener {
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             for (AuthRequest request : requests) {
                 if (request instanceof PasswordRequest) {
@@ -78,7 +78,7 @@ public class SecurityViolationListenerTest extends TestCase {
         assertEquals(Status.OK, bus.connect());
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/secure", 
-                                                        AllJoynProxyObj.SESSION_ID_ANY,
+                                                        BusAttachment.SESSION_ID_ANY,
                                                         new Class[] { SimpleInterface.class });
         proxy = proxyObj.getInterface(SimpleInterface.class);
     }
@@ -92,7 +92,7 @@ public class SecurityViolationListenerTest extends TestCase {
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, 
                      control.ReleaseName("org.alljoyn.bus.BusAttachmentTest"));
         serviceBus.disconnect();
-        serviceBus.deregisterBusObject(service);
+        serviceBus.unregisterBusObject(service);
         serviceBus = null;
     }
 

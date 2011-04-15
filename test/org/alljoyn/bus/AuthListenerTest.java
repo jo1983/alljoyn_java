@@ -172,7 +172,7 @@ public class AuthListenerTest extends TestCase {
             authRequests = new ArrayList<AuthRequest>();
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             /* Bail out if we get stuck in a loop. */
             assertTrue(count < 10);
@@ -247,9 +247,9 @@ public class AuthListenerTest extends TestCase {
             super(name);
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
-            boolean result = super.requested(mechanism, count, userName, requests);
+            boolean result = super.requested(mechanism, authPeer, count, userName, requests);
             setUserName = false;
             return result;
         }        
@@ -262,9 +262,9 @@ public class AuthListenerTest extends TestCase {
             password = "654321".toCharArray();
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
-            boolean result = super.requested(mechanism, count, userName, requests);
+            boolean result = super.requested(mechanism, authPeer, count, userName, requests);
             password = "123456".toCharArray();
             return result;
         }        
@@ -276,7 +276,7 @@ public class AuthListenerTest extends TestCase {
             super(name);
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             /* Bail out if we get stuck in a loop. */
             assertTrue(count < 10);
@@ -302,9 +302,9 @@ public class AuthListenerTest extends TestCase {
             userName = "notUser";
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
-            boolean result = super.requested(mechanism, count, userName, requests);
+            boolean result = super.requested(mechanism, authPeer, count, userName, requests);
             this.userName = "userName";
             return result;
         }        
@@ -317,13 +317,13 @@ public class AuthListenerTest extends TestCase {
             password = "654321".toCharArray();
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             /* Bail out if we get stuck in a loop. */
             assertTrue(count < 10);
 
             if (count <= abortCount) {
-                return super.requested(mechanism, count, userName, requests);
+                return super.requested(mechanism, authPeer, count, userName, requests);
             } else {
                 for (AuthRequest request : requests) {
                     if (request instanceof VerifyRequest) {
@@ -344,7 +344,7 @@ public class AuthListenerTest extends TestCase {
             super(name);
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             /* Bail out if we get stuck in a loop. */
             assertTrue(count < 10);
@@ -359,7 +359,7 @@ public class AuthListenerTest extends TestCase {
             }
 
             if (count <= abortCount) {
-                return super.requested(mechanism, count, userName, requests);
+                return super.requested(mechanism, authPeer, count, userName, requests);
             } else {
                 for (AuthRequest request : requests) {
                     if (request instanceof VerifyRequest) {
@@ -408,7 +408,7 @@ public class AuthListenerTest extends TestCase {
             trustAnchors.add(new TrustAnchor((X509Certificate) factory.generateCertificate(in), null));
         }
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             for (AuthRequest request : requests) {
                 if (request instanceof CertificateRequest) {
@@ -483,7 +483,7 @@ public class AuthListenerTest extends TestCase {
         assertEquals(Status.OK, bus.connect());
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                         "/secure", 
-                                                        AllJoynProxyObj.SESSION_ID_ANY,
+                                                        BusAttachment.SESSION_ID_ANY,
                                                         new Class[] { SecureInterface.class, InsecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
         insecureProxy = proxyObj.getInterface(InsecureInterface.class);
@@ -500,7 +500,7 @@ public class AuthListenerTest extends TestCase {
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, 
                      control.ReleaseName("org.alljoyn.bus.BusAttachmentTest"));
         serviceBus.disconnect();
-        serviceBus.deregisterBusObject(service);
+        serviceBus.unregisterBusObject(service);
         serviceBus = null;
     }
     
@@ -879,7 +879,7 @@ public class AuthListenerTest extends TestCase {
         assertEquals(Status.OK, bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener));
         ProxyBusObject proxyObj = bus.getProxyBusObject("unknown.name",
                                                         "/secure", 
-                                                        AllJoynProxyObj.SESSION_ID_ANY,
+                                                        BusAttachment.SESSION_ID_ANY,
                                                         new Class[] { SecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
         boolean thrown = false;

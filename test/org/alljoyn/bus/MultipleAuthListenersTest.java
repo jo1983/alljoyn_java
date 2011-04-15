@@ -46,7 +46,7 @@ public class MultipleAuthListenersTest extends TestCase {
     public class BusAuthListener implements AuthListener {
         private String authMechanismRequested;
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             authMechanismRequested = mechanism;
             assertEquals("", userName);
@@ -90,7 +90,7 @@ public class MultipleAuthListenersTest extends TestCase {
         clientAuthListener = new BusAuthListener();
         ProxyBusObject proxyObj = clientBus.getProxyBusObject("org.alljoyn.bus.BusAttachmentTest",
                                                               "/secure", 
-                                                              AllJoynProxyObj.SESSION_ID_ANY,
+                                                              BusAttachment.SESSION_ID_ANY,
                                                               new Class[] { SecureInterface.class });
         proxy = proxyObj.getInterface(SecureInterface.class);
     }
@@ -104,7 +104,7 @@ public class MultipleAuthListenersTest extends TestCase {
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, 
                      control.ReleaseName("org.alljoyn.bus.BusAttachmentTest"));
         serviceBus.disconnect();
-        serviceBus.deregisterBusObject(service);
+        serviceBus.unregisterBusObject(service);
         serviceBus = null;
     }
 

@@ -244,6 +244,6 @@ public class DBusProxyObjTest extends TestCase {
             }
         }
 
-        bus.deregisterSignalHandlers(this);
+        bus.unregisterSignalHandlers(this);
     }
 }

@@ -72,7 +72,7 @@ public class AddressBookTest extends TestCase {
 
     public class BusAuthListener implements AuthListener {
 
-        public boolean requested(String mechanism, int count, String userName, 
+        public boolean requested(String mechanism, String authPeer, int count, String userName, 
                                  AuthRequest[] requests) {
             for (AuthRequest request : requests) {
                 if (request instanceof PasswordRequest) {
@@ -125,7 +125,7 @@ public class AddressBookTest extends TestCase {
         Class[] ifaces = { AddressBookInterface.class };
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.addressbook",
                                                          "/addressbook",
-                                                         AllJoynProxyObj.SESSION_ID_ANY,
+                                                         BusAttachment.SESSION_ID_ANY,
                                                          ifaces);
         AddressBookInterface proxy = remoteObj.getInterface(AddressBookInterface.class);
     

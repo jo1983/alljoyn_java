@@ -59,7 +59,7 @@ public class BusObjectTest extends TestCase {
 
         public void registered() { registered = true; }
 
-        public void deregistered() { registered = false; }
+        public void unregistered() { registered = false; }
     }
 
     public void testObjectRegistered() throws Exception {
@@ -76,7 +76,7 @@ public class BusObjectTest extends TestCase {
         Thread.currentThread().sleep(100);
         assertTrue(service.registered);
 
-        bus.deregisterBusObject(service);
+        bus.unregisterBusObject(service);
         Thread.currentThread().sleep(100);
         assertFalse(service.registered);
     }

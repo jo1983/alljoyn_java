@@ -1078,9 +1078,9 @@ public class MarshalTest extends TestCase {
         assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
 
         Class[] ifaces = { InferredTypesInterface.class, AnnotatedTypesInterface.class };
-        remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testobject", AllJoynProxyObj.SESSION_ID_ANY, ifaces);
+        remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testobject", BusAttachment.SESSION_ID_ANY, ifaces);
         remoteNullReturnsObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testnullobject", 
-            AllJoynProxyObj.SESSION_ID_ANY, ifaces);
+        		                                     BusAttachment.SESSION_ID_ANY, ifaces);
     }
 
     public void tearDown() throws Exception {
@@ -1091,10 +1091,10 @@ public class MarshalTest extends TestCase {
         DBusProxyObj.ReleaseNameResult res = control.ReleaseName("org.alljoyn.bus.MarshalTest");
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, res);
 
-        bus.deregisterBusObject(nullService);
+        bus.unregisterBusObject(nullService);
         nullService = null;
 
-        bus.deregisterBusObject(service);
+        bus.unregisterBusObject(service);
         service = null;
 
         bus.disconnect();

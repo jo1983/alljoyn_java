@@ -84,7 +84,7 @@ public class SignalEmitterTest extends TestCase {
     }
 
     public void tearDown() throws Exception {
-        bus.deregisterBusObject(emitter);
+        bus.unregisterBusObject(emitter);
         emitter = null;
 
         bus.disconnect();
@@ -119,6 +119,7 @@ public class SignalEmitterTest extends TestCase {
     }
 
     public void testGlobalBroadcast() throws Exception {
+    	// TODO fix this text
 //        /* Set up another daemon to receive the global broadcast signal. */
 //        AllJoynDaemon daemon = new AllJoynDaemon();
 //        AllJoynProxyObj alljoyn = bus.getAllJoynProxyObj();
@@ -140,7 +141,7 @@ public class SignalEmitterTest extends TestCase {
 //        Thread.currentThread().sleep(100);
 //        assertEquals(1, signalsHandled);
 //
-//        otherConn.deregisterSignalHandler(this, getClass().getMethod("signalHandler", String.class));
+//        otherConn.unregisterSignalHandler(this, getClass().getMethod("signalHandler", String.class));
 //        otherConn.disconnect();
 //        alljoyn.Disconnect(daemon.remoteAddress());
 //        daemon.stop();

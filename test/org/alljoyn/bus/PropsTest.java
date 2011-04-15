@@ -82,7 +82,7 @@ public class PropsTest extends TestCase {
         /* Get a remote object */
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.samples.props",
                                                          "/testProperties",
-                                                         AllJoynProxyObj.SESSION_ID_ANY,
+                                                         BusAttachment.SESSION_ID_ANY,
                                                          new Class<?>[] { PropsInterface.class,
                                                                           Properties.class });
         PropsInterface proxy = remoteObj.getInterface(PropsInterface.class);

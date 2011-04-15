@@ -74,7 +74,7 @@ public class PropertiesTest extends TestCase {
         DBusProxyObj.ReleaseNameResult res = control.ReleaseName("org.alljoyn.bus.ifaces.PropertiesTest");
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, res);
 
-        bus.deregisterBusObject(service);
+        bus.unregisterBusObject(service);
         service = null;
 
         bus.disconnect();
@@ -83,7 +83,7 @@ public class PropertiesTest extends TestCase {
 
     public void testGet() throws Exception {
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.ifaces.PropertiesTest",
-                                                         "/testobject",  AllJoynProxyObj.SESSION_ID_ANY,
+                                                         "/testobject",  BusAttachment.SESSION_ID_ANY,
                                                          new Class<?>[] { Properties.class });
         Properties properties = remoteObj.getInterface(Properties.class);
         Variant stringProp = properties.Get("org.alljoyn.bus.ifaces.PropertiesTestServiceInterface", 
@@ -93,7 +93,7 @@ public class PropertiesTest extends TestCase {
 
     public void testSet() throws Exception {
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.ifaces.PropertiesTest",
-                                                         "/testobject",  AllJoynProxyObj.SESSION_ID_ANY,
+                                                         "/testobject",  BusAttachment.SESSION_ID_ANY,
                                                          new Class<?>[] { Properties.class });
         Properties properties = remoteObj.getInterface(Properties.class);
         properties.Set("org.alljoyn.bus.ifaces.PropertiesTestServiceInterface", 
@@ -105,7 +105,7 @@ public class PropertiesTest extends TestCase {
 
     public void testGetAll() throws Exception {
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.ifaces.PropertiesTest",
-                                                         "/testobject",  AllJoynProxyObj.SESSION_ID_ANY,
+                                                         "/testobject",  BusAttachment.SESSION_ID_ANY,
                                                          new Class<?>[] { Properties.class });
         Properties properties = remoteObj.getInterface(Properties.class);
         Map<String, Variant> map = properties.GetAll("org.alljoyn.bus.ifaces.PropertiesTestServiceInterface");
@@ -116,7 +116,7 @@ public class PropertiesTest extends TestCase {
         boolean thrown = false;
         try {
             ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.ifaces.PropertiesTest",
-                                                             "/testobject", AllJoynProxyObj.SESSION_ID_ANY,
+                                                             "/testobject", BusAttachment.SESSION_ID_ANY,
                                                              new Class<?>[] { Properties.class });
             Properties properties = remoteObj.getInterface(Properties.class);
             Map<String, Variant> map = properties.GetAll("unknownInterface");

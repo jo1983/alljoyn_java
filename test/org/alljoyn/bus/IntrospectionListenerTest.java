@@ -69,7 +69,7 @@ public class IntrospectionListenerTest extends TestCase {
 
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.IntrospectionListenerTest",
                                                          "/introspectionlistener",
-                                                         AllJoynProxyObj.SESSION_ID_ANY,
+                                                         BusAttachment.SESSION_ID_ANY,
                                                          new Class[] { Introspectable.class });
         Introspectable introspectable = remoteObj.getInterface(Introspectable.class);
         String actual = introspectable.Introspect();

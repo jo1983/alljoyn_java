@@ -72,7 +72,7 @@ public class SimpleTest extends TestCase {
         Class[] ifaces = { SimpleInterface.class };
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.samples.simple",
                                                          "/testobject",
-                                                         AllJoynProxyObj.SESSION_ID_ANY,
+                                                         BusAttachment.SESSION_ID_ANY,
                                                          ifaces);
         SimpleInterface proxy = remoteObj.getInterface(SimpleInterface.class);
 
