@@ -580,9 +580,9 @@ public class AllJoynChat extends Activity {
                 break;
             }
             case (DISCONNECT): {
-                mBus.deregisterSignalHandlers(this);
-                mBus.deregisterSignalHandlers(mChatService);
-                mBus.deregisterBusObject(mChatService);
+                mBus.unregisterSignalHandlers(this);
+                mBus.unregisterSignalHandlers(mChatService);
+                mBus.unregisterBusObject(mChatService);
                 mBus.disconnect();
                 getLooper().quit();
                 break;
