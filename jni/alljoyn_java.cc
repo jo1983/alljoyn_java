@@ -791,9 +791,9 @@ class JAuthListener : public AuthListener {
     ~JAuthListener();
     bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
                             const char* userName, uint16_t credMask, Credentials& credentials);
-    bool VerifyCredentials(const char* authMechanism, const Credentials& credentials);
+    bool VerifyCredentials(const char* authMechanism, const char *peerName, const Credentials& credentials);
     void SecurityViolation(QStatus status, const Message& msg);
-    void AuthenticationComplete(const char* authMechanism, bool success);
+    void AuthenticationComplete(const char* authMechanism, const char *peerName, bool success);
   private:
     jweak jauthListener;
     jmethodID MID_requestCredentials;
@@ -817,7 +817,7 @@ JAuthListener::JAuthListener(jobject jlistener)
         QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find requestCredentials() in jListener\n"));
         return;
     }
-    MID_verifyCredentials = env->GetMethodID(clazz, "verifyCredentials", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
+    MID_verifyCredentials = env->GetMethodID(clazz, "verifyCredentials", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
     if (!MID_verifyCredentials) {
         QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find verifyCredentials() in jListener\n"));
         return;
@@ -827,7 +827,7 @@ JAuthListener::JAuthListener(jobject jlistener)
         QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find securityViolation() in jListener\n"));
         return;
     }
-    MID_authenticationComplete = env->GetMethodID(clazz, "authenticationComplete", "(Ljava/lang/String;Z)V");
+    MID_authenticationComplete = env->GetMethodID(clazz, "authenticationComplete", "(Ljava/lang/String;Ljava/lang/String;Z)V");
     if (!MID_authenticationComplete) {
         QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find authenticationComplete() in jListener\n"));
         return;
@@ -951,10 +951,14 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     return true;
 }
 
-bool JAuthListener::VerifyCredentials(const char* authMechanism, const Credentials& credentials)
+bool JAuthListener::VerifyCredentials(const char* authMechanism, const char *authPeer, const Credentials& credentials)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
+    if (env->ExceptionCheck()) {
+        return false;
+    }
+    JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
     if (env->ExceptionCheck()) {
         return false;
     }
@@ -969,7 +973,7 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const Credentia
         return false;
     }
     jboolean acceptable = env->CallBooleanMethod(jauthListener, MID_verifyCredentials, (jstring)jauthMechanism,
-                                                 (jstring)juserName, (jstring)jcert);
+                                                 (jstring)jauthPeer, (jstring)juserName, (jstring)jcert);
     if (env->ExceptionCheck()) {
         return false;
     }
@@ -987,14 +991,18 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
     env->CallVoidMethod(jauthListener, MID_securityViolation, (jobject)jstatus);
 }
 
-void JAuthListener::AuthenticationComplete(const char* authMechanism, bool success)
+void JAuthListener::AuthenticationComplete(const char* authMechanism, const char *authPeer,  bool success)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
     if (env->ExceptionCheck()) {
         return;
     }
-    env->CallVoidMethod(jauthListener, MID_authenticationComplete, (jstring)jauthMechanism, success);
+    JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+    env->CallVoidMethod(jauthListener, MID_authenticationComplete, (jstring)jauthMechanism, (jstring)jauthPeer, success);
 }
 
 class JBusObject : public BusObject {

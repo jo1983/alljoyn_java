@@ -258,7 +258,7 @@ public class Client extends Activity {
             return false;
         }
 
-        public void completed(String authMechanism, boolean authenticated) {
+        public void completed(String authMechanism, String authPeer, boolean authenticated) {
             sendUiMessage(MESSAGE_AUTH_COMPLETE, authenticated);
         }
     }

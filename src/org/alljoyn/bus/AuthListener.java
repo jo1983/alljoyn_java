@@ -181,6 +181,10 @@ public interface AuthListener {
      *
      * @param mechanism the name of the authentication mechanism issuing the
      *                  request
+     * @param peerName  the name of the remote peer being authenticated.  On the
+     *                  initiating side this will be a well-known-name for the
+     *                  remote peer. On the accepting side this will be the
+     *                  unique bus name for the remote peer.
      * @param count the count (starting at 1) of the number of authentication
      *              request attempts made
      * @param userName the user name for the credentials being requested.  If
@@ -193,7 +197,7 @@ public interface AuthListener {
      *         rejected.  If the request is rejected the authentication is
      *         complete.
      */
-    boolean requested(String mechanism, String peer, int count, String userName,
+    boolean requested(String mechanism, String peerName, int count, String userName,
                       AuthRequest[] requests);
 
     /**
@@ -202,7 +206,11 @@ public interface AuthListener {
      *
      * @param mechanism the name of the authentication mechanism that was used
      *                  or an empty string if the authentication failed
+     * @param peerName  the name of the remote peer being authenticated.  On the
+     *                  initiating side this will be a well-known-name for the
+     *                  remote peer. On the accepting side this will be the
+     *                  unique bus name for the remote peer.
      * @param authenticated {@code true} if the authentication succeeded
      */
-    void completed(String mechanism, boolean authenticated);
+    void completed(String mechanism, String peerName, boolean authenticated);
 }

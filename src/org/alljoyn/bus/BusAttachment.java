@@ -370,7 +370,7 @@ public class BusAttachment {
             return null;
         }
 
-        public boolean verifyCredentials(String authMechanism, String userName, 
+        public boolean verifyCredentials(String authMechanism, String peerName, String userName, 
                                          String cert) throws BusException {
             if (authListener == null) {
                 throw new BusException("No registered application AuthListener");
@@ -380,7 +380,7 @@ public class BusAttachment {
              * requestCredentials, and it's assumed that the application will
              * not immediately reject a request with an authCount of 0.
              */
-            return authListener.requested(authMechanism, null, 0, userName == null ? "" : userName,
+            return authListener.requested(authMechanism, peerName, 0, userName == null ? "" : userName,
                                           new AuthRequest[] { new VerifyRequest(cert) });
         }
 
@@ -390,9 +390,9 @@ public class BusAttachment {
             }
         }
 
-        public void authenticationComplete(String authMechanism, boolean success) {
+        public void authenticationComplete(String authMechanism, String peerName,  boolean success) {
             if (authListener != null) {
-                authListener.completed(authMechanism, success);
+                authListener.completed(authMechanism, peerName, success);
             }
         }
     }

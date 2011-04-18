@@ -296,10 +296,10 @@ public class Service extends Activity {
          *
          * This simply defers to the specific listener based on the mechanism in use.
          */
-        public void completed(String mechanism, boolean authenticated) {
+        public void completed(String mechanism, String authPeer, boolean authenticated) {
             AuthListener listener = mAuthListeners.get(mechanism);
             if (listener != null) {
-                listener.completed(mechanism, authenticated);
+                listener.completed(mechanism, authPeer, authenticated);
             }
             sendUiMessage(MESSAGE_AUTH_COMPLETE, authenticated);
         }
@@ -333,7 +333,7 @@ public class Service extends Activity {
             return true;
         }
 
-        public void completed(String mechanism, boolean authenticated) {
+        public void completed(String mechanism, String authPeer, boolean authenticated) {
             mGeneratePassword = true;
         }
     }
@@ -372,7 +372,7 @@ public class Service extends Activity {
             return true;
         }
 
-        public void completed(String mechanism, boolean authenticated) {
+        public void completed(String mechanism, String peer, boolean authenticated) {
         }
     }
 
@@ -436,7 +436,7 @@ public class Service extends Activity {
             return false;
         }
 
-        public void completed(String mechanism, boolean authenticated) {
+        public void completed(String mechanism, String peer, boolean authenticated) {
         }
     }
 
