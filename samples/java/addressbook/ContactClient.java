@@ -71,7 +71,7 @@ public class ContactClient {
 
         /* Register the authentication listener for the client */
         Status status = bus.registerAuthListener("ALLJOYN_SRP_KEYX", new AuthListener() {
-                public boolean requested(String mechanism, int count, String userName,
+                public boolean requested(String mechanism, String authPeer, int count, String userName,
                                          AuthRequest[] requests) {
                     for (AuthRequest request : requests) {
                         if (request instanceof PasswordRequest) {
@@ -83,7 +83,7 @@ public class ContactClient {
                     return true;
                 }
 
-                public void completed(String mechanism, boolean authenticated) {}
+                public void completed(String mechanism, String authPeer, boolean authenticated) {}
             });
         if (Status.OK != status) {
             throw new BusException("BusAttachment.registerAuthListener() failed with " + status.toString());
@@ -101,6 +101,7 @@ public class ContactClient {
         ProxyBusObject proxyObj = bus.getProxyBusObject(
                                                          "org.alljoyn.bus.samples.addressbook",
                                                          "/addressbook",
+                                                         0, // zero = sessions are not being used
                                                          ifaces);
         AddressBookInterface proxy = proxyObj.getInterface(AddressBookInterface.class);
 

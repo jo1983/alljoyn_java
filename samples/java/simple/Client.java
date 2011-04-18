@@ -45,6 +45,7 @@ public class Client {
         Class[] ifaces = { SimpleInterface.class };
         ProxyBusObject proxyObj = bus.getProxyBusObject("org.alljoyn.bus.samples.simple",
                                                          "/testobject",
+                                                         0, // zero = sessions are not being used
                                                          ifaces);
         SimpleInterface proxy = proxyObj.getInterface(SimpleInterface.class);
 

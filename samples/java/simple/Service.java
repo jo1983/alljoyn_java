@@ -32,21 +32,22 @@ public class Service implements SimpleInterface, BusObject {
     static {
         System.loadLibrary("alljoyn_java");
     }
-
     /**
      * Main entry point for org.alljoyn.bus.samples.simple.Service
      */
     public static void main(String[] args) {
 
         try {
-            /* Create a bus connection and connect to the bus */
+            /* Create a bus connection */
             BusAttachment bus = new BusAttachment(Service.class.getName());
+            
+            /* connect to the bus */
             Status status = bus.connect();
             if (Status.OK != status) {
                 System.out.println("BusAttachment.connect() failed with " + status.toString());
                 return;
             }
-
+            
             /* Register the service */
             Service service = new Service();
             status = bus.registerBusObject(service, "/testobject");
@@ -56,18 +57,10 @@ public class Service implements SimpleInterface, BusObject {
             }
 
             /* Request a well-known name */
-            try {
-                DBusProxyObj control = bus.getDBusProxyObj();
-                DBusProxyObj.RequestNameResult res = control.RequestName(
-                                                              "org.alljoyn.bus.samples.simple",
-                                                              DBusProxyObj.REQUEST_NAME_NO_FLAGS);
-                if (res != DBusProxyObj.RequestNameResult.PrimaryOwner) {
-                    System.out.println("Failed to obtain well-known name");
-                    return;
-                }
-            } catch (BusException ex) {
-                System.out.println("DBusProxyObj.RequestName failed: " + ex.toString());
-                return;
+            int flag = 0;
+            status = bus.requestName("org.alljoyn.bus.samples.simple", flag);
+            if (status != Status.OK) {
+            	System.out.println("Failed to obtain a well-known bus name.");
             }
 
             /* Wait forever (or until control-c) */

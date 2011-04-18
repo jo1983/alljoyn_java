@@ -58,6 +58,7 @@ public class Client {
         /* Get a remote object */
         ProxyBusObject proxyObj =  bus.getProxyBusObject("org.alljoyn.bus.samples.props",
                                                           "/testProperties",
+                                                          0, // zero = sessions are not used
                                                           new Class<?>[] { PropsInterface.class,
                                                                            Properties.class });
         PropsInterface proxy = proxyObj.getInterface(PropsInterface.class);

@@ -81,7 +81,7 @@ public class ContactService implements AddressBookInterface, BusObject {
 
         /* Register the authentication listener for the service */
         Status status = bus.registerAuthListener("ALLJOYN_SRP_KEYX", new AuthListener() {
-                public boolean requested(String mechanism, int count, String userName,
+                public boolean requested(String mechanism, String authPeer, int count, String userName,
                                          AuthRequest[] requests) {
                     for (AuthRequest request : requests) {
                         if (request instanceof PasswordRequest) {
@@ -93,7 +93,7 @@ public class ContactService implements AddressBookInterface, BusObject {
                     return true;
                 }
 
-                public void completed(String mechanism, boolean authenticated) {}
+                public void completed(String mechanism, String authPeer, boolean authenticated) {}
             });
         if (Status.OK != status) {
             throw new BusException("BusAttachment.registerAuthListener() failed with " + status.toString());
