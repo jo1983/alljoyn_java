@@ -236,7 +236,7 @@ public class AuthListenerTest extends TestCase {
             return true;
         }
 
-        public void completed(String mechanism, boolean authenticated) {
+        public void completed(String mechanism, String authPeer, boolean authenticated) {
             ++completed;
         }
     }
@@ -453,7 +453,7 @@ public class AuthListenerTest extends TestCase {
             return true;
         }
 
-        public void completed(String mechanism, boolean authenticated) {}
+        public void completed(String mechanism, String authPeer, boolean authenticated) {}
     }
 
     public AuthListenerTest(String name) {

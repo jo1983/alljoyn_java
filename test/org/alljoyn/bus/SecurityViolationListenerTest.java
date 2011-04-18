@@ -55,7 +55,7 @@ public class SecurityViolationListenerTest extends TestCase {
             return true;
         }
 
-        public void completed(String mechanism, boolean authenticated) {}
+        public void completed(String mechanism, String authPeer, boolean authenticated) {}
     }
 
     public SecurityViolationListenerTest(String name) {

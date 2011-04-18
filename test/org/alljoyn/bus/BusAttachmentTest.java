@@ -368,7 +368,7 @@ public class BusAttachmentTest extends TestCase {
                                          AuthRequest[] requests) {
                     return false;
                 }
-                public void completed(String mechanism, boolean authenticated) {}
+                public void completed(String mechanism, String authPeer, boolean authenticated) {}
             });
         assertEquals(Status.BUS_INVALID_AUTH_MECHANISM, status);
     }
@@ -387,7 +387,7 @@ public class BusAttachmentTest extends TestCase {
                 return true;
             }
 
-            public void completed(String mechanism, boolean authenticated) {}
+            public void completed(String mechanism, String authPeer, boolean authenticated) {}
         };
 
     public void testRegisterAuthListenerBeforeConnect() throws Exception {

@@ -70,7 +70,7 @@ public class KeyStoreListenerTest extends TestCase {
             return true;
         }
 
-        public void completed(String mechanism, boolean authenticated) {}
+        public void completed(String mechanism, String authPeer, boolean authenticated) {}
     }
 
     public KeyStoreListenerTest(String name) {
