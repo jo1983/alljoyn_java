@@ -20,6 +20,6 @@ env.Jar('$JARDIR/alljoyn_samples.jar', sample_classes)
 env.Requires(sample_classes, '$JARDIR/alljoyn.jar')
 
 for sample in ['addressbook', 'game', 'props', 'simple']:
-    env.Install('$DISTDIR/samples', sample)
+    env.Install('$JAVA_DISTDIR/samples', sample)
 
-env.Install('$DISTDIR/samples', 'README.txt')
+env.Install('$JAVA_DISTDIR/samples', 'README.txt')

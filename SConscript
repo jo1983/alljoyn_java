@@ -33,13 +33,13 @@ if not env.has_key('_ALLJOYNCORE_'):
     env.SConscript('../alljoyn_core/SConscript')
 
 # Make alljoyn_java dist a sub-directory of the alljoyn dist.  This avoids any conflicts with alljoyn dist targets.
-env['DISTDIR'] = env['DISTDIR'] + '/java'
+env['JAVA_DISTDIR'] = env['DISTDIR'] + '/java'
 
 # Tell dependent dirs where to stick classes
 env.Append(CLASSDIR='$OBJDIR/classes')
 
 # Tell dependent dirs where jar files are located. ("#" doesn't work here for some reason)
-env.Append(JARDIR='$DISTDIR/jar')
+env.Append(JARDIR='$JAVA_DISTDIR/jar')
 
 # Add support for mulitiple build targets in the same workset
 env.VariantDir('$OBJDIR', '.', duplicate = 0)
@@ -49,7 +49,7 @@ env.SConscript('src/SConscript')
 
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')
-env.Install('$DISTDIR/lib', libs)
+env.Install('$JAVA_DISTDIR/lib', libs)
 
 # AllJoyn Java binding tests
 env.SConscript('test/SConscript')
@@ -58,7 +58,7 @@ env.SConscript('test/SConscript')
 env['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
 env['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
 env['PROJECT_NUMBER'] = 'Version 1.8.0'
-env.JavaDoc('$DISTDIR/docs', 'src', JAVACLASSPATH=os.environ.get('CLASSPATH'))
+env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=os.environ.get('CLASSPATH'))
 
 # AllJoyn samples
 env.SConscript('samples/SConscript')
