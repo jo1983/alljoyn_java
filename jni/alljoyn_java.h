@@ -158,6 +158,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    getSessionFd
+ * Signature: (ILorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd
+  (JNIEnv *, jobject, 
+   jint, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    setDaemonDebug
  * Signature: (Ljava/lang/String;I)Lorg/alljoyn/bus/Status;
  */

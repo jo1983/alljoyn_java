@@ -250,6 +250,18 @@ public class BusAttachment {
     public native Status leaveSession(int sessionId);
 
     /**
+     * Get the file descriptor for a raw (non-message based) session.
+     *
+     * @param sessionId  Id of an existing streamming session.
+     * @param sockFd     Socket file descriptor for session.
+     *
+     * @return ER_OK if the socket FD was returned.  ER_BUS_NOT_CONNECTED if a
+     *         connection has not been made with a local bus; other error status
+     *         codes indicating a failure.                                                                        
+     */
+    public native Status getSessionFd(int sessionId, Mutable.IntegerValue sockFd);
+
+    /**
      * This sets the debug level of the local AllJoyn daemon if that daemon
      * was built in debug mode.
      *

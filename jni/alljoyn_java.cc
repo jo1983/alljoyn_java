@@ -2431,6 +2431,55 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv* env, jobject thiz,
+                                                                         jint jsessionId,
+                                                                         jobject jsockfd)
+{
+    QCC_DbgPrintf(("BusAttachment_getSessionFd()\n"));
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    qcc::SocketFd sockfd = -1;
+
+    QCC_DbgPrintf(("BusAttachment_getSessionFd(): Call GetSessionFd(%d, %d)\n",
+                   jsessionId, sockfd));
+
+    QStatus status = (*bus)->GetSessionFd(jsessionId, sockfd);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_getSessionFd(): Back from GetSessionFd(%d, %d)\n",
+                   jsessionId, sockfd));
+
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_getSessionFd(): GetSessionFd() fails\n"));
+    }
+
+    //
+    // Store the sockFd in its corresponding out parameter.
+    //
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsockfd);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jsockfd, fid, sockfd);
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIEnv*env, jobject thiz,
                                                                             jstring jmodule, jint jlevel)
 {
