@@ -18,6 +18,8 @@ Import('env')
 # Application samples
 for sample in ['simple/client', 
                'simple/service', 
+               'raw/client', 
+               'raw/service', 
                'secure/logonclient', 
                'secure/rsaclient', 
                'secure/srpclient', 

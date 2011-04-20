@@ -37,6 +37,15 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.lang.reflect.Constructor;
+
+import java.io.InputStream;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
+import java.io.IOException;
+
 public class Service extends Activity {
     /* Load the native alljoyn_java library. */
     static {
@@ -131,18 +140,12 @@ public class Service extends Activity {
     class RawService implements RawInterface, BusObject {
 
         /*
-         * This is the code run when the client makes a call to the Ping method of the
-         * RawInterface.  This implementation just returns the received String to the caller.
-         *
-         * This code also prints the string it received from the user and the string it is
-         * returning to the user to the screen.
+         * This is the code run when the client makes a call to the GoRaw method of the
+         * RawInterface.  This implementation just returns "OK" to the caller.
          */
-        public String Ping(String inStr) {
-            sendUiMessage(MESSAGE_PING, inStr);
-
-            /* Simply echo the ping message. */
-            sendUiMessage(MESSAGE_PING_REPLY, inStr);
-            return inStr;
+        public String GoRaw() {
+            mBusHandler.sendEmptyMessage(BusHandler.GO_RAW);
+            return "OK";
         }        
 
         /* Helper function to send a message to the UI thread. */
@@ -158,25 +161,6 @@ public class Service extends Activity {
     	 * Extend the BusListener class to respond to AllJoyn's bus signals
     	 */
     	public class MyBusListener extends BusListener {
-    		@Override
-    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            }
-
-            @Override
-            public void lostAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            }
-
-            @Override
-            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
-                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
-            }
-
-            @Override
-            public void sessionLost(int sessionId) {
-                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
-            }
 
             @Override
             public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
@@ -188,15 +172,11 @@ public class Service extends Activity {
         			return false;
         		}
         	}
-
+            
             @Override
             public void sessionJoined(short sessionPort, int id, String joiner) {
                 logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
-            }
-
-            @Override
-            public void busStopping() {
-                logInfo("MyBusListener.busStopping()");
+                mSessionId = id;
             }
         }
     	
@@ -205,14 +185,17 @@ public class Service extends Activity {
          * both to the bus and to the network as a whole.  The name uses reverse URL style of naming.
          */
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.raw";
-        private static final short CONTACT_PORT=42;
+        private static final short CONTACT_PORT = 42;
         
         private BusAttachment mBus;
         private MyBusListener mMyBusListener;
+        private int mSessionId;
+        boolean mStreamUp = false;
 
         /* These are the messages sent to the BusHandler from the UI. */
         public static final int CONNECT = 1;
         public static final int DISCONNECT = 2;
+        public static final int GO_RAW = 3;
 
         public BusHandler(Looper looper) {
             super(looper);
@@ -316,6 +299,48 @@ public class Service extends Activity {
                 }
                 
                 break;
+            }
+            
+            /* Go into raw session mode. */
+            case GO_RAW: {
+                /*
+                 * Go into raw session mode on the local side.  We
+                 * get a socket file descriptor back from AllJoyn
+                 * that represents the established connection to the
+                 * service.  We are then free to do whatever we want
+                 * with the connection.
+                 */
+                 Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
+                 Status status = mBus.getSessionFd(mSessionId, sockFd);
+                    logStatus("BusAttachment.getSessionFd()", status);
+                    if (Status.OK != status) {
+                        break;
+                    }
+
+                    /*
+                     * What we are going to do with the connection is to 
+                     * create a Java file descriptor out of the socket
+                     * file descriptor, and then use that FD to create
+                     * an output stream.
+                     */
+                    try {
+                    	Class<FileDescriptor> clazz = FileDescriptor.class;
+                    	Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
+                    	c.setAccessible(true);
+                    	FileDescriptor fd = c.newInstance(sockFd.value);
+                    	InputStream fis = new FileInputStream(fd);
+                    	mStreamUp = true;
+                    	
+                    	BufferedReader input = new BufferedReader(new InputStreamReader(fis));
+                    	
+                    	for (String s = null; (s = input.readLine()) != null;) {
+                    		logInfo(s);
+                    	}
+                    	
+                    } catch (Throwable ex) {
+                        logInfo("Exception Bringing up raw stream");
+                    }
+            	
             }
             
             /* Release all resources acquired in connect. */

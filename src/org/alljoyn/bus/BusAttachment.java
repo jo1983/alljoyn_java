@@ -60,7 +60,7 @@ public class BusAttachment {
      * @param requestedName  Well-known name being requested.
      * @param flags          Bitmask of DBUS_NAME_FLAG_* defines (see DBusStd.h)
      *
-     * @return ER_OK if request completed successfully and primary ownership was
+     * @return Status.OK if request completed successfully and primary ownership was
      *         granted.  ER_BUS_NOT_CONNECTED if a connection has not been made
      *         with a local bus; other error status codes indicating a failure.
      */
@@ -91,7 +91,7 @@ public class BusAttachment {
      *
      * @param name  Well-known name being released.
      *
-     * @return ER_OK if the anme was released.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if the anme was released.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
@@ -104,7 +104,7 @@ public class BusAttachment {
      * @param rule  Match rule to be added (see the DBus specification for the
      *              format of this string).
      *
-     * @return ER_OK if the match rule was added.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if the match rule was added.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
@@ -119,7 +119,7 @@ public class BusAttachment {
      * @param name        The well-known name to advertise. (Must be owned by the caller via RequestName).
      * @param transports  Set of transports to use for sending advertisment.
      *
-     * @return ER_OK if the name was advertised.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if the name was advertised.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
@@ -135,7 +135,7 @@ public class BusAttachment {
      * @param name        A well-known name that was previously advertised via AdvertiseName.
      * @param transports  Set of transports whose name advertisment will be cancelled.
      *
-     * @return ER_OK if the name advertisements were stopped.  ER_BUS_NOT_CONNECTED
+     * @return Status.OK if the name advertisements were stopped.  ER_BUS_NOT_CONNECTED
      *         if a connection has not been made with a local bus; other error
      *         status codes indicating a failure.
      */
@@ -149,7 +149,7 @@ public class BusAttachment {
      * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
      *                    notifications about.
      *
-     * @return ER_OK if discovery was started.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if discovery was started.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.
      */
@@ -164,7 +164,7 @@ public class BusAttachment {
      * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
      *                    BusListener::FoundAdvertisedName notifications about.
      *
-     * @return ER_OK if discovery was cancelled.   ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if discovery was cancelled.   ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error
      *         status codes indicating a general failure condition.
      */
@@ -195,7 +195,7 @@ public class BusAttachment {
      * @param opts        Session options that joiners must agree to in order to                                          
      *                    successfully join the session.                                                                  
      *
-     * @return ER_OK if the new session port was bound.  ER_BUS_NOT_CONNECTED
+     * @return Status.OK if the new session port was bound.  ER_BUS_NOT_CONNECTED
      *         if a connection has not been made with a local bus; other error
      *         status codes indicating a failure.
      */
@@ -225,7 +225,7 @@ public class BusAttachment {
      * @param sessionId     Set to the unique identifier for session.
      * @param opts          Set to the actual session options of the joined session.
      *
-     * @return ER_OK if the session was joined.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if the session was joined.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.                                                                        
      */
@@ -243,7 +243,7 @@ public class BusAttachment {
      *
      * @param sessionId     Session id.
      *
-     * @return ER_OK if daemon response was left.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if daemon response was left.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating failures.                                                                        
      */
@@ -255,7 +255,7 @@ public class BusAttachment {
      * @param sessionId  Id of an existing streamming session.
      * @param sockFd     Socket file descriptor for session.
      *
-     * @return ER_OK if the socket FD was returned.  ER_BUS_NOT_CONNECTED if a
+     * @return Status.OK if the socket FD was returned.  ER_BUS_NOT_CONNECTED if a
      *         connection has not been made with a local bus; other error status
      *         codes indicating a failure.                                                                        
      */
@@ -294,7 +294,7 @@ public class BusAttachment {
      * @param module  the name of the module to generate debug output from.
      * @param level   the debug level to set for the module.
      *
-     * @return ER_OK if debug request was successfully sent to the AllJoyn
+     * @return Status.OK if debug request was successfully sent to the AllJoyn
      *       daemon or ER_BUS_NO_SUCH_OBJECT if daemon was not built in debug
      *       mode.
      */

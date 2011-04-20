@@ -39,5 +39,5 @@ public interface RawInterface {
      * this fact.
      */
     @BusMethod
-    void GoRaw() throws BusException;
+    String GoRaw() throws BusException;
 }

@@ -47,7 +47,7 @@ import java.lang.reflect.Constructor;
 import java.io.OutputStream;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
-
+import java.io.IOException;
 
 public class Client extends Activity {
     /* Load the native alljoyn_java library. */
@@ -339,7 +339,11 @@ public class Client extends Activity {
             	}
                 mBus.disconnect();
                 if (mStreamUp == true) {
-                    mOutputStream.close();
+                	try {
+                      mOutputStream.close();
+                	} catch (IOException ex) {
+                        logInfo("Exception closing output stream");
+                	}
                 }
                 getLooper().quit();
                 break;
@@ -380,7 +384,7 @@ public class Client extends Activity {
                              * service.  We are then free to do whatever we want
                              * with the connection.
                              */
-                            Mutable.IntegerValue sockFd;
+                            Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
                             Status status = mBus.getSessionFd(mSessionId, sockFd);
                             logStatus("BusAttachment.getSessionFd()", status);
                             if (Status.OK != status) {
@@ -397,7 +401,7 @@ public class Client extends Activity {
                             Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
                             c.setAccessible(true);
                             FileDescriptor fd = c.newInstance(sockFd.value);
-                            OutputStream mOutputStream = new FileOutputStream(fd);
+                            mOutputStream = new FileOutputStream(fd);
                             mStreamUp = true;
                         }
                     } catch (Throwable ex) {
@@ -412,8 +416,12 @@ public class Client extends Activity {
                  */
                 if (mStreamUp == true) {
                 	String string = (String)msg.obj;
-                    mOutputStream.write(string.getBytes());
-                    mOutputStream.flush();
+                	try {
+                		mOutputStream.write(string.getBytes());
+                		mOutputStream.flush();
+                	} catch (IOException ex) {
+                        logInfo("Exception writing and flushing to output stream");
+                	}
                 }
                 break;
             }
