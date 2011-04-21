@@ -58,7 +58,13 @@ public class BusAttachment {
      * and interprets the response.
      *
      * @param requestedName  Well-known name being requested.
-     * @param flags          Bitmask of DBUS_NAME_FLAG_* defines (see DBusStd.h)
+     * @param flags          Bitmask name flag (see DBusStd.h)
+     * 						<ul>
+     * 						<li>ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT</li>
+     * 						<li>ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING</li>
+     * 						<li>ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE</li>
+     * 						</ul>
+     * 							
      *
      * @return
      * <ul>
@@ -85,7 +91,7 @@ public class BusAttachment {
      * Value for requestName flags bit corresponding to a request to 
      * fail if the name in question cannot be immediately obtained.
      */
-    public static final int ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE = 0x04;     /**< RequestName input flag: \
+    public static final int ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE = 0x04;
 
     /**
      * Release a previously requeted well-known name.
