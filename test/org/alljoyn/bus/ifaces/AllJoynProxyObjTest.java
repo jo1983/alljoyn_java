@@ -88,9 +88,10 @@ public class AllJoynProxyObjTest extends TestCase {
 //
 // TODO:  No such thing as connect
 //
-//        daemon = new AllJoynDaemon();
+        daemon = new AllJoynDaemon();
 //        assertEquals(AllJoynProxyObj.ConnectResult.Success, alljoyn.Connect(daemon.remoteAddress()));
 //        assertEquals(AllJoynProxyObj.DisconnectResult.Success, alljoyn.Disconnect(daemon.remoteAddress()));
+//    	assertEquals(true, false);
     }
 
     public void testAdvertiseNameCancelAdvertiseName() throws Exception {
@@ -192,6 +193,7 @@ public class AllJoynProxyObjTest extends TestCase {
 // TODO:  No such thing as disconnect
 //
 //        assertEquals(AllJoynProxyObj.DisconnectResult.Failed, alljoyn.Disconnect(""));
+    	assertEquals(true, false);
     }
 
     public void testInvalidDisconnect() throws Exception {
@@ -199,6 +201,7 @@ public class AllJoynProxyObjTest extends TestCase {
 // TODO:  No such thing as disconnect
 //
 //        assertEquals(AllJoynProxyObj.DisconnectResult.Failed, alljoyn.Disconnect("unix:abstract=InvalidAddress"));
+    	assertEquals(true, false);
     }
 
     public void testNullConnect() throws Exception {
@@ -206,6 +209,7 @@ public class AllJoynProxyObjTest extends TestCase {
 // TODO:  No such thing as connect
 //
 //        assertEquals(AllJoynProxyObj.ConnectResult.InvalidSpec, alljoyn.Connect(""));
+    	assertEquals(true, false);
     }
 
     public void testInvalidConnect() throws Exception {
@@ -213,5 +217,6 @@ public class AllJoynProxyObjTest extends TestCase {
 // TODO:  No such thing as connect
 //
 //        assertEquals(AllJoynProxyObj.ConnectResult.Failed, alljoyn.Connect("unix:abstract=InvalidAddress"));
+    	assertEquals(true, false);
     }
 }
