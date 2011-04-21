@@ -60,9 +60,12 @@ public class BusAttachment {
      * @param requestedName  Well-known name being requested.
      * @param flags          Bitmask of DBUS_NAME_FLAG_* defines (see DBusStd.h)
      *
-     * @return Status.OK if request completed successfully and primary ownership was
-     *         granted.  ER_BUS_NOT_CONNECTED if a connection has not been made
-     *         with a local bus; other error status codes indicating a failure.
+     * @return
+     * <ul>
+     * <li>OK if request completed successfully and primary ownership was granted.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * <ul>
      */
     public native Status requestName(String name, int flags);
 
@@ -91,9 +94,12 @@ public class BusAttachment {
      *
      * @param name  Well-known name being released.
      *
-     * @return Status.OK if the anme was released.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return 
+     * <ul>
+     * <li>OK if the name was released.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * </ul>
      */
     public native Status releaseName(String name);
 
@@ -104,9 +110,12 @@ public class BusAttachment {
      * @param rule  Match rule to be added (see the DBus specification for the
      *              format of this string).
      *
-     * @return Status.OK if the match rule was added.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return 
+     * <ul>
+     * <li>OK if the match rule was added.</li>  
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li> 
+     * <li>other error status codes indicating a failure</li>
+     * </ul>
      */
     public native Status addMatch(String rule);
 
@@ -119,9 +128,12 @@ public class BusAttachment {
      * @param name        The well-known name to advertise. (Must be owned by the caller via RequestName).
      * @param transports  Set of transports to use for sending advertisment.
      *
-     * @return Status.OK if the name was advertised.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return
+     * <ul> 
+     * <li>OK if the name was advertised.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure </li>
+     * </ul>
      */
     public native Status advertiseName(String name, short transports);
 
@@ -135,9 +147,12 @@ public class BusAttachment {
      * @param name        A well-known name that was previously advertised via AdvertiseName.
      * @param transports  Set of transports whose name advertisment will be cancelled.
      *
-     * @return Status.OK if the name advertisements were stopped.  ER_BUS_NOT_CONNECTED
-     *         if a connection has not been made with a local bus; other error
-     *         status codes indicating a failure.
+     * @return 
+     * <ul>
+     * <li>OK if the name advertisements were stopped.</li>  
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * </ul>
      */
     public native Status cancelAdvertiseName(String name, short transports);
 
@@ -149,9 +164,12 @@ public class BusAttachment {
      * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
      *                    notifications about.
      *
-     * @return Status.OK if discovery was started.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.
+     * @return 
+     * <ul>
+     * <li>OK if discovery was started.</li>  
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * </ul>
      */
     public native Status findAdvertisedName(String namePrefix);
 
@@ -164,9 +182,12 @@ public class BusAttachment {
      * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
      *                    BusListener::FoundAdvertisedName notifications about.
      *
-     * @return Status.OK if discovery was cancelled.   ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error
-     *         status codes indicating a general failure condition.
+     * @return 
+     * <ul>
+     * <li>OK if discovery was cancelled.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a general failure condition.</li>
+     * </ul>
      */
     public native Status cancelFindAdvertisedName(String namePrefix);
 
@@ -195,9 +216,12 @@ public class BusAttachment {
      * @param opts        Session options that joiners must agree to in order to                                          
      *                    successfully join the session.                                                                  
      *
-     * @return Status.OK if the new session port was bound.  ER_BUS_NOT_CONNECTED
-     *         if a connection has not been made with a local bus; other error
-     *         status codes indicating a failure.
+     * @return 
+     * <ul>
+     * <li>OK if the new session port was bound.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * <ul>
      */
     public native Status bindSessionPort(Mutable.ShortValue sessionPort,
                                          SessionOpts sessionOpts);
@@ -225,9 +249,12 @@ public class BusAttachment {
      * @param sessionId     Set to the unique identifier for session.
      * @param opts          Set to the actual session options of the joined session.
      *
-     * @return Status.OK if the session was joined.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.                                                                        
+     * @return
+     * <ul> 
+     * <li>OK if the session was joined.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * </ul>                                                                                 
      */
     public native Status joinSession(String sessionHost,
                                      short sessionPort,
@@ -243,9 +270,12 @@ public class BusAttachment {
      *
      * @param sessionId     Session id.
      *
-     * @return Status.OK if daemon response was left.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating failures.                                                                        
+     * @return 
+     * <ul>
+     * <li>OK if daemon response was left.</li>  
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating failures.</li>
+     * </ul>                                                                        
      */
     public native Status leaveSession(int sessionId);
 
@@ -278,13 +308,14 @@ public class BusAttachment {
      *
      * The debug output levels are actually a bit field that controls what
      * output is generated.  Those bit fields are described below:
-     *
-     *     - 0x1: High level debug prints (these debug printfs are not common)
-     *     - 0x2: Normal debug prints (these debug printfs are common)
-     *     - 0x4: Function call tracing (these debug printfs are used
-     *            sporadically)
-     *     - 0x8: Data dump (really only used in the "SOCKET" module - can
-     *            generate a *lot* of output)
+     *<ul>
+     *     <li>0x1: High level debug prints (these debug prints are not common)</li>
+     *     <li>0x2: Normal debug prints (these debug prints are common)</li>
+     *     <li>0x4: Function call tracing (these debug prints are used
+     *            sporadically)</li>
+     *     <li>0x8: Data dump (really only used in the "SOCKET" module - can
+     *            generate a <strong>lot</strong> of output)</li>
+     * </ul>
      *
      * Typically, when enabling debug for a subsystem, the level would be set
      * to 7 which enables High level debug, normal debug, and function call
@@ -294,9 +325,11 @@ public class BusAttachment {
      * @param module  the name of the module to generate debug output from.
      * @param level   the debug level to set for the module.
      *
-     * @return Status.OK if debug request was successfully sent to the AllJoyn
-     *       daemon or ER_BUS_NO_SUCH_OBJECT if daemon was not built in debug
-     *       mode.
+     * @return 
+     * <ul>
+     * <li>OK if debug request was successfully sent to the AllJoyn daemon</li> 
+     * <li>BUS_NO_SUCH_OBJECT if daemon was not built in debug mode.</li>
+     * </ul>
      */
     public native Status setDaemonDebug(String module, int level);
 
