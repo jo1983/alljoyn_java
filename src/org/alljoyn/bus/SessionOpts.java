@@ -65,8 +65,8 @@ public class SessionOpts {
     public SessionOpts(byte traffic, boolean isMultipoint, byte proximity, short transports) {
         this.traffic = traffic;
         this.isMultipoint = isMultipoint;
-        this.proximity = proximity
-        this.transports = transports
+        this.proximity = proximity;
+        this.transports = transports;
     }
 
     /**
