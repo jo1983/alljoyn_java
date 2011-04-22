@@ -108,15 +108,26 @@ public class BusAttachmentTest extends TestCase {
         System.setProperty("org.alljoyn.bus.address", address);
 
         if (bus != null) {
-            bus.releaseName("org.alljoyn.bus.BusAttachmentTest");
-            bus.disconnect();
+        	String[] busNamesList = bus.getDBusProxyObj().ListNames();
+        	for(String busName : busNamesList) {	
+        		if (busName.equals("org.alljoyn.bus.BusAttachmentTest")) {
+        			assertEquals(Status.OK, bus.releaseName("org.alljoyn.bus.BusAttachmentTest"));
+        		}
+        	}
+        	bus.disconnect();
             bus = null;
         }
 
         if (otherBus != null) {
-            otherBus.cancelAdvertiseName(name, SessionOpts.TRANSPORT_ANY);
-            otherBus.releaseName(name);
-            otherBus.disconnect();
+            String[] busNamesList = otherBus.getDBusProxyObj().ListNames();
+        	for(String busName : busNamesList) {
+        		if (busName.equals(name)) {
+        			assertEquals(Status.OK, otherBus.cancelAdvertiseName(name, SessionOpts.TRANSPORT_ANY));
+        			assertEquals(Status.OK, otherBus.releaseName(name));
+        		}
+        	}
+            
+        	otherBus.disconnect();
             otherBus = null;
         }
 
@@ -281,20 +292,17 @@ public class BusAttachmentTest extends TestCase {
         bus = new BusAttachment(getClass().getName());
         Status status = bus.connect();
         assertEquals(Status.OK, status);
-
-        DBusProxyObj control = bus.getDBusProxyObj();
-        DBusProxyObj.RequestNameResult res = control.RequestName("org.alljoyn.bus.BusAttachmentTest", 
-                                                                DBusProxyObj.REQUEST_NAME_NO_FLAGS);
-        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
+        
+        status = bus.requestName("org.alljoyn.bus.BusAttachmentTest", 0);
+        assertEquals(Status.OK, status);
 
         bus.disconnect();
 
         status = bus.connect();
         assertEquals(Status.OK, status);
 
-        res = control.RequestName("org.alljoyn.bus.BusAttachmentTest", 
-                                  DBusProxyObj.REQUEST_NAME_NO_FLAGS);
-        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
+        status = bus.requestName("org.alljoyn.bus.BusAttachmentTest", 0);
+        assertEquals(Status.OK, status);
     }
 
     public void testRegisterSameLocalObjectTwice() throws Exception {
@@ -555,14 +563,12 @@ public class BusAttachmentTest extends TestCase {
         Thread.currentThread().sleep(5 * 1000);
         assertEquals(true, found);
         
-        assertEquals(Status.OK, otherBus.cancelAdvertiseName(name, SessionOpts.TRANSPORT_ANY));
-        assertEquals(Status.OK, otherBus.releaseName(name));
         assertEquals(Status.OK, bus.cancelFindAdvertisedName(name));
     }
 
     public class LostExistingNameBusListener extends BusListener {
     	public void foundAdvertisedName(String name, short transport, String namePrefix) {
-    		System.out.println("Name is :  "+name);
+    		//System.out.println("Name is :  "+name);
     		found = true;
         }
 
@@ -608,7 +614,7 @@ public class BusAttachmentTest extends TestCase {
 
     public class FindExistingNameBusListener extends BusListener {
     	public void foundAdvertisedName(String name, short transport, String namePrefix) {
-    		System.out.println("Name is :  "+name);
+    		//System.out.println("Name is :  "+name);
     		found = true;
         }
 
@@ -638,9 +644,7 @@ public class BusAttachmentTest extends TestCase {
         
         assertEquals(Status.OK, bus.findAdvertisedName(name));
         
-        Thread.currentThread().sleep(2 * 1000);
-        assertEquals(Status.OK, otherBus.cancelAdvertiseName(name, SessionOpts.TRANSPORT_ANY));
-        assertEquals(Status.OK, otherBus.releaseName(name));	
+        Thread.currentThread().sleep(2 * 1000);	
         assertEquals(true, found);
     }
 
@@ -651,7 +655,6 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, bus.findAdvertisedName(null));
 //        boolean thrown = false;
 //        try {
-//        	assert(Status.OK, bus.findAdvertisedName(null));
 //        	// TODO fix text
 ////            bus.findName(null, new FindNameListener() {
 ////                    public void foundName(String name, String guid, String namePrefix, String busAddress) {
@@ -672,19 +675,17 @@ public class BusAttachmentTest extends TestCase {
 //        assertTrue(thrown);
     }        
 
-    public class FindMultipleNamesBusListenerA extends BusListener {
+    public class FindMultipleNamesBusListener extends BusListener {
     	public void foundAdvertisedName(String name, short transport, String namePrefix) {
-    		assertEquals("name.A", name);
-    		foundNameA = true;
+    		if (name.equals("name.A")) {
+    			foundNameA = true;	
+    		}
+    		if ( name.equals("name.B")) {
+    			foundNameB = true;
+    		}
         }
     }
     
-    public class FindMultipleNamesBusListenerB extends BusListener {
-    	public void foundAdvertisedName(String name, short transport, String namePrefix) {
-    		assertEquals("name.B", name);
-    		foundNameB = true;
-        }
-    }
     
     private boolean foundNameA;
     private boolean foundNameB;
@@ -692,11 +693,8 @@ public class BusAttachmentTest extends TestCase {
     public void testFindMultipleNames() throws Exception {
         bus = new BusAttachment(getClass().getName());
         
-        BusListener nameABusListener = new FindMultipleNamesBusListenerA();
-        bus.registerBusListener(nameABusListener);
-        
-        BusListener nameBBusListener = new FindMultipleNamesBusListenerB();
-        bus.registerBusListener(nameBBusListener);
+        BusListener testBusListener = new FindMultipleNamesBusListener();
+        bus.registerBusListener(testBusListener);
         
         assertEquals(Status.OK, bus.connect());
         foundNameA = foundNameB = false;
@@ -756,9 +754,8 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, otherBus.connect());
         assertEquals(Status.OK, otherBus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
 
-            Thread.currentThread().sleep(1 * 1000);
-            assertEquals(true, found);
-        }
+        Thread.currentThread().sleep(1 * 1000);
+        assertEquals(true, found);
     }
 
     public void testFindSameName() throws Exception {
