@@ -627,7 +627,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
         return;
     }
 
-    QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Call out to listener object and method\n"));
+    QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jbusListener, MID_foundAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
         QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Exception\n"));
@@ -791,9 +791,9 @@ class JAuthListener : public AuthListener {
     ~JAuthListener();
     bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
                             const char* userName, uint16_t credMask, Credentials& credentials);
-    bool VerifyCredentials(const char* authMechanism, const char *peerName, const Credentials& credentials);
+    bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials);
     void SecurityViolation(QStatus status, const Message& msg);
-    void AuthenticationComplete(const char* authMechanism, const char *peerName, bool success);
+    void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
   private:
     jweak jauthListener;
     jmethodID MID_requestCredentials;
@@ -859,7 +859,7 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
         return false;
     }
     JLocalRef<jobject> jcredentials = env->CallObjectMethod(jauthListener, MID_requestCredentials,
-                                                            (jstring)jauthMechanism, 
+                                                            (jstring)jauthMechanism,
                                                             (jstring)jauthPeer,
                                                             authCount,
                                                             (jstring)juserName,
@@ -951,7 +951,7 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     return true;
 }
 
-bool JAuthListener::VerifyCredentials(const char* authMechanism, const char *authPeer, const Credentials& credentials)
+bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* authPeer, const Credentials& credentials)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
@@ -991,7 +991,7 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
     env->CallVoidMethod(jauthListener, MID_securityViolation, (jobject)jstatus);
 }
 
-void JAuthListener::AuthenticationComplete(const char* authMechanism, const char *authPeer,  bool success)
+void JAuthListener::AuthenticationComplete(const char* authMechanism, const char* authPeer,  bool success)
 {
     JScopedEnv env;
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
@@ -1991,8 +1991,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv*
     // Make the AllJoyn call.
     //
 
-    QCC_LogError(ER_OK, ("BusAttachment_releaseName(): Call ReleaseName(%s)\n",
-                         name.c_str()));
+    QCC_DbgPrintf(("BusAttachment_releaseName(): Call ReleaseName(%s)\n",
+                   name.c_str()));
 
     QStatus status = (*bus)->ReleaseName(name.c_str());
     if (env->ExceptionCheck()) {
@@ -2432,8 +2432,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv* env, jobject thiz,
-                                                                         jint jsessionId,
-                                                                         jobject jsockfd)
+                                                                          jint jsessionId,
+                                                                          jobject jsockfd)
 {
     QCC_DbgPrintf(("BusAttachment_getSessionFd()\n"));
 
