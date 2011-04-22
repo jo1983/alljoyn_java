@@ -3850,7 +3850,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2J(J
                                                                                jstring jsignature,
                                                                                jlong value)
 {
-    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, &value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(JNIEnv* env,
@@ -3859,7 +3859,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(J
                                                                                jstring jsignature,
                                                                                jdouble value)
 {
-    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, &value);
+    return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2(JNIEnv* env,
