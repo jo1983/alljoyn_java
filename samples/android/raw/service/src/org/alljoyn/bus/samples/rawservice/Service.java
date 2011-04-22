@@ -17,11 +17,14 @@
 package org.alljoyn.bus.samples.rawservice;
 
 import org.alljoyn.bus.BusAttachment;
+import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
+import org.alljoyn.bus.annotation.BusInterface;
+import org.alljoyn.bus.annotation.BusMethod;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -47,7 +50,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 
 public class Service extends Activity {
-    /* Load the native alljoyn_java library. */
+    /*
+     * Load the native alljoyn_java library.  The actual AllJoyn code is
+     * written in C++ and the alljoyn_java library provides the language
+     * bindings from Java to C++ and vice versa.
+     */
     static {
         System.loadLibrary("alljoyn_java");
     }
@@ -83,10 +90,9 @@ public class Service extends Activity {
             }
         };
     
-    /* The AllJoyn object that is our service. */
-    private RawService mRawService;
-
-    /* Handler used to make calls to AllJoyn methods. See onCreate(). */
+    /*
+     * An event loop used to make calls to AllJoyn methods. See onCreate().
+     */
     private Handler mBusHandler;
 
     @Override
@@ -98,12 +104,19 @@ public class Service extends Activity {
         mListView = (ListView) findViewById(R.id.ListView);
         mListView.setAdapter(mListViewArrayAdapter);
         
-        /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
+        /*
+         * You always need to make all AllJoyn calls through a separate handler
+         * thread to prevent blocking the Activity.
+         */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
         mBusHandler = new BusHandler(busThread.getLooper());
 
-        /* Start our service. */
+        /*
+         * Create a ervice bus object and send a message to the AllJoyn bus
+         * handler asking it to do whatever it takes to start the service 
+         * and make it available out to the rest of the world.
+         */
         mRawService = new RawService();
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
     }
@@ -131,71 +144,129 @@ public class Service extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        
-        /* Disconnect to prevent any resource leaks. */
+        /*
+         * Explicitly disconnect from the AllJoyn bus to prevent any resource
+         * leaks.
+         */
         mBusHandler.sendEmptyMessage(BusHandler.DISCONNECT);        
     }
     
-    /* The class that is our AllJoyn service.  It implements the RawInterface. */
+    /*
+     * Our service is actually an AllJoyn bus object that will be located at
+     * a certain object path in a bus attachment.  This bus object implements
+     * a named interface.  The name of the interface implies a contract that
+     * certain methods, signals and properties will be available at the object.
+     * The fact that there is a bus object implementing a certain named
+     * interface is implied by virtue of the fact that the attachment has
+     * requested a particular well-known bus name.  The presence of the well-
+     * known name also implies the existence of a well-known or contact session
+     * port which clients can use to join sessions.
+     * 
+     * The contact ports, bus objects, methods, etc., are all implied by the
+     * associated names.  In the case of the "org.alljoyn.bus.samples.raw" well
+     * known name, the presence of an interface is implied.  This interrace is
+     * named "org.alljoyn.bus.samples.raw.RawInterface", and you can find its
+     * definition in RawInterface.java as the specified @BusInterface.  The 
+     * well-known name also implies that the interface is implemented by a bus
+     * object which can be found at a particular location defined by an object
+     * path.  Also implied by the well-known name is the session contact port.  
+     *
+     * In order to export an AllJoyn service, you then must declare a named
+     * interface that you want your service to support, for example:
+     * 
+     *   @BusInterface(name = "org.alljoyn.bus.samples.raw.RawInterface")
+     *   public interface RawInterface {
+     *   	@BusMethod
+     *      void YourMethod() throws BusException;
+     *   }
+     *   
+     * You must provide an implementation of this interface as an AllJoyn bus
+     * object (that inherits from class BusObject), for example:
+     * 
+     *   class YourService implements YourInterface, BusObject {
+     *     public void YourMethod() { }
+     *   }
+     *
+     * You must create an instance of your bus obejct and register it at the
+     * object path which will be implied by the well-known name, for example:
+     * 
+     *   YourService yourService;
+     *   mBus.registerBusObject(yourService, "/YourServiceObjectPath");
+     * 
+     * You must request that the AllJoyn bus grant you the well-known name.
+     * This is done since there can be at most one service on the distributed
+     * bus with a given name.  If you require more than one instance of your
+     * service, you can append an instance number to your name.
+     * 
+     *   mBus.requestName(YOUR_SERVICE_WELL_KNOWN_NAME, flags);
+     *   
+     * Now that you have your object all set up, you need to bind the well
+     * known session port (also known as the contact port).  This turns the
+     * provided session port number into a half-association (associated with
+     * your service) which clients can connect to.  
+     * 
+     *   mBus.bindSessionPort(YOUR_CONTACT_SESSION_PORT, sessionOptions);
+     *   
+     * The last step in the service creation process is to advertise the 
+     * existence of your service to the outside world.
+     * 
+     *   mBus.advertiseName(YOUR_SERVICE_WELL_KNOWN_NAME, sessionOptions);
+     *
+     * You can find these steps in the message loop dedicated to handling the
+     * AllJoyn bus events, below. 
+     */
     class RawService implements RawInterface, BusObject {
-
         /*
-         * This is the code run when the client makes a call to the GoRaw method of the
-         * RawInterface.  This implementation just returns "OK" to the caller.
+         * This is the code run when the client makes a call to the 
+         * RequestRawSession method of the RawInterface.  This implementation
+         * just returns the previously bound RAW_PORT.
+         * 
+         * The actual mapping of the bus object to the declared interface
+         * and finally to this method is handled somewhat magically using
+         * Java reflection based on annotations at the various levels.
          */
-        public String GoRaw() {
-            mBusHandler.sendEmptyMessage(BusHandler.GO_RAW);
-            return "OK";
+        public short RequestRawSession() {
+            return BusHandler.RAW_PORT;
         }        
-
-        /* Helper function to send a message to the UI thread. */
-        private void sendUiMessage(int what, Object obj) {
-            mHandler.sendMessage(mHandler.obtainMessage(what, obj));
-        }
     }
 
-    /* This class will handle all AllJoyn calls. See onCreate(). */
-    class BusHandler extends Handler {
+    /*
+     * The bus object that actually implements the service we are providing
+     * to the world.
+     */
+    private RawService mRawService;
 
-    	/*
-    	 * Extend the BusListener class to respond to AllJoyn's bus signals
-    	 */
-    	public class MyBusListener extends BusListener {
-
-            @Override
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
-                	sessionOpts.toString()));
-        		if (sessionPort == CONTACT_PORT) {
-        			return true;
-        		} else {
-        			return false;
-        		}
-        	}
-            
-            @Override
-            public void sessionJoined(short sessionPort, int id, String joiner) {
-                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
-                mSessionId = id;
-            }
-        }
-    	
+    /*
+     * This class will handle all AllJoyn calls.  It implements an event loop
+     * used to avoid blocking the Android Activity when interacting with the
+     * bus.  See onCreate().
+     */
+    class BusHandler extends Handler {	
         /*
          * Name used as the well-known name and the advertised name.  This name must be a unique name
          * both to the bus and to the network as a whole.  The name uses reverse URL style of naming.
          */
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.raw";
-        private static final short CONTACT_PORT = 42;
+        private static final short CONTACT_PORT = 88;
         
-        private BusAttachment mBus;
-        private MyBusListener mMyBusListener;
-        private int mSessionId;
+        /*
+         * TODO: Remove this when we ephemeral session ports is fully implemented.
+         */
+        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.rawraw";
+        private static final short RAW_PORT = 888;
+        
+        private BusAttachment mBus = null;
+        private int mSessionId = -1;
+    	public BufferedReader mInputStream = null;
         boolean mStreamUp = false;
 
-        /* These are the messages sent to the BusHandler from the UI. */
+        /*
+         * These are the (event) messages sent to the BusHandler to tell it
+         * what to do.
+         */
         public static final int CONNECT = 1;
         public static final int DISCONNECT = 2;
-        public static final int GO_RAW = 3;
+        public static final int JOINED = 3;
 
         public BusHandler(Looper looper) {
             super(looper);
@@ -204,48 +275,97 @@ public class Service extends Activity {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-            /* Connect to the bus and start our service. */
+            /*
+             * When we recieve the CONNECT message, it instructs the handler to
+             * build a bus attachment and service and connect it to the AllJoyn
+             * bus to start our service.
+             */
             case CONNECT: { 
                 /*
                  * All communication through AllJoyn begins with a BusAttachment.
+                 * A BusAttachment needs a name. The actual name is unimportant
+                 * except for internal security. As a default we use the class
+                 * name.
                  *
-                 * A BusAttachment needs a name. The actual name is unimportant except for internal
-                 * security. As a default we use the class name as the name.
-                 *
-                 * By default AllJoyn does not allow communication between devices (i.e. bus to bus
-                 * communication).  The second argument must be set to Receive to allow
-                 * communication between devices.
+                 * By default AllJoyn does not allow communication between
+                 * physically remote bus attachments.  The second argument must
+                 * be set to Receive to enable this communication.
                  */ 
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
                 
                 /*
-                 * Create a bus listener class to handle callbacks from the 
-                 * BusAttachement and tell the attachment about the callbacks
+                 * If using the debug version of the AllJoyn libraries, tell
+                 * them to write debug output to the OS log so we can see it
+                 * using adb logcat.  Turn on all of the debugging output from
+                 * the Java language bindings (module ALLJOYN_JAVA).  When one
+                 * builds the samples in alljoyn_java, the library appropriate
+                 * to the build variant is copied in; so if the variant is 
+                 * debug, the following will work.
                  */
-                mMyBusListener = new MyBusListener();
-                mBus.registerBusListener(mMyBusListener);
+                mBus.useOSLogging(true);
+                mBus.setDebugLevel("ALLJOYN_JAVA", 7);
+                
+                /*
+                 * register a bus listener object with the BusAttachment to
+                 * handle callbacks indicating important bus events.  The ones
+                 * we are concerned with are assoicated with new sessions.
+                 */
+                mBus.registerBusListener(new BusListener() {
+                    @Override
+                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                    	/*
+                    	 * We accept any request to join either the CONTACT_PORT
+                    	 * session or the RAW_PORT session.
+                    	 */
+                    	if (sessionPort == CONTACT_PORT || sessionPort == RAW_PORT) {
+                        	logInfo(String.format("BusListener.acceptSessionJoiner(%d, %s, %s): accepted",
+                        			sessionPort, joiner, sessionOpts.toString()));
+                    		return true;
+                    	} else {
+                        	logInfo(String.format("BusListener.acceptSessionJoiner(%d, %s, %s): rejected", 
+                        			sessionPort, joiner, sessionOpts.toString()));
+                    		return false;
+                    	}
+                    }
+
+                    @Override
+                    public void sessionJoined(short sessionPort, int id, String joiner) {
+                    	logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+                    	/*
+                    	 * We expect two sessionJoined callbacks.  The first
+                    	 * happens when the client joins the session 
+                    	 * corresponding to the contact port.  That isn't very
+                    	 * interesting.  The second callback happens when the
+                    	 * client joins the raw session.  When this happens,
+                    	 * we need to bug the AllJoyn handler to tell it that
+                    	 * our client has joined the raw session.  On this
+                    	 * side we will take the provided session ID and get
+                    	 * its raw socket out which we will use to read any
+                    	 * data sent by the client.
+                    	 */
+                    	if (sessionPort == RAW_PORT) {
+                    		mSessionId = id;
+                    		mBusHandler.sendEmptyMessage(BusHandler.JOINED);
+                    	}
+                    }
+                });
                 
                 /* 
-                 * To make a service available to other AllJoyn peers, first register a BusObject with
-                 * the BusAttachment at a specific path.
-                 *
-                 * Our service is the RawService BusObject at the "/RawService" path.
+                 * To make a service available to other AllJoyn peers, first
+                 * register a BusObject with the BusAttachment at a specific
+                 * object path.  Our service is implemented by the RawService
+                 * BusObject found at the "/RawService" object path.
                  */
                 Status status = mBus.registerBusObject(mRawService, "/RawService");
                 logStatus("BusAttachment.registerBusObject()", status);
                 if (status != Status.OK) {
                     finish();
                     return;
-                }
-                
-                
+                }           
                 
                 /*
-                 * The next step in making a service available to other AllJoyn peers is to connect the
-                 * BusAttachment to the bus with a well-known name.  
-                 */
-                /*
-                 * connect the BusAttachement to the bus
+                 * The next step in making a service available to other peers
+                 * is to connect the BusAttachment to the AllJoyn bus.  
                  */
                 status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
@@ -255,97 +375,154 @@ public class Service extends Activity {
                 }
                 
                 /*
-                 * request a well-known name from the bus
+                 * We now request a well-known name from the bus.  This is an
+                 * alias for the unique name which we are automatically given
+                 * when we hook up to the bus.  This name must be unique across
+                 * the distributed bus and acts as the human-readable name of
+                 * our service.
+                 * 
+                 * We have the oppportunity to ask the underlying system to 
+                 * queue our request to be granted the well-known name, but we
+                 * decline this opportunity so we will fail if another instance
+                 * of this service is already running.
                  */
-                int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
-                
-                status = mBus.requestName(SERVICE_NAME, flag);
-                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", SERVICE_NAME, flag), status);
-                if (status == Status.OK) {
-                	/*
-                	 * If we successfully obtain a well-known name from the bus 
-                	 * advertise the same well-known name
-                	 */
-                	status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
-                    logStatus(String.format("BusAttachement.advertiseName(%s)", SERVICE_NAME), status);
-                    if (status != Status.OK) {
-                    	/*
-                         * If we are unable to advertise the name, release
-                         * the well-known name from the local bus.
-                         */
-                        status = mBus.releaseName(SERVICE_NAME);
-                        logStatus(String.format("BusAttachment.releaseName(%s)", SERVICE_NAME), status);
-                    	finish();
-                    	return;
-                    }
-                }
-                
-                /*
-                 * Create a new session listening on the contact port of the chat service.
-                 */
-                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
-                
-                SessionOpts sessionOpts = new SessionOpts();
-                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-                sessionOpts.isMultipoint = false;
-                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
-
-                status = mBus.bindSessionPort(contactPort, sessionOpts);
-                logStatus("BusAttachment.bindSessionPort()", status);
+                status = mBus.requestName(SERVICE_NAME, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
+                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", SERVICE_NAME, 
+                                         BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE), status);
                 if (status != Status.OK) {
                     finish();
                     return;
                 }
+
+                /*
+                 * If we sucessfully receive permission to use the requested
+                 * service name, we need to Create a new session listening on
+                 * the contact port of the raw service.  The default session
+                 * options are sufficient for our purposes
+                 */
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+                SessionOpts sessionOpts = new SessionOpts();
+
+                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                logStatus("BusAttachment.bindSessionPort()", status);
+                if (status != Status.OK) {
+                	finish();
+                	return;
+                }
+                    
+                /*
+                 * Create a new raw session listening on the another port.
+                 * This can be done on-demand in a "real" application, but it
+                 * is convenient to do the job as a well-known contact port 
+                 * here.  We will just return this well-known port as if it
+                 * were an ephemeral session port when our (single) client asks
+                 * for a new raw session.    
+                 *
+                 * We have to change the session options object to reflect that
+                 * it is a raw session we want to bind.  The difference is in
+                 * the traffic flowing across the session, so we need to change
+                 * the traffic type to RAW_RELIABLE, which will imply TCP, for
+                 * example, if we are using an IP based transport mechanism.
+                 */
+                contactPort.value = RAW_PORT;
+                sessionOpts.traffic = SessionOpts.TRAFFIC_RAW_RELIABLE;
+
+                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                logStatus("BusAttachment.bindSessionPort()", status);
+                if (status != Status.OK) {
+                	finish();
+                	return;
+                }              
+
+                /*
+                 * Advertise the same well-known name so future clients can
+                 * discover our existence.
+                 */
+                status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
+                logStatus(String.format("BusAttachement.advertiseName(%s)", SERVICE_NAME), status);
+                if (status != Status.OK) {
+                	finish();
+                	return;
+                } 
                 
+                /*
+                 * TODO:  Remove this extraneous advertisement when ephemeral
+                 * session ports are fully implemented.
+                 */
+                mBus.advertiseName(RAW_SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
                 break;
             }
             
-            /* Go into raw session mode. */
-            case GO_RAW: {
+            /*
+             * We have a new raw session that has joined our bound session.
+             * This is provided to us in the BusListener SessionJoined
+             * callback.  This join has provided us with a session ID 
+             * corresponding to the conversation between the client and the
+             * service.
+             * 
+             * The session we got is in raw mode, but we need to get a socket
+             * file descriptor back from AllJoyn that represents the 
+             * established connection.  Once we have the sock FD we are then
+             * free to do whatever we want with it.
+             *  
+             * What we are going to do with the sock FD is to create a Java
+             * file descriptor out of it, and then use that Java FD to create
+             * an input stream.
+             */
+            case JOINED: {               
                 /*
-                 * Go into raw session mode on the local side.  We
-                 * get a socket file descriptor back from AllJoyn
-                 * that represents the established connection to the
-                 * service.  We are then free to do whatever we want
-                 * with the connection.
+                 * Get the socket FD from AllJoyn.  It is a socket FD just
+                 * any other file descriptor.
                  */
-                 Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
-                 Status status = mBus.getSessionFd(mSessionId, sockFd);
-                    logStatus("BusAttachment.getSessionFd()", status);
-                    if (Status.OK != status) {
-                        break;
-                    }
-
-                    /*
-                     * What we are going to do with the connection is to 
-                     * create a Java file descriptor out of the socket
-                     * file descriptor, and then use that FD to create
-                     * an output stream.
-                     */
-                    try {
-                    	Class<FileDescriptor> clazz = FileDescriptor.class;
-                    	Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
-                    	c.setAccessible(true);
-                    	FileDescriptor fd = c.newInstance(sockFd.value);
-                    	InputStream fis = new FileInputStream(fd);
-                    	mStreamUp = true;
-                    	
-                    	BufferedReader input = new BufferedReader(new InputStreamReader(fis));
-                    	
-                    	for (String s = null; (s = input.readLine()) != null;) {
-                    		logInfo(s);
-                    	}
-                    	
-                    } catch (Throwable ex) {
-                        logInfo("Exception Bringing up raw stream");
-                    }
-            	
+            	Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
+                Status status = mBus.getSessionFd(mSessionId, sockFd);
+                logStatus("BusAttachment.getSession()", status);
+                try {
+                	/*
+                	 * The Java FileDescriptor class has a private constructor
+                	 * that allows one to pass a file descriptor.  This is
+                	 * exactly what we want, and we can use reflection to 
+                	 * find this constructor, make it accessible and use it
+                	 * to create a new FileDescriptor with the socket FD we
+                	 * got from AllJoyn.
+                	 */
+                	Class<FileDescriptor> clazz = FileDescriptor.class;
+                	Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
+                	c.setAccessible(true);
+                	FileDescriptor fd = c.newInstance(sockFd.value);
+                	
+                	/*
+                	 * Now that we have a FileDescriptor, we can use it like
+                	 * any other "normal" FileDescriptor.
+                	 */
+                	InputStream is = new FileInputStream(fd);
+                	final BufferedReader br = new BufferedReader(new InputStreamReader(is));
+                	
+                	logInfo("Spinning up thread to read raw Java stream");
+                	new Thread("Reader") {
+                		@Override
+                		public void run() {
+                			String line;
+                			try {
+                				while ((line = br.readLine()) != null) {
+                	                logInfo(String.format("Read %s from raw Java stream", line));
+                				}
+                			} catch (Throwable ex) {
+                            	logInfo("Exception reading raw Java stream");
+                			}
+                		}
+                	};
+                } catch (Throwable ex) {
+                	logInfo("Exception Bringing up raw Java stream");
+                }
+                break;
             }
             
-            /* Release all resources acquired in connect. */
+            /*
+             * Release all of the bus-related resources acquired during and
+             * after the case CONNECT.
+             */
             case DISCONNECT: {
-            	mBus.unregisterBusListener(mMyBusListener);
                 /* 
                  * It is important to unregister the BusObject before disconnecting from the bus.
                  * Failing to do so could result in a resource leak.
@@ -353,7 +530,7 @@ public class Service extends Activity {
                 mBus.unregisterBusObject(mRawService);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
-                break;   
+                break;
             }
 
             default:
@@ -374,7 +551,7 @@ public class Service extends Activity {
     }
     
     /*
-     * print the status or result to the Android log. If the result is the expected
+     * Print the status or result to the Android log. If the result is the expected
      * result only print it to the log.  Otherwise print it to the error log and
      * Sent a Toast to the users screen. 
      */

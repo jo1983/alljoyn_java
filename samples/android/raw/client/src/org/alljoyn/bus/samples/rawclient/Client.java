@@ -17,7 +17,6 @@
 package org.alljoyn.bus.samples.rawclient;
 
 import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
@@ -106,7 +105,7 @@ public class Client extends Activity {
                     if (actionId == EditorInfo.IME_NULL
                         && event.getAction() == KeyEvent.ACTION_UP) {
                         /* Call the remote object's Ping method. */
-                        Message msg = mBusHandler.obtainMessage(BusHandler.PING, 
+                        Message msg = mBusHandler.obtainMessage(BusHandler.SEND_RAW, 
                                                                 view.getText().toString());
                         mBusHandler.sendMessage(msg);
                     }
@@ -153,55 +152,6 @@ public class Client extends Activity {
     
     /* This class will handle all AllJoyn calls. See onCreate(). */
     class BusHandler extends Handler {
-        
-    	/*
-    	 * Extend the BusListener class to respond to AllJoyn's bus signals
-    	 */
-    	public class MyBusListener extends BusListener {
-        	@Override
-    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            	Message msg = obtainMessage(JOIN_SESSION, name);
-            	sendMessage(msg);
-            }
-
-            @Override
-            public void lostAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.lostAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            }
-
-            @Override
-            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
-                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
-            }
-
-            @Override
-            public void sessionLost(int sessionId) {
-                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
-            }
-            
-            @Override
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
-                	sessionOpts.toString()));
-        		if (sessionPort == CONTACT_PORT) {
-        			return true;
-        		} else {
-        			return false;
-        		}
-        	}
-
-            @Override
-            public void sessionJoined(short sessionPort, int id, String joiner) {
-                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
-            }
-
-            @Override
-            public void busStopping() {
-                logInfo("MyBusListener.busStopping()");
-            }
-        }
-    	
         /*
          * Name used as the well-known name and the advertised name of the service this client is
          * interested in.  This name must be a unique name both to the bus and to the network as a
@@ -210,32 +160,35 @@ public class Client extends Activity {
          * The name uses reverse URL style of naming, and matches the name used by the service.
          */
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.raw";
-        private static final short CONTACT_PORT=42;
+        private static final short CONTACT_PORT = 88;
 
-        private BusAttachment mBus;
-        private ProxyBusObject mProxyObj;
-        private MyBusListener mMyBusListener;
-        private RawInterface mRawInterface;
+        /*
+         * TODO: Remove this hack when ephemeral sockets work.
+         */
+        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.rawraw";
+        private boolean mHaveServiceName = false;
+        private boolean mHaveRawServiceName = false;
         
-        private int 	mSessionId;
-        private boolean mIsConnected;
-        private boolean mIsStoppingDiscovery;
+        private BusAttachment mBus = null;
+        private ProxyBusObject mProxyObj = null;
+        private RawInterface mRawInterface = null;
         
-        private OutputStream mOutputStream;
-        private boolean mStreamUp;
+        private String mFoundName = null;
+        private int mSessionId = -1;
+        private boolean mIsConnected = false;;
+        private boolean mIsStoppingDiscovery = false;
+        
+        private OutputStream mOutputStream = null;
+        private boolean mStreamUp = false;
         
         /* These are the messages sent to the BusHandler from the UI. */
         public static final int CONNECT = 1;
         public static final int JOIN_SESSION = 2;
         public static final int DISCONNECT = 3;
-        public static final int PING = 4;
+        public static final int SEND_RAW = 4;
 
         public BusHandler(Looper looper) {
             super(looper);
-            
-            mIsConnected = false;
-            mIsStoppingDiscovery = false;
-            mStreamUp = false;
         }
 
         @Override
@@ -256,11 +209,48 @@ public class Client extends Activity {
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
                 
                 /*
+                 * If using the debug version of the AllJoyn libraries, tell
+                 * them to write debug output to the OS log so we can see it
+                 * using adb logcat.  Turn on all of the debugging output from
+                 * the Java language bindings (module ALLJOYN_JAVA).
+                 */
+                mBus.useOSLogging(true);
+                mBus.setDebugLevel("ALLJOYN_JAVA", 7);
+                
+                /*
                  * Create a bus listener class to handle callbacks from the 
                  * BusAttachement and tell the attachment about it
                  */
-                mMyBusListener = new MyBusListener();
-                mBus.registerBusListener(mMyBusListener);
+                mBus.registerBusListener(new BusListener() {
+                	@Override
+                	public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                		logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+                        /*
+                         * TODO: Remove this hack when ephemeral session ports
+                         * fully work.  In an intermediate development stage
+                         * we have to advertise ephemeral ports so the only 
+                         * way this can work is if we have received ads for
+                         * both the service and the hacky raw version.  When
+                         * we have both, we can tell ourselves to join the
+                         * contact port for the base session since we know
+                         * we'll be able to join the "ephemeral" session when
+                         * the time comes.
+                         */
+                		if (name.equals(SERVICE_NAME)) {
+                			logInfo("found SERVICE");
+                			mHaveServiceName = true;
+                		}
+                		if (name.equals(RAW_SERVICE_NAME)) {
+                   			logInfo("found RAW SERVICE");
+                			mHaveRawServiceName = true;
+                		}
+                		if (mHaveServiceName == true && mHaveRawServiceName == true) {
+                   			logInfo("have SERIVCE and RAW SERVICE");
+                			mFoundName = SERVICE_NAME;
+                			mBusHandler.sendEmptyMessage(BusHandler.JOIN_SESSION);
+                		}
+                	}
+                });
 
                 /* To communicate with AllJoyn objects, we must connect the BusAttachment to the bus. */
                 Status status = mBus.connect();
@@ -305,7 +295,7 @@ public class Client extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                Status status = mBus.joinSession(mFoundName, contactPort, sessionId, sessionOpts);
                 logStatus("BusAttachment.joinSession()", status);
                     
                 if (status == Status.OK) {
@@ -350,60 +340,98 @@ public class Client extends Activity {
             }
             
             /*
-             * We have a string to send to the server via the raw session
+             * We have a string to send to the server via a raw session
              * socket.  If this is the first string we've ever sent on this
-             * session, we need to tell the service to switch the session to
-             * raw mode.  Don't confuse this with raw sockets in the sense of
-             * BSD sockets (which allow you to provide your own IP or Ethernet
-             * headers -- raw sessions only means that the data will not be
-             * encapsulated in AllJoyn messages).
+             * session, we need to get a so-called raw session started in the
+             * service.  We are eventually going to talk to the raw session
+             * over a socket FileDescriptor, but don't confuse this "socket
+             * used to communicate over a raw session" with the idea of a
+             * BSD raw socket (which allow you to provide your own IP or 
+             * Ethernet headers).  Raw sessions only means that the data 
+             * sent over the session will be sent using the underlying socket
+             * fiel descriptor and will not be encapsulated in AllJoyn 
+             * messages).
              * 
-             * Once we have the session in raw mode, we build a Java output
-             * stream using the underlying socket FD and remember it for future
-             * use.
+             * Once we have joined the raw session, we can retrieve the 
+             * underlying session's OS socket file descriptor and build a Java
+             * FileDescriptor using a private constructor found via reflection.
+             * We then create a Java output stream using that FileDescriptor.
              *
-             * Once/If we have the raw session all set up, we simply send the
-             * bytes of the string to the server directly over the TCP socket
-             * using the Java stream.
+             * Once/If we have the raw session all set up, and have a Java IO
+             * stream ready, we simply send the bytes of the string to the
+             * service directly using the Java stream.  This completely
+             * bypasses AllJoyn which was used for discovery and connection
+             * establishment.
              */
-            case PING: {
+            case SEND_RAW: {
                 if (mStreamUp == false) {
                     try {
                         /*
-                         * Tell the service to go into raw session mode.  This
-                         * way it won't be expecting to get any AllJoyn messages
-                         * over the session.  We are taking control of this
-                         * conversation.
+                         * In order get a raw session to join, we need to get a
+                         * contact port.  As a part of the RawInterface, we 
+                         * have a method used to get that port.  Note that this
+                         * bus method is wrapped in a try/catch to deal with
+                         * errors.  
                          */
-                        String reply = mRawInterface.GoRaw();
-                        if (reply == "OK") {
-                            /*
-                             * Go into raw session mode on the local side.  We
-                             * get a socket file descriptor back from AllJoyn
-                             * that represents the established connection to the
-                             * service.  We are then free to do whatever we want
-                             * with the connection.
-                             */
-                            Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
-                            Status status = mBus.getSessionFd(mSessionId, sockFd);
-                            logStatus("BusAttachment.getSessionFd()", status);
-                            if (Status.OK != status) {
-                                break;
-                            }
-
-                            /*
-                             * What we are going to do with the connection is to 
-                             * create a Java file descriptor out of the socket
-                             * file descriptor, and then use that FD to create
-                             * an output stream.
-                             */
-                            Class<FileDescriptor> clazz = FileDescriptor.class;
-                            Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
-                            c.setAccessible(true);
-                            FileDescriptor fd = c.newInstance(sockFd.value);
-                            mOutputStream = new FileOutputStream(fd);
-                            mStreamUp = true;
+                        logInfo("RequestRawSession()");
+                        short contactPort = mRawInterface.RequestRawSession();
+                        
+                        /*
+                         * We have to create a session options object 
+                         * appropriate to the raw session we want to join.  The
+                         * difference is in the traffic flowing across the
+                         * session, so we need to change the traffic type to 
+                         * RAW_RELIABLE, which will imply TCP, for example, if
+                         * we are using an IP transport mechanism.
+                         */
+                        SessionOpts sessionOpts = new SessionOpts();
+                        sessionOpts.traffic = SessionOpts.TRAFFIC_RAW_RELIABLE;
+                        Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+                           
+                        // ==========================================================
+                        // HERE HERE HERE HERE
+                        // this joinession times out.  Unmatched reply.  Sessionopts is
+                        // just an out parameter.  Why does test/rawclient change it?
+                        // ===========================================================
+                        
+                        /*
+                         * Now join the session.  Once this happens, the
+                         * session is ready for raw traffic that will not be
+                         * encapsulated in AllJoyn messages
+                         */
+                        logInfo("joinSession()");
+                        Status status = mBus.joinSession(RAW_SERVICE_NAME, contactPort, sessionId, sessionOpts);
+                        logStatus("BusAttachment.joinSession()", status);               
+                        if (status != Status.OK) {
+                            break;
                         }
+
+                        /*
+                         * The session is in raw mode, but we need to get a
+                         * socket file descriptor back from AllJoyn that
+                         * represents the established connection.  We are then
+                         * free to do whatever we want with the sock.
+                         */
+                        logInfo("getSessionFd()");
+                        Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
+                        status = mBus.getSessionFd(mSessionId, sockFd);
+                        logStatus("BusAttachment.getSessionFd()", status);
+                        if (status != Status.OK) {
+                        	break;
+                        }
+
+                        /*
+                         * What we are going to do with the connection is to 
+                         * create a Java file descriptor out of the socket
+                         * file descriptor, and then use that FD to create
+                         * an output stream.
+                         */
+                        Class<FileDescriptor> clazz = FileDescriptor.class;
+                        Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
+                        c.setAccessible(true);
+                        FileDescriptor fd = c.newInstance(sockFd.value);
+                        mOutputStream = new FileOutputStream(fd);
+                        mStreamUp = true;
                     } catch (Throwable ex) {
                         logInfo("Exception Bringing up raw stream");
                     }
@@ -420,7 +448,7 @@ public class Client extends Activity {
                 		mOutputStream.write(string.getBytes());
                 		mOutputStream.flush();
                 	} catch (IOException ex) {
-                        logInfo("Exception writing and flushing to output stream");
+                        logInfo("Exception writing and flushing the string");
                 	}
                 }
                 break;
@@ -428,11 +456,6 @@ public class Client extends Activity {
             default:
                 break;
             }
-        }
-        
-        /* Helper function to send a message to the UI thread. */
-        private void sendUiMessage(int what, Object obj) {
-            mHandler.sendMessage(mHandler.obtainMessage(what, obj));
         }
     }
 
@@ -445,13 +468,6 @@ public class Client extends Activity {
             mHandler.sendMessage(toastMsg);
             Log.e(TAG, log);
         }
-    }
-
-    private void logException(String msg, BusException ex) {
-        String log = String.format("%s: %s", msg, ex);
-        Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST, log);
-        mHandler.sendMessage(toastMsg);
-        Log.e(TAG, log, ex);
     }
     
     /*

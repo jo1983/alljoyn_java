@@ -176,6 +176,33 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    setLogLevels
+ * Signature: (Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setLogLevels
+  (JNIEnv *, jobject,
+   jstring);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    setDebugLevel
+ * Signature: (Ljava/lang/String;I)V
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setDebugLevel
+  (JNIEnv *, jobject,
+   jstring, jint);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    useOSLogging
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_useOSLogging
+  (JNIEnv *, jobject,
+   jboolean);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    registerBusListener
  * Signature: (Lorg/alljoyn/bus/BusListener;)V;
  */

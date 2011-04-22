@@ -42,11 +42,31 @@ public class SessionOpts {
      */
     public short transports;
 
+    /**
+     * Construct a new session options class using the most commonly used options:
+     * traffic = TRAFFIC_MESSAGES, isMultipoint = false, proximity = PROXIMITY_ANY,
+     * transports = TRANSPORT_ANY.
+     */
     public SessionOpts() {
         traffic = TRAFFIC_MESSAGES;
         isMultipoint = false;
         proximity = PROXIMITY_ANY;
         transports = TRANSPORT_ANY;
+    }
+
+    /**
+     * Construct a new session options class using the provided options.
+     *
+     * @param traffic the traffic bitfield values.
+     * @param isMultipoint the isMultipoint option
+     * @param proximity the proximity bitfield values.
+     * @param transports the transports bitfield values.
+     */
+    public SessionOpts(byte traffic, boolean isMultipoint, byte proximity, short transports) {
+        this.traffic = traffic;
+        this.isMultipoint = isMultipoint;
+        this.proximity = proximity
+        this.transports = transports
     }
 
     /**

@@ -541,7 +541,7 @@ class JBusListener : public BusListener {
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
     void SessionLost(const SessionId& sessionId);
     bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
-    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner) { }
+    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner);
     void BusStopping();
 
   private:
@@ -551,6 +551,7 @@ class JBusListener : public BusListener {
     jmethodID MID_nameOwnerChanged;
     jmethodID MID_sessionLost;
     jmethodID MID_acceptSessionJoiner;
+    jmethodID MID_sessionJoined;
     jmethodID MID_busStopping;
 };
 
@@ -589,6 +590,11 @@ JBusListener::JBusListener(jobject jlistener)
     MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner", "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
     if (!MID_acceptSessionJoiner) {
         QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find acceptSessionJoiner() in jbusListener\n"));
+    }
+
+    MID_sessionJoined = env->GetMethodID(clazz, "sessionJoined", "(SILjava/lang/String;)V");
+    if (!MID_sessionJoined) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionJoined() in jbusListener\n"));
     }
 
     MID_busStopping = env->GetMethodID(clazz, "busStopping", "()V");
@@ -768,6 +774,24 @@ bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* join
 
     QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Return result %d\n", result));
     return result;
+}
+
+void JBusListener::SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner)
+{
+    QCC_DbgPrintf(("JBusListener::SessionJoined()\n"));
+    JScopedEnv env;
+
+    JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
+    if (env->ExceptionCheck()) {
+        QCC_DbgPrintf(("JBusListener::SessionJoined(): Exception\n"));
+    }
+
+    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
+    if (env->ExceptionCheck()) {
+        QCC_DbgPrintf(("JBusListener::SessionJoined(): Exception\n"));
+        return;
+    }
 }
 
 void JBusListener::BusStopping(void)
@@ -2524,6 +2548,60 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIE
     }
 
     return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setLogLevels(JNIEnv*env, jobject thiz,
+                                                                       jstring jlogEnv)
+{
+    QCC_DbgPrintf(("BusAttachment_setLogLevels()\n"));
+
+    //
+    // Load the C++ environment string with the Java environment string.
+    //
+    JString logEnv(jlogEnv);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLogLevels(): Exception\n"));
+        return;
+    }
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_DbgPrintf(("QCC_SetLogLevels(%s)\n", logEnv.c_str()));
+    QCC_SetLogLevels(logEnv.c_str());
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setDebugLevel(JNIEnv*env, jobject thiz,
+                                                                        jstring jmodule, jint jlevel)
+{
+    QCC_DbgPrintf(("BusAttachment_setDebugLevel()\n"));
+
+    //
+    // Load the C++ module string with the Java module string.
+    //
+    JString module(jmodule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDebugLevel(): Exception\n"));
+        return;
+    }
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_DbgPrintf(("QCC_SetDebugLevel(%s, %d)\n", module.c_str(), jlevel));
+    QCC_SetDebugLevel(module.c_str(), jlevel);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_useOSLogging(JNIEnv*env, jobject thiz,
+                                                                       jboolean juseOSLog)
+{
+    QCC_DbgPrintf(("BusAttachment_useOSLogging()\n"));
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_DbgPrintf(("QCC_UseOSLogging(%d)\n", juseOSLog));
+    QCC_UseOSLogging(juseOSLog);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env,

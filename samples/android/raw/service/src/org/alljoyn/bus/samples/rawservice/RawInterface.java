@@ -20,7 +20,7 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
 
-/*
+/**
  * The BusInterface annotation is used to tell the code that this interface is an AllJoyn interface.
  *
  * The 'name' value is used to specify by which name this interface will be known.  If the name is
@@ -30,14 +30,16 @@ import org.alljoyn.bus.annotation.BusMethod;
 @BusInterface(name = "org.alljoyn.bus.samples.raw.RawInterface")
 public interface RawInterface {
 
-    /*
-     * The BusMethod annotation signifies that this function should be used as part of the AllJoyn
-     * interface.  The runtime is smart enough to figure out what the input and output of the method
-     * is based on the input/output arguments of the Ping method.
-     *
-     * All methods that use the BusMethod annotation can throw a BusException and should indicate
-     * this fact.
+    /**
+     * Ask the service to arrange a raw reliable session that can be used to
+     * transfer a "file" and return a contact port over which this session
+     * can be joined.
+     * 
+     * @return an integer session port with which the raw session may be
+     * joined
+     * 
+     * @throws BusException
      */
-    @BusMethod
-    String GoRaw() throws BusException;
+	@BusMethod
+    short RequestRawSession() throws BusException;
 }

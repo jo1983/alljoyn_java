@@ -340,6 +340,30 @@ public class BusAttachment {
     public native Status setDaemonDebug(String module, int level);
 
     /**
+     * Set AllJoyn logging levels.
+     *
+     * @param logEnv    A semicolon separated list of KEY=VALUE entries used
+     *                  to set the log levels for internal AllJoyn modules.
+     *                  (i.e. ALLJOYN=7;ALL=1)
+     */
+    public native void setLogLevels(String logEnv);
+
+    /**
+     * Set AllJoyn debug levels.
+     *
+     * @param module    name of the module to generate debug output
+     * @param level     debug level to set for the module
+     */
+    public native void setDebugLevel(String module, int level);
+
+   /**
+    * Indicate whether AllJoyn logging goes to OS logger or stdout
+    *
+    * @param  useOSLog   true iff OS specific logging should be used rather than print for AllJoyn debug messages.
+    */
+    public native void useOSLogging(boolean useOSLog);
+
+    /**
      * Register an object that will receive bus event notifications.
      *
      * @param listener  Object instance that will receive bus event notifications.
