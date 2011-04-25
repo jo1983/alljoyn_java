@@ -25,6 +25,7 @@ import org.alljoyn.bus.AuthListener;
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.SessionOpts;
@@ -302,61 +303,12 @@ public class Client extends Activity {
     }
     
     class BusHandler extends Handler {
-        
-    	/*
-    	 * Extend the BusListener class to respond to AllJoyn's bus signals
-    	 */
-    	public class MyBusListener extends BusListener {
-        	@Override
-    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            	Message msg = obtainMessage(JOIN_SESSION, name);
-            	sendMessage(msg);
-            }
-
-            @Override
-            public void lostAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            }
-
-            @Override
-            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
-                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
-            }
-
-            @Override
-            public void sessionLost(int sessionId) {
-                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
-            }
-            
-            @Override
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
-                	sessionOpts.toString()));
-        		if (sessionPort == CONTACT_PORT) {
-        			return true;
-        		} else {
-        			return false;
-        		}
-        	}
-
-            @Override
-            public void sessionJoined(short sessionPort, int id, String joiner) {
-                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
-            }
-
-            @Override
-            public void busStopping() {
-                logInfo("MyBusListener.busStopping()");
-            }
-        }
-    	
+          	
         private static final String SERVICE_NAME = "org.alljoyn.bus.samples.secure";
         private static final short CONTACT_PORT=42;
 
         private BusAttachment mBus;
         private ProxyBusObject mProxyObj;
-        private MyBusListener mMyBusListener;
         private SecureInterface mSecureInterface;
         
         private int 	mSessionId;
@@ -394,12 +346,14 @@ public class Client extends Activity {
                     return;
                 }
 
-                /*
-                 * Create a bus listener class to handle callbacks from the 
-                 * BusAttachement and tell the attachment about it
-                 */
-                mMyBusListener = new MyBusListener();
-                mBus.registerBusListener(mMyBusListener);
+                mBus.registerBusListener(new BusListener() {
+                   	@Override
+                   	public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                   		logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+                   		Message msg = obtainMessage(JOIN_SESSION, name);
+                   		sendMessage(msg);
+                   	}
+                });
                 
                 status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
@@ -443,7 +397,7 @@ public class Client extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener());
                 logStatus("BusAttachment.joinSession()", status);
                     
                 if (status == Status.OK) {
