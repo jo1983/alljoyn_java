@@ -174,7 +174,8 @@ public class Client extends Activity {
         private RawInterface mRawInterface = null;
         
         private String mFoundName = null;
-        private int mSessionId = -1;
+        private int mMsgSessionId = -1;
+        private int mRawSessionId = -1;
         private boolean mIsConnected = false;;
         private boolean mIsStoppingDiscovery = false;
         
@@ -314,7 +315,7 @@ public class Client extends Activity {
                 	/* We make calls to the methods of the AllJoyn object through one of its interfaces. */
                 	mRawInterface =  mProxyObj.getInterface(RawInterface.class);
                 	
-                	mSessionId = sessionId.value;
+                	mMsgSessionId = sessionId.value;
                 	mIsConnected = true;
                 }
                 break;
@@ -324,8 +325,11 @@ public class Client extends Activity {
             case DISCONNECT: {
             	mIsStoppingDiscovery = true;
             	if (mIsConnected) {
-                	Status status = mBus.leaveSession(mSessionId);
-                    logStatus("BusAttachment.leaveSession()", status);
+                	Status status = mBus.leaveSession(mMsgSessionId);
+                    logStatus("BusAttachment.leaveSession(): message-based session", status);
+                    
+                	Status status = mBus.leaveSession(mRawSessionId);
+                    logStatus("BusAttachment.leaveSession(): raw session", status);
             	}
                 mBus.disconnect();
                 if (mStreamUp == true) {
@@ -377,34 +381,19 @@ public class Client extends Activity {
                         short contactPort = mRawInterface.RequestRawSession();
                         
                         /*
-                         * We have to create a session options object 
-                         * appropriate to the raw session we want to join.  The
-                         * difference is in the traffic flowing across the
-                         * session, so we need to change the traffic type to 
-                         * RAW_RELIABLE, which will imply TCP, for example, if
-                         * we are using an IP transport mechanism.
-                         */
-                        SessionOpts sessionOpts = new SessionOpts();
-                        sessionOpts.traffic = SessionOpts.TRAFFIC_RAW_RELIABLE;
-                        Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
-                           
-                        // ==========================================================
-                        // HERE HERE HERE HERE
-                        // this joinession times out.  Unmatched reply.  Sessionopts is
-                        // just an out parameter.  Why does test/rawclient change it?
-                        // ===========================================================
-                        
-                        /*
                          * Now join the session.  Once this happens, the
                          * session is ready for raw traffic that will not be
-                         * encapsulated in AllJoyn messages
+                         * encapsulated in AllJoyn message.
                          */
+                        SessionOpts sessionOpts = new SessionOpts();
+                        Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                         logInfo("joinSession()");
                         Status status = mBus.joinSession(RAW_SERVICE_NAME, contactPort, sessionId, sessionOpts);
                         logStatus("BusAttachment.joinSession()", status);               
                         if (status != Status.OK) {
                             break;
                         }
+                        mRawSessionId = sessionId.value;
 
                         /*
                          * The session is in raw mode, but we need to get a
@@ -414,7 +403,7 @@ public class Client extends Activity {
                          */
                         logInfo("getSessionFd()");
                         Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
-                        status = mBus.getSessionFd(mSessionId, sockFd);
+                        status = mBus.getSessionFd(mRawSessionId, sockFd);
                         logStatus("BusAttachment.getSessionFd()", status);
                         if (status != Status.OK) {
                         	break;
