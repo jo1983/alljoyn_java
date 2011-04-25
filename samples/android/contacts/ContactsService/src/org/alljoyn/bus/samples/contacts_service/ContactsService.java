@@ -22,6 +22,7 @@ package org.alljoyn.bus.samples.contacts_service;
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
@@ -59,7 +60,6 @@ public class ContactsService extends Activity {
     
     private BusHandler mBusHandler;
     
-    /* UI Handler */
     public Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -80,7 +80,6 @@ public class ContactsService extends Activity {
     private ArrayAdapter<String> mListViewArrayAdapter;
     private Menu menu;
     
-    /* Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,16 +89,16 @@ public class ContactsService extends Activity {
         ListView lv = (ListView) findViewById(R.id.ListView);
         lv.setAdapter(mListViewArrayAdapter);
         
-        //Send empty message to list to make it clear where the start of the list is. 
+        /*
+         * Send an empty message to list to make it clear where the start of
+         * the list is. 
+         */
         Message msg = mHandler.obtainMessage(MESSAGE_ACTION, "");
         mHandler.sendMessage(msg);
         
-        /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
         mBusHandler = new BusHandler(busThread.getLooper());
-
-        /* Start our service. */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT); 
     }
     
@@ -114,7 +113,6 @@ public class ContactsService extends Activity {
     
     @Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-	    // Handle item selection
 	    switch (item.getItemId()) {
 	    case R.id.quit:
 	    	finish();
@@ -124,7 +122,6 @@ public class ContactsService extends Activity {
 	    }
 	}
 
-    /* Called when the activity is exited. */
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -147,7 +144,9 @@ public class ContactsService extends Activity {
 
             String contactId = Integer.toString(userId);
             if (contactId != null) {
-                //Get all the contact details of type PHONE for the contact
+                /*
+                 * Get all the contact details of type PHONE for the contact
+                 */
                 String where = ContactsContract.Data.CONTACT_ID + " = " + contactId + " AND " +
                 ContactsContract.Data.MIMETYPE + " = '" +
                 ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE + "'";
@@ -163,8 +162,11 @@ public class ContactsService extends Activity {
                     if (dataCursor.moveToFirst()) {
                         do {
                             contact.phone[dataCursor.getPosition()].number = dataCursor.getString(phoneIdx);
-                            // if a number was not returned fill in the value with an empty string.  AllJoyn will not allow
-                            // a null if a string is expected.
+                            /*
+                             * If a number was not returned fill in the value
+                             * with an empty string.  AllJoyn will not allow
+                             * a null if a string is expected.
+                             */
                             if (contact.phone[dataCursor.getPosition()].number == null) {
                                 contact.phone[dataCursor.getPosition()].number = "";
                             }
@@ -176,8 +178,10 @@ public class ContactsService extends Activity {
                             }
                         } while(dataCursor.moveToNext());
                     } else {
-                        // if for some reason we are unable to move the dataCursor to the first element 
-                        // fill in all contacts with a default empty value.
+                        /*
+                         * If for some reason we are unable to move the dataCursor to the first element 
+                         * fill in all contacts with a default empty value.
+                         */
                         for (int i = 0; i < count; i++) {
                             contact.phone[i].number = "";
                             contact.phone[i].type = 0;
@@ -185,7 +189,9 @@ public class ContactsService extends Activity {
                         }
                     }
                 } else {
-                    //we must have at lease one contact.
+                    /*
+                     * We must have at lease one contact.
+                     */
                     contact.setPhoneCount(1);
                     contact.phone[0].number = "";
                     contact.phone[0].type = 0;
@@ -194,7 +200,9 @@ public class ContactsService extends Activity {
 
                 dataCursor.close();
 
-                //Get all the contact details of type EMAIL for the contact
+                /*
+                 * Get all the contact details of type EMAIL for the contact
+                 */
                 where = ContactsContract.Data.CONTACT_ID + " = " + contactId + " AND " +
                 ContactsContract.Data.MIMETYPE + " = '" +
                 ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE + "'";
@@ -208,8 +216,11 @@ public class ContactsService extends Activity {
                     if (dataCursor.moveToFirst()) {
                         do {
                             contact.email[dataCursor.getPosition()].address = dataCursor.getString(addressIdx);
-                            // if an email was not returned fill in the value with an empty string.  AllJoyn will not allow
-                            // a null value if a string is expected.
+                            /*
+                             * If an email was not returned fill in the value
+                             * with an empty string.  AllJoyn will not allow
+                             * a null value if a string is expected.
+                             */
                             if (contact.email[dataCursor.getPosition()].address == null) {
                                 contact.email[dataCursor.getPosition()].address = "";
                             }
@@ -227,7 +238,9 @@ public class ContactsService extends Activity {
                         }
                     }
                 } else {
-                    //must have at lease one email.
+                    /*
+                     * We must have at lease one email.
+                     */
                     contact.setEmailCount(1);
                     contact.email[0].address = "";
                     contact.email[0].type = 0;
@@ -249,19 +262,24 @@ public class ContactsService extends Activity {
          */
         public NameId[] getAllContactNames() {
             Log.i(TAG, String.format("Client requested a list of contacts"));
-            //Get a cursor over every aggregated contact.
-            //sort the data in ascending order based on the display name.
+            /*
+             * Get a cursor over every aggregated contact.  Sort the data in
+             * ascending order based on the display name.
+             */
             Cursor cursor = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI, null, null, null,
                     ContactsContract.Contacts.DISPLAY_NAME + " ASC");
 
-            //Let the activity manage the cursor lifecycle.
+            /*
+             * Let the activity manage the cursor lifecycle.
+             */
             startManagingCursor(cursor);
 
-            //Use the convenience properties to get the index of the columns.
+            /*
+             * Use the convenience properties to get the index of the columns.
+             */
             int nameIdx = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME);
             int idIdx   = cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID);
 
-            //String[] result = new String[cursor.getCount()];
             NameId[] result;
             int count = cursor.getCount();
             if (count > 0) {
@@ -274,7 +292,9 @@ public class ContactsService extends Activity {
                     } while(cursor.moveToNext());
                 }
             } else {
-                //must have at lease one value
+                /*
+                 * we must have at lease one value
+                 */
                 result = new NameId[1];
                 result[0] = new NameId();
                 result[0].displayName = "";
@@ -292,29 +312,11 @@ public class ContactsService extends Activity {
         }
     }
     
-    /* 
-     * This class will handle all AllJoyn calls. See onCreate().
-     * For a more complete description of the code used here
-     * see the SimpleService sample. 
-     */
-    
     class BusHandler extends Handler {
         private static final String SERVICE_NAME = "org.alljoyn.bus.addressbook";
         private static final short CONTACT_PORT = 42;
         
-        public class MyBusListener extends BusListener {
-            @Override
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                if (sessionPort == CONTACT_PORT) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        }
-
         BusAttachment mBus;
-        private MyBusListener mMyBusListener;
         
         private AllJoynContactService mService;
 
@@ -334,8 +336,7 @@ public class ContactsService extends Activity {
             case CONNECT: {
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
                 
-                mMyBusListener = new MyBusListener();
-                mBus.registerBusListener(mMyBusListener);
+                mBus.registerBusListener(new BusListener());
 
                 Status status = mBus.registerBusObject(mService, "/addressbook");
                 logStatus("BusAttachment.registerBusObject()", status);
@@ -351,7 +352,16 @@ public class ContactsService extends Activity {
                 sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
                 sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
 
-                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+                	@Override
+                	public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                		if (sessionPort == CONTACT_PORT) {
+                			return true;
+                        } else {
+                        	return false;
+                        }
+                    }
+                });
                 logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)",
                     contactPort.value, sessionOpts.toString()), status);
 

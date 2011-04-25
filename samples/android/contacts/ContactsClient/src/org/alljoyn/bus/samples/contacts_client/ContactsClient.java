@@ -21,6 +21,7 @@ package org.alljoyn.bus.samples.contacts_client;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.BusException;
@@ -80,16 +81,20 @@ public class ContactsClient extends Activity {
 
     BusHandler mBusHandler;
     
-    /** Handler */
     private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case MESSAGE_DISPLAY_ALL_CONTACTS: 
                 mContactNames = (NameId[]) msg.obj;
-                //make sure the Contacts list is clear of any old information before filling the list.
+                /*
+                 * Make sure the Contacts list is clear of any old information before filling the list.
+                 */
                 mContactsListAdapter.clear();
-                //change the name of the button from "Get Contacts List" to "Update Contacts List"
+                
+                /*
+                 * Change the name of the button from "Get Contacts List" to "Update Contacts List"
+                 */
                 mGetContactsBtn.setText(getString(R.string.update_contacts));
                 for (int i = 0; i < mContactNames.length; i++) {
                     mContactsListAdapter.add(mContactNames[i].displayName);
@@ -125,12 +130,9 @@ public class ContactsClient extends Activity {
 
         mAddressEntry = new Contact();
 
-        /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
         mBusHandler = new BusHandler(busThread.getLooper());
-
-        /* Connect to an AllJoyn object. */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
     }
     
@@ -144,7 +146,6 @@ public class ContactsClient extends Activity {
     
     @Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-	    // Handle item selection
 	    switch (item.getItemId()) {
 	    case R.id.quit:
 	    	finish();
@@ -154,7 +155,6 @@ public class ContactsClient extends Activity {
 	    }
 	}
     
-    /** Called when the activity is exited. */
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -162,10 +162,10 @@ public class ContactsClient extends Activity {
     }
 
     /**
-     * Implementation of the OnClickListener attached to the
-     * "Get Contacts List"/"Update Contacts List"  button.
-     * when clicked this will fill the mcontactsListAdapter with an alphabetized
-     * list of all the contacts on the phone.
+     * Implementation of the OnClickListener attached to the "Get Contacts List"
+     * "Update Contacts List"  button.  When clicked this will fill the 
+     * mcontactsListAdapter with an alphabetized list of all the contacts on
+     * the phone.
      */
     private class GetContactsListener implements View.OnClickListener {
         public void onClick(View v) {
@@ -173,17 +173,13 @@ public class ContactsClient extends Activity {
         }
     }
 
-
-
     /**
-     * Implementation of the OnItemClickListener for any item in the contacts list
-     * The listener will use the the string from the list and use that name to lookup
-     * an individual contact based on that name.
+     * Implementation of the OnItemClickListener for any item in the contacts
+     * list.  The listener will use the the string from the list and use that
+     * name to lookup an individual contact based on that name.
      */
     private class GetContactInformation implements AdapterView.OnItemClickListener {
-        
-        public void onItemClick(AdapterView<?> parent, View view, int position,
-                                long id) {
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             Message msg = mBusHandler.obtainMessage(BusHandler.GET_CONTACT, mContactNames[position]);
             mBusHandler.sendMessage(msg);
         }
@@ -218,29 +214,41 @@ public class ContactsClient extends Activity {
          * is known about the contact. 
          */
         case DIALOG_CONTACT: {
-            //individual dialog elements
-            int PHONE_TABLE_OFFSET = 2; //two columns before the phone numbers start
+            /*
+             * Individual dialog elements
+             */
+            int PHONE_TABLE_OFFSET = 2; /* two columns before the phone numbers start */
             int EMAIL_TABLE_OFFSET = 1 + PHONE_TABLE_OFFSET + mAddressEntry.phone.length;
 
-            //reset the dialog to a known starting point
+            /*
+             * Reset the dialog to a known starting point
+             */
             dialog.setContentView(R.layout.contact);
             dialog.setTitle(getString(R.string.contact_dialog_title));
 
-            // add the contact Name to the top of the table
+            /*
+             * Add the contact Name to the top of the table
+             */
             TextView contactName = (TextView) dialog.findViewById(R.id.contact_name);
             contactName.setText(mAddressEntry.name);
 
-            //get the table layout so items can be added to it.
+            /*
+             * Get the table layout so items can be added to it.
+             */
             TableLayout contactTable = (TableLayout) dialog.findViewById(R.id.contact_table);
 
-            //add a phone number entry to the dialog displayed on screen for each phone number.
+            /*
+             * Add a phone number entry to the dialog displayed on screen for each phone number.
+             */
             if (mAddressEntry.phone.length > 0) {
                 for (int i = 0; i < mAddressEntry.phone.length; i++) {
                     insertPhoneToTable(contactTable, mAddressEntry.phone[i], i + PHONE_TABLE_OFFSET);
                 }
             }
 
-            //add an email number entry to the dialog displayed on screen for each email address.
+            /*
+             * Add an email number entry to the dialog displayed on screen for each email address.
+             */
             if (mAddressEntry.email.length > 0) {
                 for (int i = 0; i < mAddressEntry.email.length; i++) {
                     insertEmailToTable(contactTable, mAddressEntry.email[i], i + EMAIL_TABLE_OFFSET);
@@ -252,13 +260,18 @@ public class ContactsClient extends Activity {
             break;
         }
     }
-    // Insert a phone number into the table at the indicated position
+    
+    /**
+     * Insert a phone number into the table at the indicated position
+     */
     private void insertPhoneToTable(TableLayout table, Contact.Phone phone, int position) {
         TableRow tr = new TableRow(getApplicationContext());
         TextView type = new TextView(getApplicationContext());
         type.setLayoutParams(new TableRow.LayoutParams(1));
-        // if the phone type has a custom label use that label other wise pull the type from
-        // the phone_types string array.
+        /*
+         * If the phone type has a custom label use that label other wise pull
+         * the type from the phone_types string array.
+         */
         if (phone.type == ContactsContract.CommonDataKinds.Phone.TYPE_CUSTOM) {
             type.setText(phone.label);
         } else {
@@ -275,13 +288,17 @@ public class ContactsClient extends Activity {
         table.addView(tr, position);
     }
 
-    // Insert an email address into the table at the indicated position
+    /*
+     * Insert an email address into the table at the indicated position
+     */
     private void insertEmailToTable(TableLayout table, Contact.Email email, int position) {
         TableRow tr = new TableRow(getApplicationContext());
         TextView type = new TextView(getApplicationContext());
         type.setLayoutParams(new TableRow.LayoutParams(1));
-        // if the email type has a custom label use that label other wise pull the type from
-        // the email_types string array.
+        /* 
+         * if the email type has a custom label use that label other wise pull
+         * the type from the email_types string array.
+         */
         if (email.type == ContactsContract.CommonDataKinds.Email.TYPE_CUSTOM) {
             type.setText(email.label);
         } else {
@@ -303,18 +320,8 @@ public class ContactsClient extends Activity {
      * to connect this code to the Bus
      */
     class BusHandler extends Handler {
-       
         private static final String SERVICE_NAME = "org.alljoyn.bus.addressbook";
         private static final short CONTACT_PORT = 42;
-        
-        public class MyBusListener extends BusListener {
-            @Override
-            public void foundAdvertisedName(String name, short transport, String namePrefix) {
-        	    logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-                Message msg = obtainMessage(JOIN_SESSION, name);
-                sendMessage(msg);
-            }
-        }
         
         public static final int CONNECT = 1;
         public static final int DISCONNECT = 2;
@@ -323,7 +330,6 @@ public class ContactsClient extends Activity {
         public static final int JOIN_SESSION = 5;
         
         private BusAttachment mBus;
-        private MyBusListener mMyBusListener;
         private ProxyBusObject mProxyObj;
         private AddressBookInterface mAddressBookInterface;
         
@@ -341,11 +347,16 @@ public class ContactsClient extends Activity {
         public void handleMessage(Message msg) {
             switch(msg.what) {
             case CONNECT: {
-                // Create a bus connection
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
                 
-                mMyBusListener = new MyBusListener();
-                mBus.registerBusListener(mMyBusListener);
+                mBus.registerBusListener(new BusListener() {
+                    @Override
+                    public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                    	logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+                    	Message msg = obtainMessage(JOIN_SESSION, name);
+                    	sendMessage(msg);
+                    }
+                });
 
                 Status status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
@@ -363,7 +374,7 @@ public class ContactsClient extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener());
                 logStatus("BusAttachment.joinSession()", status);
 
                 if (status == Status.OK) {
