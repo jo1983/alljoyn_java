@@ -2362,7 +2362,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     assert(fid);
     sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
 
-    // 
+    //
     // Load the sessionPortListener from the Java version
     //
     // TODO MEMORY LEAK
@@ -2568,7 +2568,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
 {
     QCC_DbgPrintf(("BusAttachment_setSessionListener()\n"));
 
-    // 
+    //
     // Load the sessionListener from the Java version
     //
     // TODO MEMORY LEAK
