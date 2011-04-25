@@ -12,9 +12,6 @@
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
- * 
- * AllJoyn Chat Android Sample code.
- *
  */
 package org.alljoyn.bus.sample.chat;
 
@@ -23,6 +20,8 @@ import java.util.LinkedList;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.SessionListener;
+import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.BusException;
@@ -54,46 +53,55 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/*
- * Simple Chat application that will send a string between multiple devices via AllJoyn.
+/**
+ * Simple Android Activity that allows a user to send strings to multiple
+ * "chatters" via AllJoyn signals.
+ * 
+ * Be aware that since this is just an activity, it may be relaunched when,
+ * for example, the phone orientation is changed.  This will have the effect
+ * of disconnecting from a chat and reconnecting.  Although this is not very
+ * desirable behavior for a "real" application, just using an activity without
+ * a corresponding service makes for simple samples,
  */
 public class AllJoynChat extends Activity {
+    /*
+     * Load the native alljoyn_java library.  The actual AllJoyn code is
+     * written in C++ and the alljoyn_java library provides the language
+     * bindings from Java to C++ and vice versa.
+     */
     static {
         System.loadLibrary("alljoyn_java");
     }
 
     private static final int DIALOG_ADVERTISE = 1;
-
     private static final int MESSAGE_CHAT = 1;
-
     private static final String TAG = "AllJoynChat";
 
     private EditText mEditText;
     private ArrayAdapter<String> mListViewArrayAdapter;
     private Menu mMenu;
-    
-    private BusHandler mBusHandler;
+
+    /**
+     * This is the name that the user provides as the nickname to be used
+     * in the chat.  This name is also used to make the bus name requested
+     * by the application unique and serves (when combined with the
+     * application well-known-name) as the advertised service name.
+     */
     private String mName;
     
-    /** UI Handler */
-    public Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-            case MESSAGE_CHAT: {
-                mListViewArrayAdapter.add((String) msg.obj); 
-                break;
-            }
-            default: 
-                break;
-            }
-        }
-    };
-
-    public void test(Integer i) {
-    	i = 100;
-    }
-    /* Called when the activity is first created. */
+    /**
+     * We always make AllJoyn calls through a handler thread to prevent
+     * blocking the Android UI and getting the dreaded Force Close message.
+     * This is that handler.
+     */
+    public BusHandler mBusHandler;
+    
+    /**
+     * Android-specific Activity lifecycle method that is called when the
+     * application user interface is first created.  You must be aware of what
+     * happens with respect to the Android lifecycle when tying the AllJoyn
+     * service lifecycle to the Android Activity lifecycle.
+     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -116,18 +124,29 @@ public class AllJoynChat extends Activity {
             }
         });
         
-        /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
+        /*
+         * Always make all AllJoyn calls through a separate handler thread to
+         * prevent blocking the Android UI and getting the dreaded Force Close
+         * message.
+         */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
         mBusHandler = new BusHandler(busThread.getLooper());
         
-        /* Connect to an AllJoyn object. */
+        /*
+         * Send a message to the handler thread asking it to connect to the
+         * AllJoyn bus and start the process of bringing up the chat servcie.
+         */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
 
         showDialog(DIALOG_ADVERTISE);
     }
 
-    /* Called when the activity is exited. */
+    /**
+     * This is an Android Activity lifecycle method that is called when the
+     * activity is being torn down for some reason (such as redisplaying the
+     * activity due to a screen orientation change).
+     */
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -136,23 +155,34 @@ public class AllJoynChat extends Activity {
         mBusHandler.sendEmptyMessage(BusHandler.DISCONNECT);
     }
 
-    /* Called when the menu button is pressed. */
+    /**
+     * This is an Android UI method that is called when the menu button is
+     * pressed.
+     */
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.mainmenu, menu);
         this.mMenu = menu;
-        setConnectedState(mBusHandler.usingDiscovery());
+        setConnectedState(mBusHandler.isConnected());
         return true;
     }
     
+    /**
+     * This is an Android UI method that is called in order to build the
+     * standard options menu before the user gets his or her hands on it.
+     * We must return true for teh options menu to be displayed.
+     */
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        setConnectedState(mBusHandler.usingDiscovery());
-        return true; //must return true for options menu to display
+        setConnectedState(mBusHandler.isConnected());
+        return true;
     }
     
-    /* Called when a menu item is selected */
+    /**
+     * This is an Android UI method that is called when a menu item is
+     * selected.
+     */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection
@@ -173,8 +203,11 @@ public class AllJoynChat extends Activity {
         }
     }
 
-    /* Called to draw on the screen dialogs.  
-     * In this case it only draws the Advertise name dialog.*/
+    /**
+     * This Android UI mehtod is called to draw the on the screen dialogs.  
+     * In this case it only draws the Advertise name dialog.  The advertise
+     * name corresponds to a user nickname for the chat session.
+     */
     @Override
     protected Dialog onCreateDialog(int id) {
         Dialog dialog;
@@ -208,8 +241,10 @@ public class AllJoynChat extends Activity {
         return dialog;
     }
 
-    /*
-     * used to enable and disable the Connect and Disconnect options for the menu.
+    /**
+     * Simple method used to enable and disable the Connect and Disconnect
+     * options for the menu depending on whether or not we are connected to
+     * the AllJoyn bus.
      */
     private void setConnectedState(boolean isConnected) {
         if (null != mMenu) {
@@ -218,9 +253,69 @@ public class AllJoynChat extends Activity {
         }
     }
     
-    /*
-     * This class must be implemented in order to provide a reference
-     * BusObject to use when registering for the BusAttachement.
+    /**
+     * Print a status message to the Android system log so we can see what is
+     * happening in the application using logcat.
+     */
+    private void logStatus(String msg, Status status) {
+        logStatus(msg, status, Status.OK);
+    }
+    
+    /**
+     * print the status or result to the Android log if the result is 
+     * unexpected. If the result is the expected result (as specified by
+     * passStatus) we only send the message to the Android log.  If we get
+     * an unexpected reslt we log the message and send a Toast for the
+     * user to see. 
+     */
+    private void logStatus(String msg, Object status, Object passStatus) {
+        String log = String.format("%s: %s", msg, status);
+        if (status == passStatus) {
+            Log.i(TAG, log);
+        } else {
+            Toast.makeText(this, log, Toast.LENGTH_LONG).show();
+            Log.e(TAG, log);
+        }
+    }
+
+    /**
+     * When an exception is thrown, we use this method to Toast the name of
+     * the exception and send a log of the exception to the Android log.
+     */
+    private void logException(String msg, BusException ex) {
+        String log = String.format("%s: %s", msg, ex);
+        Toast.makeText(this, log, Toast.LENGTH_LONG).show();
+        Log.e(TAG, log, ex);
+    }
+    
+    /**
+     * Send a message to the Android log.  We use this method to log general
+     * status messages not associated with possible errors. 
+     */
+    private void logInfo(String msg) {
+            Log.i(TAG, msg);
+    }
+       
+    /**
+     * Our service is actually an AllJoyn bus object that will be located at
+     * a certain object path in a bus attachment.  This bus object implements
+     * a named interface.  The name of the interface implies a contract that
+     * certain methods, signals and properties will be available at the object.
+     * The fact that there is a bus object implementing a certain named
+     * interface is implied by virtue of the fact that the attachment has
+     * requested a particular well-known bus name.  The presence of the well-
+     * known name also implies the existence of a well-known or contact session
+     * port which clients can use to join sessions.
+     * 
+     * The contact ports, bus objects, methods, etc., are all implied by the
+     * associated names.  In the case of the "org.alljoyn.bus.samples.chat" well
+     * known name, the presence of an interface is implied.  This interrace is
+     * named "org.alljoyn.bus.samples.chat", and you can find its definition in
+     * ChatInterface.java as the specified @BusInterface.  The well-known name
+     * also implies that the interface is implemented by a bus object which can
+     * be found at a particular location defined by an object path, in this
+     * case, "/chatService".  Also implied by the well-known name is the session
+     * contact port.  
      */
     class ChatService implements ChatInterface, BusObject {
     	/*                                                                                                                          
@@ -234,15 +329,58 @@ public class AllJoynChat extends Activity {
     	public void Chat(String str) throws BusException {                                                                                              
         }     
     }
-     
+   
+    /**
+     * We need to provide a way for the AllJoyn signal handler that implements
+     * message delivery from remote chat services to make Android user
+     * interface calls without blocking AllJoyn while Android does its thing.
+     * 
+     * In Android, such things are composed of a handler and a looper.  The
+     * looper represents the thread that is, well, looping waiting for work;
+     * and the handler provides a mechanism to turn the looper into a worker
+     * thread by providing message handling.
+     * 
+     * This handler allows AllJoyn to send the user interface a message that
+     * contains the string the remote user has typed.  This message is just
+     * displayed on the Android UI.
+     */
+    public Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+            case MESSAGE_CHAT: {
+                mListViewArrayAdapter.add((String) msg.obj); 
+                break;
+            }
+            default: 
+                break;
+            }
+        }
+    };
+    
+    /**
+     * We need to provide a way for the Android user interface to make AllJoyn
+     * calls without blocking the UI while AllJoyn is off doing its thing.
+     * 
+     * In Android, such things are composed from a handler and a looper.  The
+     * looper represents the thread that is, well, looping waiting for work;
+     * and the handler provides a mechanism to turn the looper into a worker
+     * thread by providing message handling.
+     * 
+     * The BusHandler provides the mechanism for the event loop that the UI
+     * will use to ask AllJoyn to  
+     */
     public class BusHandler extends Handler {
-    	
     	private static final short CONTACT_PORT = 42;
-        
         private static final String CHAT_SERVICE_PATH = "/chatService";
         private static final String NAME_PREFIX = "org.alljoyn.bus.samples.chat";
         private static final String CHAT_INTERFACE_NAME = "org.alljoyn.bus.samples.chat";
         
+        /*
+         * The following constants correspond to the messages that can be sent
+         * to the handler thread, and therefore to the actions that the AllJoyn
+         * system needs to perform in support of the user interface.
+         */
         public static final int CONNECT = 1;
         public static final int START_DISCOVER = 2;
         private static final int JOIN_SESSION = 3;
@@ -251,60 +389,32 @@ public class AllJoynChat extends Activity {
         public static final int DISCONNECT = 6;
         
         /*
-         * AllJoyn specific elements.
+         * The BusAttachment is the way that AllJoyn applications connect to
+         * a bus and use or export services.
          */
         private BusAttachment mBus;
-        
-        public class MyBusListener extends BusListener {
-        	@Override
-    		public void foundAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            	Message msg = obtainMessage(JOIN_SESSION, name);
-            	sendMessage(msg);
-            }
-
-            @Override
-            public void lostAdvertisedName(String name, short transport, String namePrefix) {
-                logInfo(String.format("MyBusListener.lostdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-            }
-
-            @Override
-            public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
-                logInfo(String.format("MyBusListener.nameOwnerChanged(%s, %s, %s)", busName, previousOwner, newOwner));
-            }
-
-            @Override
-            public void sessionLost(int sessionId) {
-                logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
-            }
-            
-            @Override
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                logInfo(String.format("MyBusListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
-                	sessionOpts.toString()));
-                return true;
-            }
-
-            @Override
-            public void sessionJoined(short sessionPort, int id, String joiner) {
-                logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
-            }
-
-            @Override
-            public void busStopping() {
-                logInfo("MyBusListener.busStopping()");
-            }
-        }
-        
-        public MyBusListener mMyBusListener;
-        
         private boolean mIsConnected;
         private boolean mIsStoppingDiscovery;
         
+        /*
+         * The ChatService is the instance of an AllJoyn interface that is 
+         * exported on the bus and allows us to send chat signals.
+         */
         private ChatService mChatService;
+        
+        /*
+         * For every "chatter" whith whom we are exchanging messages, we keep
+         * an instance of their interface, and we keep a corresponding session
+         * that represents the communication path to the chatter. 
+         */
         private List<ChatInterface> mChatList;
         private List<Integer> mSessionList;
         
+        /**
+         * Constructor for the handler thread.
+         * 
+         * @param looper
+         */
         public BusHandler(Looper looper) {
             super(looper);          
             /*
@@ -314,28 +424,75 @@ public class AllJoynChat extends Activity {
             mChatService = new ChatService();
             mChatList = new LinkedList<ChatInterface>();
             mSessionList = new LinkedList<Integer>();
-
             mIsStoppingDiscovery = false;
         }
         
+        /**
+         * This is the heart of the AllJoyn operation here.  Wither the user
+         * interface or AllJoyn itself will arrange to send the BusHandler 
+         * messages requesting the AllJoyn bus to do something.  This results
+         * in the handleMessage method being called with an event ID and a
+         * parameter.
+         * 
+         * All we do is a big switch statement and then "handle" each request
+         * translating the conceptual request into concrete sequences of AllJoyn
+         * commands. 
+         */
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
+            
+            /*
+             * When the user interface wants us to "connect", it is asking us
+             * to connect to the AllJoyn bus and prepare to start a user chat
+             * session.  It does not have a nickname for our user yet, so we
+             * cannot start the actual session yet.
+             */
             case (CONNECT): {
                 /*
-                 * Create a new BusAttachment.
+                 * All communication through AllJoyn begins with a BusAttachment.
+                 * A BusAttachment needs a name. The actual name is unimportant
+                 * except for internal security. As a default we use the class
+                 * name.
+                 *
+                 * By default AllJoyn does not allow communication between
+                 * physically remote bus attachments.  The second argument must
+                 * be set to Receive to enable this communication.
                  */
                 mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-
+                
                 /*
-                 * Create a bus listener class to handle callbacks from the
-                 * BusAttachment and tell the attachment about it
+                 * If using the debug version of the AllJoyn libraries, tell
+                 * them to write debug output to the OS log so we can see it
+                 * using adb logcat.  Turn on all of the debugging output from
+                 * the Java language bindings (module ALLJOYN_JAVA).  When one
+                 * builds the samples in alljoyn_java, the library appropriate
+                 * to the build variant is copied in; so if the variant is 
+                 * debug, the following will work.
                  */
-                mMyBusListener = new MyBusListener();
-                mBus.registerBusListener(mMyBusListener);
-
+                mBus.useOSLogging(true);
+                mBus.setDebugLevel("ALLJOYN_JAVA", 7);
+                
                 /*
-                 * Register the BusObject with the path "/chatService"
+                 * Create a bus listener class to handle advertisement
+                 * callbacks from the BusAttachment.  Whenever we find an
+                 * adtertisement of chat service we join the corresponding
+                 * session and start exchanging messages.
+                 */
+                mBus.registerBusListener(new BusListener() {
+                	@Override
+                	public void foundAdvertisedName(String name, short transport, String namePrefix) {
+                		logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
+                		Message msg = obtainMessage(JOIN_SESSION, name);
+                		sendMessage(msg);
+                	}
+                });
+
+                /* 
+                 * To make a service available to other AllJoyn peers, first
+                 * register a BusObject with the BusAttachment at a specific
+                 * object path.  Our service is implemented by the ChatService
+                 * BusObject found at the "/chatService" object path.
                  */
                 Status status = mBus.registerBusObject(mChatService, CHAT_SERVICE_PATH);
                 logStatus("BusAttachment.registerBusObject()", status);
@@ -345,7 +502,8 @@ public class AllJoynChat extends Activity {
                 }
 
                 /*
-                 * Connect the BusAttachment to the daemon.
+                 * The next step in making a service available to other peers
+                 * is to connect the BusAttachment to the AllJoyn bus.  
                  */
                 status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
@@ -353,34 +511,30 @@ public class AllJoynChat extends Activity {
                     finish();
                     return;
                 }
-
+                              
                 /*
-                 * Create a new session listening on the contact port of the chat service.
-                 */
-                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
-                
-                SessionOpts sessionOpts = new SessionOpts();
-                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-                sessionOpts.isMultipoint = false;
-                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
-                
-                status = mBus.bindSessionPort(contactPort, sessionOpts);                
-                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)", 
-                    contactPort.value, sessionOpts.toString()), status);
-                
-                if (status != Status.OK) {
-                    finish();
-                    return;
-                }
-                
-                /*
-                 * When a signal handler  that has been implemented in this 
-                 * class using the @BusSignalHandler annotation is detected 
-                 * this informs AllJoyn that this program is interested in the 
-                 * signals. 
+                 * In this sample, we communicate chat messages using AllJoyn
+                 * signals.  The attachment acting as the service sends signals
+                 * and the attachments acting a clients receive those signals.
                  * 
-                 * This is registers for the Chat signal and the FoundAvertisedName signal.  
+                 * The client needs to register a signal handler to receive the
+                 * chat signals.  This is done with the help of Java reflection.  
+                 * Signal handler are implemented in this class and annotated 
+                 * using @BusSignalHandler.  When this annotation is detected 
+                 * by the system when it does the reflection, it AllJoyn that
+                 * the annotated method is an implementation of a signal handler.
+                 * 
+                 * For example, the chat signal handler is annotated as,
+                 * 
+                 *   @BusSignalHandler(iface = CHAT_INTERFACE_NAME, signal = "Chat")
+                 *   public void  Chat(String str)
+                 *  
+                 * This is enough information to allow the system to connect the 
+                 * bus signal named "Chat" with the handler provided in the class.
+                 * 
+                 * The call to registerSignalHandlers() instructs the system to
+                 * perform the reflection and "hook up" the signal handlers in the
+                 * provided object to the signals in the provided interface.  
                  */
                 status = mBus.registerSignalHandlers(this);
                 logStatus("BusAttachement.registerSignalHandlers()", status);
@@ -391,45 +545,96 @@ public class AllJoynChat extends Activity {
                 
                 break;
             }
+            
+            /*
+             * When the user interface wants us to "start_discover", it means
+             * that a user has identified him or herself to the application
+             * and the UI is asking us to announce ourselves on the bus and 
+             * to begin trying to discover other "chatters" to whom we can 
+             * connect.
+             */
             case (START_DISCOVER): {
-            	/*
-                 * Request that a well-known bus name (composed of the chat 
-                 * service well-known name prefix and the user-entered 
-                 * nickname) be assigned to our bus attachment.  Tell the
-                 * bus that we want to own the name immediately and not to
-                 * queue the request.
+                /*
+                 * This handler case is invoked once we have a chat nickname.
+                 * We now request a well-known name from the bus.  This is an
+                 * alias for the unique name which we are automatically given
+                 * when we hook up to the bus.  This name must be unique across
+                 * the distributed bus and acts as the human-readable name of
+                 * our service.  In this case, we have a name prefix which is
+                 * common across all cases of the distributed chat; and we make
+                 * it unique by appending the user nickname. 
+                 * 
+                 * We have the oppportunity to ask the underlying system to 
+                 * queue our request to be granted the well-known name, but we
+                 * decline this opportunity so we will fail if another instance
+                 * of this service is already running.
                  */
-                Status status;
-                
-                String wellKnownName = NAME_PREFIX + "." + (String) msg.obj;
-                
-                status = mBus.requestName(wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
+            	String wellKnownName = NAME_PREFIX + "." + (String)msg.obj;
+                Status status = mBus.requestName(wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
                 logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", 
                     wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE), status);
-                        
-                if (status == Status.OK) {
-                    /*
-                     * Advertise the same well-known name over all of the
-                     * available transports.
-                     */
-                 	status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
-                    logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x)", 
-                        wellKnownName, SessionOpts.TRANSPORT_ANY), status, Status.OK);
-
-                    if (status != Status.OK) {
-                        /*
-                         * If we are unable to advertise the name, release
-                         * the name from the local bus.
-                         */
-                        status = mBus.releaseName(wellKnownName);
-                        logStatus(String.format("BusAttachment.releaseName(%s)", wellKnownName), 
-                            status);
-                        mIsConnected = false;
-                    } else {
-                        mIsConnected = true;
-                    }
+                if (status != Status.OK) {
+                    finish();
+                    return;
                 }
-                
+
+                /*
+                 * If we sucessfully receive permission to use the requested
+                 * service name, we need to Create a new session listening on
+                 * the contact port of the raw service.  The default session
+                 * options are sufficient for our purposes
+                 */
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+                SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.isMultipoint = false;
+                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+                /*
+                 * When we ask to bind the session port, we provide a listener
+                 * that handles the callbacks related to session management.
+                 * The callback we need to implement is acceptSessionJoiner().
+                 * If we return true, we tell the system that we are allowing
+                 * the remote session to join and communicate with us over the
+                 * resulting session.
+                 */
+                status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+                    @Override
+                	public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                    	logInfo(String.format("MySessionPortListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
+                    		sessionOpts.toString()));
+                    	return true;
+                    }
+                });
+                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)", contactPort.value, 
+                    sessionOpts.toString()), status);
+                if (status != Status.OK) {
+                    finish();
+                    return;
+                }
+
+                /*
+                 * Advertise the existence of our chat well-known name so future
+                 * clients can discover our existence.
+                 */
+                status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
+                logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x)", 
+                	wellKnownName, SessionOpts.TRANSPORT_ANY), status, Status.OK);
+
+                if (status != Status.OK) {
+                	/*
+                	 * If we are unable to advertise the name, release
+                	 * the name from the local bus.
+                	 */
+                	status = mBus.releaseName(wellKnownName);
+                	logStatus(String.format("BusAttachment.releaseName(%s)", wellKnownName), 
+                			status);
+                    mIsConnected = false;
+                } else {	
+                	mIsConnected = true;
+                }
+            
                 /*
                  * Each device running the AllJoyn Chat sample advertises
                  * a name that looks like "NAME_PREFIX.<a_user_entered_name>".
@@ -453,10 +658,15 @@ public class AllJoynChat extends Activity {
             }
 
             /*
-             * When the 'FoundAdvertisedName' signal is received it will send
-             * the well-known name of the found service to this BusHandler case. The
-             * AllJoyn JoinSession method is used to make a P2P connection between
-             * our client and the remote service.
+             * Whenever a 'FoundAdvertisedName' signal is received by the AllJoyn
+             * system, it will percolate up into a BusListener associated with
+             * our BusAttachment.  Our implementation of BusListener will arrange
+             * for the well-known name of the found service to be sent to this
+             * BusHandler case. We need to join the session that is implied by
+             * the existence of the found well-knwon name.  Since we are both the
+             * client and the service in this picture, the session contact port
+             * is clear and the AllJoyn joinSession method is used to make a peer
+             * to peer session connection between our client and the remote service.
              */
             case (JOIN_SESSION): {
                 /*
@@ -478,7 +688,23 @@ public class AllJoynChat extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts);
+                /*
+                 * When we join a session, we need to provide a callback that
+                 * handles events from the system related to our session.  These
+                 * are the loss of the session and another client joining the 
+                 * session.  Since this is a point-to-point session, we don't
+                 * need to handle the latter.  In a "real" application, we could
+                 * do much more (like map the session ID to a user name), but we
+                 * just toast a simple message if we lose one of the sessions.
+                 */
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener() {
+                    @Override
+                    public void sessionLost(int sessionId) {
+                        logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+                        String s = String.format("Session %d lost", sessionId);
+                        Toast.makeText(getApplicationContext(), s, Toast.LENGTH_LONG).show();
+                    }
+                });
                 logStatus("BusAttachment.joinSession()", status);
                     
                 if (status == Status.OK) {
@@ -521,12 +747,10 @@ public class AllJoynChat extends Activity {
                 break;
             }
  
-           /*
-             * - Disconnect from all of the session that have been found.
-             * - Stop looking for the NAME_PREFIX
-             * - Stop the local bus from advertising its own well known name so
-             *   no other buses will try and connect with the local bus.
-             * - Remove the sess from the local bus.
+            /*
+             * When the user interface decides it wants to stop advertising a
+             * a name and also stop discovering new names it sends us this 
+             * message.  
              */
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;
@@ -568,6 +792,22 @@ public class AllJoynChat extends Activity {
                 mIsStoppingDiscovery = false;
                 break;
             }
+            
+            /*
+             * When the user enters a string, we need to send this string to
+             * all of the sessions we have open.
+             * 
+             * Whenever we found a chat service via the found advertised name
+             * signal, we started an AllJoyn session with the remote "chatter".
+             * We also created a signal emitter to use when sending the "Chat" 
+             * signal to that service.  As a result, we have a list of chat 
+             * interfaces with associated signal emitters, and we remembered
+             * the list of chat interfaces corresponding to our remote peers.
+             * 
+             * What we have to do is walk the list of chat interfaces and
+             * call the "Chat" method on each of them.  This will send the
+             * user string to all of the peers.
+             */
             case (CHAT): {
                 try {
                 	for (ChatInterface chatInterface : mChatList) {
@@ -579,6 +819,12 @@ public class AllJoynChat extends Activity {
                 }
                 break;
             }
+            
+            /*
+             * When the user decides she is all done, the resulting user 
+             * interface actions will arrange to "disconnect" the application
+             * from the AllJoyn bus.
+             */
             case (DISCONNECT): {
                 mBus.unregisterSignalHandlers(this);
                 mBus.unregisterSignalHandlers(mChatService);
@@ -587,25 +833,41 @@ public class AllJoynChat extends Activity {
                 getLooper().quit();
                 break;
             }
+            
             default:
                 break;
             }
         }
         
-        public boolean usingDiscovery(){
+        /**
+         * Function to tell teh user interface whether or not we are connected
+         * to at least one other "chatter".
+         */
+        public boolean isConnected() {
             return this.mIsConnected;
         }
 
-        /*
-         * The @BussignalHandler annotation is used to identify this as a signal listener.  When 
-         * BusAttachment.registerSignalHandlers(Object) is called all methods in the specified 
-         * Object that contain the @BusSignalHandler annotation will be called when the specified 
-         * signal comes from the specified interface.  
+        /**
+         * Receive a chat string from a remote "chatter".
          * 
-         * In this case it is the 'Chat' signal from the 'org.alljoyn.bus.samples.chat' interface.  
+         * In this sample, we communicate chat messages using AllJoyn
+         * signals.  The attachment acting as the service sends signals
+         * and the attachments acting a clients receive those signals.
+         * This is the method used to actually receive a chat string.
+         * 
+         * The client side registers a signal handler to receive the
+         * chat signals.  This is done with the help of Java reflection.  
+         * Signal handlers are annotated using @BusSignalHandler.
+         * 
+         * A call to registerSignalHandlers() instructs the system to
+         * perform the reflection and "hook up" the signal handlers in the
+         * provided object to the signals in the provided interface. 
+         *  
+         * This is enough information to allow the system to connect the 
+         * bus signal named "Chat" with the handler defined here.
          */
         @BusSignalHandler(iface = CHAT_INTERFACE_NAME, signal = "Chat")
-        public void  Chat(String str) {
+        public void Chat(String str) {
             Log.i(TAG, String.format("Chat(%s) signal recieved", str));
             Message msg = mHandler.obtainMessage(MESSAGE_CHAT);
             MessageContext ctx = mBus.getMessageContext();
@@ -616,41 +878,5 @@ public class AllJoynChat extends Activity {
         }
     }
     
-    private void logStatus(String msg, Status status) {
-        logStatus(msg, status, Status.OK);
-    }
-    
-    /*
-     * print the status or result to the Android log. If the result is the expected
-     * result only print it to the log.  Otherwise print it to the error log and
-     * Sent a Toast to the users screen. 
-     */
-    private void logStatus(String msg, Object status, Object passStatus) {
-        String log = String.format("%s: %s", msg, status);
-        if (status == passStatus) {
-            Log.i(TAG, log);
-        } else {
-            Toast.makeText(this, log, Toast.LENGTH_LONG).show();
-            Log.e(TAG, log);
-        }
-    }
 
-    /*
-     * When an exception is thrown use this to Toast the name of the exception 
-     * and send a log of the exception to the Android log.
-     */
-    private void logException(String msg, BusException ex) {
-        String log = String.format("%s: %s", msg, ex);
-        Toast.makeText(this, log, Toast.LENGTH_LONG).show();
-        Log.e(TAG, log, ex);
-    }
-    
-    /*
-     * print the status or result to the Android log. If the result is the expected
-     * result only print it to the log.  Otherwise print it to the error log and
-     * Sent a Toast to the users screen. 
-     */
-    private void logInfo(String msg) {
-            Log.i(TAG, msg);
-    }
 }

@@ -132,11 +132,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    bindSessionPort
- * Signature: (Lorg/alljoyn/bus/Mutable$ShortValue;Lorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
+ * Signature: (Lorg/alljoyn/bus/Mutable$ShortValue;Lorg/alljoyn/bus/SessionOpts;Lorg/alljoyn/bus/SessionPortListener;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort
   (JNIEnv *, jobject, 
-   jobject, jobject);
+   jobject, jobject, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
@@ -150,11 +150,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    joinSession
- * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/SessionOpts;Lorg/alljoyn/bus/SessionListener;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession
   (JNIEnv *, jobject, 
-   jstring, jshort, jobject, jobject);
+   jstring, jshort, jobject, jobject, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
