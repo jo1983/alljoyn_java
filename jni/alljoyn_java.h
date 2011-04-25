@@ -140,6 +140,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    unbindSessionPort
+ * Signature: (Lorg/alljoyn/bus/Mutable$ShortValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort
+  (JNIEnv *, jobject, 
+   jshort);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    joinSession
  * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/SessionOpts;)Lorg/alljoyn/bus/Status;
  */
@@ -155,6 +164,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession
   (JNIEnv *, jobject,
    jint);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    setSessionListener
+ * Signature: (I)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener
+  (JNIEnv *, jobject,
+   jint, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment

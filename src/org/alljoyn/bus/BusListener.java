@@ -16,9 +16,6 @@
 
 package org.alljoyn.bus;
 
-import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.SessionOpts;
-
 /**
  * Bus listeners are responsible for handling callbacks from the AllJoyn system.
  * It is expected that a user of the AllJoyn bus will specialize this class in
@@ -60,35 +57,6 @@ public class BusListener {
      *                       there is no new owner.
      */
     public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {}
-
-    /**
-     * Called by the bus when a session becomes disconnected.
-     *
-     * @param sessionId     Id of session that was lost.
-     */
-    public void sessionLost(int sessionId) {}
-
-    /**
-     * Accept or reject an incoming JoinSession request. The session does not
-     * exist until this after this function returns.
-     *
-     * @param sessionPort    Session port that was joined.
-     * @param joiner         Unique name of potential joiner.
-     * @param opts           Session options requested by the joiner.
-     *
-     * @return Return true if JoinSession request is accepted. false if rejected.
-     */
-    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {return false;}
-
-    /**
-     * Called by the bus when a session has been successfully joined. The
-     * session is fully up when this method is called.
-     *
-     * @param sessionPort    Session port that was joined.
-     * @param id             Id of session.
-     * @param joiner         Unique name of the joiner.
-     */
-    public void sessionJoined(short sessionPort, int id, String joiner) {}
 
     /**
      * Called when a bus that this listener is registered with is stopping.

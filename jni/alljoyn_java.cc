@@ -539,9 +539,6 @@ class JBusListener : public BusListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
-    void SessionLost(const SessionId& sessionId);
-    bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
-    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner);
     void BusStopping();
 
   private:
@@ -549,9 +546,6 @@ class JBusListener : public BusListener {
     jmethodID MID_foundAdvertisedName;
     jmethodID MID_lostAdvertisedName;
     jmethodID MID_nameOwnerChanged;
-    jmethodID MID_sessionLost;
-    jmethodID MID_acceptSessionJoiner;
-    jmethodID MID_sessionJoined;
     jmethodID MID_busStopping;
 };
 
@@ -580,21 +574,6 @@ JBusListener::JBusListener(jobject jlistener)
     MID_nameOwnerChanged = env->GetMethodID(clazz, "nameOwnerChanged", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     if (!MID_nameOwnerChanged) {
         QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find nameOwnerChanged() in jbusListener\n"));
-    }
-
-    MID_sessionLost = env->GetMethodID(clazz, "sessionLost", "(I)V");
-    if (!MID_sessionLost) {
-        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionLost() in jbusListener\n"));
-    }
-
-    MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner", "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
-    if (!MID_acceptSessionJoiner) {
-        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find acceptSessionJoiner() in jbusListener\n"));
-    }
-
-    MID_sessionJoined = env->GetMethodID(clazz, "sessionJoined", "(SILjava/lang/String;)V");
-    if (!MID_sessionJoined) {
-        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionJoined() in jbusListener\n"));
     }
 
     MID_busStopping = env->GetMethodID(clazz, "busStopping", "()V");
@@ -711,9 +690,61 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
     QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Return\n"));
 }
 
-void JBusListener::SessionLost(const SessionId& sessionId)
+void JBusListener::BusStopping(void)
 {
-    QCC_DbgPrintf(("JBusListener::SessionLost()\n"));
+    QCC_DbgPrintf(("JBusListener::BusStopping()\n"));
+    JScopedEnv env;
+
+    QCC_DbgPrintf(("JBusListener::BusStopping(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jbusListener, MID_busStopping);
+    if (env->ExceptionCheck()) {
+        QCC_DbgPrintf(("JBusListener::BusStopping(): Exception\n"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JBusListener::BusStopping(): Return\n"));
+}
+
+class JSessionListener : public SessionListener {
+  public:
+    JSessionListener(jobject jsessionListener);
+    ~JSessionListener();
+
+    void SessionLost(const SessionId& sessionId);
+
+  private:
+    jweak jsessionListener;
+    jmethodID MID_sessionLost;
+};
+
+JSessionListener::JSessionListener(jobject jlistener)
+    : jsessionListener(NULL)
+{
+    QCC_DbgPrintf(("JSessionListener::JSessionListener()\n"));
+    JNIEnv* env = GetEnv();
+    jsessionListener = (jweak)env->NewGlobalRef(jlistener);
+    if (!jsessionListener) {
+        return;
+    }
+
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionListener);
+
+    MID_sessionLost = env->GetMethodID(clazz, "sessionLost", "(I)V");
+    if (!MID_sessionLost) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionLost() in jbusListener\n"));
+    }
+}
+
+JSessionListener::~JSessionListener()
+{
+    JNIEnv* env = GetEnv();
+    if (jsessionListener) {
+        env->DeleteGlobalRef(jsessionListener);
+    }
+}
+void JSessionListener::SessionLost(const SessionId& sessionId)
+{
+    QCC_DbgPrintf(("JSessionListener::SessionLost()\n"));
     JScopedEnv env;
 
     //
@@ -721,37 +752,82 @@ void JBusListener::SessionLost(const SessionId& sessionId)
     //
     jint jsessionId = sessionId;
 
-    QCC_DbgPrintf(("JBusListener::SessionLost(): Call out to listener object and method\n"));
-    env->CallVoidMethod(jbusListener, MID_sessionLost, jsessionId);
+    QCC_DbgPrintf(("JSessionListener::SessionLost(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jsessionListener, MID_sessionLost, jsessionId);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::SessionLost(): Exception\n"));
+        QCC_DbgPrintf(("JSessionListener::SessionLost(): Exception\n"));
         return;
     }
 
-    QCC_DbgPrintf(("JBusListener::SessionLost(): Return\n"));
+    QCC_DbgPrintf(("JSessionListener::SessionLost(): Return\n"));
 }
 
-bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts)
+class JSessionPortListener : public SessionPortListener {
+  public:
+    JSessionPortListener(jobject jsessionPortListener);
+    ~JSessionPortListener();
+
+    bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
+    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner);
+
+  private:
+    jweak jsessionPortListener;
+    jmethodID MID_acceptSessionJoiner;
+    jmethodID MID_sessionJoined;
+};
+
+JSessionPortListener::JSessionPortListener(jobject jlistener)
+    : jsessionPortListener(NULL)
 {
-    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner()\n"));
+    QCC_DbgPrintf(("JSessionPortListener::JSessionPortListener()\n"));
+    JNIEnv* env = GetEnv();
+    jsessionPortListener = (jweak)env->NewGlobalRef(jlistener);
+    if (!jsessionPortListener) {
+        return;
+    }
+
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionPortListener);
+
+    MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner", "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
+    if (!MID_acceptSessionJoiner) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find acceptSessionJoiner() in jbusListener\n"));
+    }
+
+    MID_sessionJoined = env->GetMethodID(clazz, "sessionJoined", "(SILjava/lang/String;)V");
+    if (!MID_sessionJoined) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionJoined() in jbusListener\n"));
+    }
+}
+
+JSessionPortListener::~JSessionPortListener()
+{
+    JNIEnv* env = GetEnv();
+    if (jsessionPortListener) {
+        env->DeleteGlobalRef(jsessionPortListener);
+    }
+}
+
+bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts)
+{
+    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner()\n"));
     JScopedEnv env;
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Exception\n"));
+        QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
         return false;
     }
 
     jmethodID mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
     if (!mid) {
-        QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Can't find SessionOpts.<init>\n"));
+        QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Can't find SessionOpts.<init>\n"));
         return false;
     }
 
-    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Create new SessionOpts\n"));
+    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Create new SessionOpts\n"));
     JLocalRef<jobject> jsessionopts = env->NewObject(CLS_SessionOpts, mid);
 
-    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Load SessionOpts\n"));
+    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Load SessionOpts\n"));
     jfieldID fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
     env->SetByteField(CLS_SessionOpts, fid, opts.traffic);
 
@@ -764,50 +840,36 @@ bool JBusListener::AcceptSessionJoiner(SessionPort sessionPort, const char* join
     fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
     env->SetShortField(CLS_SessionOpts, fid, opts.transports);
 
-    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
-    bool result = env->CallBooleanMethod(jbusListener, MID_acceptSessionJoiner,
+    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
+    bool result = env->CallBooleanMethod(jsessionPortListener, MID_acceptSessionJoiner,
                                          sessionPort, (jstring)jjoiner, (jobject)jsessionopts);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Exception\n"));
+        QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
         return false;
     }
 
-    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Return result %d\n", result));
+    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Return result %d\n", result));
     return result;
 }
 
-void JBusListener::SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner)
+void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner)
 {
-    QCC_DbgPrintf(("JBusListener::SessionJoined()\n"));
+    QCC_DbgPrintf(("JSessionPortListener::SessionJoined()\n"));
     JScopedEnv env;
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::SessionJoined(): Exception\n"));
+        QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Exception\n"));
     }
 
-    QCC_DbgPrintf(("JBusListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
-    env->CallVoidMethod(jbusListener, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
+    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jsessionPortListener, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::SessionJoined(): Exception\n"));
+        QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Exception\n"));
         return;
     }
 }
 
-void JBusListener::BusStopping(void)
-{
-    QCC_DbgPrintf(("JBusListener::BusStopping()\n"));
-    JScopedEnv env;
-
-    QCC_DbgPrintf(("JBusListener::BusStopping(): Call out to listener object and method\n"));
-    env->CallVoidMethod(jbusListener, MID_sessionLost);
-    if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::BusStopping(): Exception\n"));
-        return;
-    }
-
-    QCC_DbgPrintf(("JBusListener::BusStopping(): Return\n"));
-}
 
 class JAuthListener : public AuthListener {
   public:
@@ -1928,7 +1990,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
 {
     QCC_DbgPrintf(("BusAttachment_unregisterBusListener()\n"));
 
-    Bus* bus = (Bus*)GetHandle(thiz);
+    //Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception\n"));
         return;
@@ -2265,7 +2327,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNIEnv* env, jobject thiz,
-                                                                             jobject jsessionPort, jobject jsessionOpts)
+                                                                             jobject jsessionPort, jobject jsessionOpts,
+                                                                             jobject jsessionPortListener)
 {
     QCC_DbgPrintf(("BusAttachment_bindSessionPort()\n"));
 
@@ -2283,7 +2346,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     //
     SessionOpts sessionOpts;
     clazz = env->GetObjectClass(jsessionOpts);
-
     jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
     assert(fid);
     sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
@@ -2299,6 +2361,13 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     fid = env->GetFieldID(clazz, "transports", "S");
     assert(fid);
     sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    // 
+    // Load the sessionPortListener from the Java version
+    //
+    // TODO MEMORY LEAK
+    JSessionPortListener* sessionPortListener = new JSessionPortListener(jsessionPortListener);
+    assert(sessionPortListener);
 
     //
     // Get a copy of the pointer to the BusAttachment (via a managed object)
@@ -2316,7 +2385,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>)\n",
                    sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports));
 
-    QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts);
+    QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts, *sessionPortListener);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
         return NULL;
@@ -2337,11 +2406,46 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(JNIEnv* env, jobject thiz, jshort jsessionPort)
+{
+    QCC_DbgPrintf(("BusAttachment_unbindSessionPort()\n"));
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Call UnbindSessionPort(%d)\n", jsessionPort));
+
+    QStatus status = (*bus)->UnbindSessionPort(jsessionPort);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Back from UnbindSessionPort(%d)\n", jsessionPort));
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_unbindSessionPort(): UnbindSessionPort() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv* env, jobject thiz,
                                                                          jstring jsessionHost,
                                                                          jshort jsessionPort,
                                                                          jobject jsessionId,
-                                                                         jobject jsessionOpts)
+                                                                         jobject jsessionOpts,
+                                                                         jobject jsessionListener)
 {
     QCC_DbgPrintf(("BusAttachment_joinSession()\n"));
 
@@ -2364,6 +2468,10 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     }
     assert(bus);
 
+    // Get the session listener
+    // TODO MEMORY LEAK
+    JSessionListener* sessionListener = jsessionListener ? new JSessionListener(jsessionListener) : NULL;
+
     //
     // Make the AllJoyn call.
     //
@@ -2374,7 +2482,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
                    sessionHost.c_str(), jsessionPort, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
                    sessionOpts.proximity, sessionOpts.transports));
 
-    QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, sessionId, sessionOpts);
+    QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, sessionListener, sessionId, sessionOpts);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
         return NULL;
@@ -2450,6 +2558,48 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_leaveSession(): LeaveSession() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(JNIEnv* env, jobject thiz,
+                                                                                jint jsessionId, jobject jsessionListener)
+{
+    QCC_DbgPrintf(("BusAttachment_setSessionListener()\n"));
+
+    // 
+    // Load the sessionListener from the Java version
+    //
+    // TODO MEMORY LEAK
+    JSessionListener* sessionListener = jsessionListener ? new JSessionListener(jsessionListener) : NULL;
+    assert(sessionListener);
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Call SetSessionListener(%d, %p)\n", jsessionId, sessionListener));
+
+    QStatus status = (*bus)->SetSessionListener(jsessionId, sessionListener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Back from SetSessionListener(%d, %p)\n", jsessionId, sessionListener));
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_setSessionListener(): SetSessionListener() fails\n"));
     }
 
     return JStatus(status);

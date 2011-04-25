@@ -220,7 +220,10 @@ public class BusAttachment {
      *                    return, this value contains the chosen SessionPort.
      *
      * @param opts        Session options that joiners must agree to in order to                                          
-     *                    successfully join the session.                                                                  
+     *                    successfully join the session.
+     *
+     * @param listener    SessionPortListener that will be notified via callback
+     *                    when a join attempt is made on the bound session port.
      *
      * @return 
      * <ul>
@@ -230,7 +233,8 @@ public class BusAttachment {
      * <ul>
      */
     public native Status bindSessionPort(Mutable.ShortValue sessionPort,
-                                         SessionOpts sessionOpts);
+                                         SessionOpts sessionOpts,
+                                         SessionPortListener listener);
 
     /** 
      * When passed to BindSessionPort as the requested port, the system will
@@ -244,6 +248,19 @@ public class BusAttachment {
     public static final int SESSION_ID_ANY = 0;
 
     /**
+     * Cancel an existing port binding.
+     *
+     * @param   sessionPort    Existing session port to be un-bound.
+     *
+     * @return
+     * <ul>
+     * <li>OK if the session port was unbound.</li>
+     * <li>BUS_NOT_CONNECTED if connection has not been made with the local daemon.</li>
+     * <li>other error status codes indicating a failure</li> 
+     */
+    public native Status unbindSessionPort(Mutable.ShortValue sessionPort);
+
+    /**
      * Join a session.
      *
      * This method is a shortcut/helper that issues an
@@ -254,6 +271,8 @@ public class BusAttachment {
      * @param sessionPort   SessionPort of sessionHost to be joined.                                                           
      * @param sessionId     Set to the unique identifier for session.
      * @param opts          Set to the actual session options of the joined session.
+     * @param listener      Listener to be called when session related asynchronous 
+     *                      events occur.
      *
      * @return
      * <ul> 
@@ -265,7 +284,8 @@ public class BusAttachment {
     public native Status joinSession(String sessionHost,
                                      short sessionPort,
                                      Mutable.IntegerValue sessionId,
-                                     SessionOpts opts);
+                                     SessionOpts opts,
+                                     SessionListener listener);
 
     /**
      * Leave an existing session.
@@ -285,6 +305,18 @@ public class BusAttachment {
      */
     public native Status leaveSession(int sessionId);
 
+    /**
+     * Set the SessionListener for an existing session.
+     *
+     * Calling this method will override (replace) the listener set by a previoius call to
+     * setSessionListener or a listener specified in joinSession.
+     *
+     * @param sessionId    The session id of an existing session.
+     * @param listener     The SessionListener to associate with the session. May be null to clear previous listener.
+     * @return  ER_OK if successful.
+     */
+    public native Status setSessionListener(int sessionId, SessionListener listener);
+    
     /**
      * Get the file descriptor for a raw (non-message based) session.
      *
