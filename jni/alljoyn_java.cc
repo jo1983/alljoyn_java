@@ -3046,7 +3046,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
 
     QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(),
                                      inputSig.c_str(), outSig.c_str(), NULL, annotation);
-    if (ER_BUS_MEMBER_ALREADY_EXISTS == status) {
+    if (ER_BUS_MEMBER_ALREADY_EXISTS == status || ER_BUS_INTERFACE_ACTIVATED == status) {
         status = ER_OK;
     }
     return JStatus(status);
@@ -3073,7 +3073,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(
     }
 
     QStatus status = intf->AddProperty(name.c_str(), signature.c_str(), access);
-    if (ER_BUS_PROPERTY_ALREADY_EXISTS == status) {
+    if (ER_BUS_PROPERTY_ALREADY_EXISTS == status || ER_BUS_INTERFACE_ACTIVATED == status) {
         status = ER_OK;
     }
     return JStatus(status);
