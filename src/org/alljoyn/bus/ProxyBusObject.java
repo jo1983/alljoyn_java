@@ -18,7 +18,6 @@ package org.alljoyn.bus;
 
 import org.alljoyn.bus.annotation.BusProperty;
 import org.alljoyn.bus.annotation.BusSignalHandler;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

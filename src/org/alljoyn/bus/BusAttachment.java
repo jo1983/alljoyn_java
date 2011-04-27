@@ -28,7 +28,6 @@ import org.alljoyn.bus.AuthListener.UserNameRequest;
 import org.alljoyn.bus.AuthListener.VerifyRequest;
 import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
@@ -522,8 +521,6 @@ public class BusAttachment {
 
     private DBusProxyObj dbus;
 
-    private AllJoynProxyObj alljoyn;
-
     /** Policy for handling messages received from remote devices. */
     public enum RemoteMessage {
 
@@ -558,8 +555,6 @@ public class BusAttachment {
         create(applicationName, allowRemoteMessages);
         dbus = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", SESSION_ID_ANY,
                                   new Class[] { DBusProxyObj.class }).getInterface(DBusProxyObj.class);        
-        alljoyn = new ProxyBusObject(this, "org.alljoyn.Bus", "/org/alljoyn/Bus", SESSION_ID_ANY,
-                                  new Class[] { AllJoynProxyObj.class }).getInterface(AllJoynProxyObj.class);
         executor = Executors.newSingleThreadExecutor();
     }
 
@@ -694,57 +689,6 @@ public class BusAttachment {
     }
 
     /**
-     * Starts the message bus, connects to the local daemon, and requests and
-     * optionally advertises a well-known name.  The well-known name is
-     * advertised if this BusAttachment is configured to allow remote messages.
-     * <p>
-     * This method does the following:
-     * <pre>
-     * busAttachment.connect()
-     *
-     * busAttachment.getDBusProxyObj().RequestName(wellKnownName,
-     *                                             DBusProxyObj.REQUEST_NAME_REPLACE_EXISTING | DBusProxyObj.REQUEST_NAME_DO_NOT_QUEUE);
-     * 
-     * if (policy == BusAttachment.RemoteMessage.Receive) {
-     *     busAttachment.getAllJoynProxyObj().AdvertiseName(wellKnownName, transports);
-     * }</pre>
-     *
-     * @param wellKnownName the well-known name to request.  If the bus attachment allows
-     *                      remote messages, the well-known name will be advertised.
-     * @param transports    transports to advertise over.  If the bus attachemnt allows
-     *                      remote messages, the well-known name will be advertised over
-     *                      the transports specified by '1's in the transports bitfield.
-     * @return OK if successful
-     * @see #BusAttachment(String, RemoteMessage)
-     */
-    public Status connect(String wellKnownName, short transports) {
-        try {
-            Status status = connect();
-            if (status != Status.OK) {
-                return status;
-            }
-            int flags = DBusProxyObj.REQUEST_NAME_REPLACE_EXISTING 
-                | DBusProxyObj.REQUEST_NAME_DO_NOT_QUEUE;
-            DBusProxyObj.RequestNameResult requestResult = dbus.RequestName(wellKnownName, flags);
-            if (requestResult != DBusProxyObj.RequestNameResult.PrimaryOwner 
-                && requestResult != DBusProxyObj.RequestNameResult.AlreadyOwner) {
-                return Status.BUS_NOT_OWNER;
-            }
-            if (allowRemoteMessages) {
-                AllJoynProxyObj.AdvertiseNameResult advertiseResult = alljoyn.AdvertiseName(wellKnownName, transports);
-                if (advertiseResult != AllJoynProxyObj.AdvertiseNameResult.Success 
-                    && advertiseResult != AllJoynProxyObj.AdvertiseNameResult.AlreadyAdvertising) {
-                    return Status.FAIL;
-                }
-            }
-            return Status.OK;
-        } catch (BusException ex) {
-            BusException.log(ex);
-            return Status.FAIL;
-        }
-    }
-
-    /**
      * Disconnects from the local daemon and stops the message bus.
      */
     public void disconnect() {
@@ -821,22 +765,12 @@ public class BusAttachment {
     /**
      * Gets the DBusProxyObj interface of the org.freedesktop.DBus proxy object.
      * The DBusProxyObj interface is provided for backwards compatibility with
-     * the DBus protocol. To use the extended AllJoyn features, use {@link
-     * BusAttachment#getAllJoynProxyObj()} instead of this method.
+     * the DBus protocol.
      *
      * @return the DBusProxyObj interface
      */
     public DBusProxyObj getDBusProxyObj() {
         return dbus;
-    }
-
-    /**
-     * Gets the AllJoynProxyObj interface of the org.alljoyn.Bus proxy object.
-     *
-     * @return the AllJoynProxyObj interface
-     */
-    public AllJoynProxyObj getAllJoynProxyObj() {
-        return alljoyn;
     }
 
     /**
