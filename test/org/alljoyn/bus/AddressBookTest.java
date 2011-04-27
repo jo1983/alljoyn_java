@@ -22,7 +22,6 @@ import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.util.Map;
 import java.util.TreeMap;

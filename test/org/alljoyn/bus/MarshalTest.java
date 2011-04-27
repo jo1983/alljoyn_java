@@ -24,7 +24,6 @@ import org.alljoyn.bus.Status;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.VariantTypeReference;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import static org.alljoyn.bus.Assert.*;
 
 import java.util.Map;

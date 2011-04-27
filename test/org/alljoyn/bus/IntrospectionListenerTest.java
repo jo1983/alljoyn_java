@@ -22,7 +22,6 @@ import org.alljoyn.bus.IntrospectionListener;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.ifaces.Introspectable;
 import org.alljoyn.bus.Status;
 

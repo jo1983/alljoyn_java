@@ -23,7 +23,6 @@ import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.ifaces.Introspectable;
 
 import static junit.framework.Assert.*;

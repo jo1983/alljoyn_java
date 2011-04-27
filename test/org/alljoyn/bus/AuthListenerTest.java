@@ -22,7 +22,6 @@ import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 
 import java.io.ByteArrayInputStream;
 import java.io.BufferedInputStream;

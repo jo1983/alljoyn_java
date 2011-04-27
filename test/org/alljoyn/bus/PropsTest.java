@@ -23,7 +23,6 @@ import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
-import org.alljoyn.bus.ifaces.AllJoynProxyObj;
 import org.alljoyn.bus.ifaces.Properties;
 
 import java.util.Map;
