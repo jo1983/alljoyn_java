@@ -862,12 +862,14 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
         QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Exception\n"));
     }
 
-    QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
+    QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Call out to listener object and method\n"));
     env->CallVoidMethod(jsessionPortListener, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
     if (env->ExceptionCheck()) {
         QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Exception\n"));
         return;
     }
+
+    QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Return\n"));
 }
 
 
@@ -2459,6 +2461,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     }
 
     //
+    // Load the [in] C++ session options from the Java session options.
+    //
+    SessionOpts sessionOpts;
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionOpts);
+    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    //
     // Get a copy of the pointer to the BusAttachment (via a managed object)
     //
     Bus* bus = (Bus*)GetHandle(thiz);
@@ -2476,7 +2499,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     // Make the AllJoyn call.
     //
     SessionId sessionId = 0;
-    SessionOpts sessionOpts;
 
     QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
                    sessionHost.c_str(), jsessionPort, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
@@ -2499,13 +2521,13 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     //
     // Store the session ID back in its out parameter.
     //
-    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionId);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    clazz = env->GetObjectClass(jsessionId);
+    fid = env->GetFieldID(clazz, "value", "I");
     assert(fid);
     env->SetIntField(jsessionId, fid, sessionId);
 
     //
-    // Store the Java session options from the returned C++ session options.
+    // Store the Java session options from the returned [out] C++ session options.
     //
     clazz = env->GetObjectClass(jsessionOpts);
 

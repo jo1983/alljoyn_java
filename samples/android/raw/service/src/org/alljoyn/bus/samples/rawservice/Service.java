@@ -19,6 +19,7 @@ package org.alljoyn.bus.samples.rawservice;
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
@@ -252,11 +253,11 @@ public class Service extends Activity {
         /*
          * TODO: Remove this when we ephemeral session ports is fully implemented.
          */
-        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.rawraw";
+        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.yadda";
         private static final short RAW_PORT = 888;
         
         private BusAttachment mBus = null;
-        private int mSessionId = -1;
+        private int mRawSessionId = -1;
     	public BufferedReader mInputStream = null;
         boolean mStreamUp = false;
 
@@ -304,51 +305,6 @@ public class Service extends Activity {
                  */
                 mBus.useOSLogging(true);
                 mBus.setDebugLevel("ALLJOYN_JAVA", 7);
-                
-                /*
-                 * register a bus listener object with the BusAttachment to
-                 * handle callbacks indicating important bus events.  The ones
-                 * we are concerned with are assoicated with new sessions.
-                 */
-                mBus.registerBusListener(new BusListener() {
-                    @Override
-                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                    	/*
-                    	 * We accept any request to join either the CONTACT_PORT
-                    	 * session or the RAW_PORT session.
-                    	 */
-                    	if (sessionPort == CONTACT_PORT || sessionPort == RAW_PORT) {
-                        	logInfo(String.format("BusListener.acceptSessionJoiner(%d, %s, %s): accepted",
-                        			sessionPort, joiner, sessionOpts.toString()));
-                    		return true;
-                    	} else {
-                        	logInfo(String.format("BusListener.acceptSessionJoiner(%d, %s, %s): rejected", 
-                        			sessionPort, joiner, sessionOpts.toString()));
-                    		return false;
-                    	}
-                    }
-
-                    @Override
-                    public void sessionJoined(short sessionPort, int id, String joiner) {
-                    	logInfo(String.format("MyBusListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
-                    	/*
-                    	 * We expect two sessionJoined callbacks.  The first
-                    	 * happens when the client joins the session 
-                    	 * corresponding to the contact port.  That isn't very
-                    	 * interesting.  The second callback happens when the
-                    	 * client joins the raw session.  When this happens,
-                    	 * we need to bug the AllJoyn handler to tell it that
-                    	 * our client has joined the raw session.  On this
-                    	 * side we will take the provided session ID and get
-                    	 * its raw socket out which we will use to read any
-                    	 * data sent by the client.
-                    	 */
-                    	if (sessionPort == RAW_PORT) {
-                    		mSessionId = id;
-                    		mBusHandler.sendEmptyMessage(BusHandler.JOINED);
-                    	}
-                    }
-                });
                 
                 /* 
                  * To make a service available to other AllJoyn peers, first
@@ -403,7 +359,18 @@ public class Service extends Activity {
                 Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
                 SessionOpts sessionOpts = new SessionOpts();
 
-                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+                	/**
+                	 * Callback indicating a joiner has requested to be admitted
+                	 * to the raw session.  We always allow this.
+                	 */
+                	@Override
+                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                		logInfo(String.format("BusListener.acceptSessionJoiner(%d, %s, %s): accepted on CONTACT_PORT",
+                				sessionPort, joiner, sessionOpts.toString()));
+                		return true;
+                    }
+                });
                 logStatus("BusAttachment.bindSessionPort()", status);
                 if (status != Status.OK) {
                 	finish();
@@ -427,11 +394,46 @@ public class Service extends Activity {
                 contactPort.value = RAW_PORT;
                 sessionOpts.traffic = SessionOpts.TRAFFIC_RAW_RELIABLE;
 
-                status = mBus.bindSessionPort(contactPort, sessionOpts);
+                status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+                	/**
+                	 * Callback indicating a joiner has requested to be admitted
+                	 * to the raw session.  We always allow this.
+                	 */
+                	@Override
+                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                		logInfo(String.format("BusListener.acceptSessionJoiner(%d, %s, %s): accepted on RAW_PORT",
+                				sessionPort, joiner, sessionOpts.toString()));
+                		return true;
+                    }
+                    
+                	/**
+                	 * Notification callback indicating the raw session has
+                	 * been successfully joined.
+                	 * 
+                	 * We need a cue as to when there is a TCP link up between
+                	 * the client and server.  This is when the RAW_RELIABLE
+                	 * session has been established and is indicated by this
+                	 * callback.
+                	 * 
+                	 * When we get this callback, we need to pull the underlying
+                	 * socket FD out of the session specified by the provided
+                	 * sessionId and begin listening on it for client data.  As
+                	 * usual we arrange for this by sending a message to the
+                	 * AllJoyn bus handler.
+                	 */
+                    @Override
+                    public void sessionJoined(short sessionPort, int sessionId, String joiner) {
+                 		logInfo(String.format("BusListener.sessionJoined(%d, %d, %s): on RAW_PORT",
+                				sessionPort, sessionId, joiner));
+                    	mRawSessionId = sessionId;
+                        mBusHandler.sendEmptyMessage(BusHandler.JOINED);
+                    }
+                });
+                
                 logStatus("BusAttachment.bindSessionPort()", status);
                 if (status != Status.OK) {
                 	finish();
-                	return;
+               	return;
                 }              
 
                 /*
@@ -444,24 +446,16 @@ public class Service extends Activity {
                 	finish();
                 	return;
                 } 
-                
-                /*
-                 * TODO:  Remove this extraneous advertisement when ephemeral
-                 * session ports are fully implemented.
-                 */
-                mBus.advertiseName(RAW_SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
                 break;
             }
             
             /*
-             * We have a new raw session that has joined our bound session.
-             * This is provided to us in the BusListener SessionJoined
-             * callback.  This join has provided us with a session ID 
-             * corresponding to the conversation between the client and the
-             * service.
+             * We have a new joiner with a given mRawSessionId that has joined
+             * our raw session.  This is provided to us in the sessionJoined
+             * callback we provide during binding.
              * 
              * The session we got is in raw mode, but we need to get a socket
-             * file descriptor back from AllJoyn that represents the 
+             * file descriptor back from AllJoyn that represents the TCP
              * established connection.  Once we have the sock FD we are then
              * free to do whatever we want with it.
              *  
@@ -475,7 +469,7 @@ public class Service extends Activity {
                  * any other file descriptor.
                  */
             	Mutable.IntegerValue sockFd = new Mutable.IntegerValue();
-                Status status = mBus.getSessionFd(mSessionId, sockFd);
+                Status status = mBus.getSessionFd(mRawSessionId, sockFd);
                 logStatus("BusAttachment.getSession()", status);
                 try {
                 	/*

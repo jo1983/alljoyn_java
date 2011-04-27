@@ -18,6 +18,7 @@ package org.alljoyn.bus.samples.rawclient;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
 import org.alljoyn.bus.SessionOpts;
@@ -165,7 +166,7 @@ public class Client extends Activity {
         /*
          * TODO: Remove this hack when ephemeral sockets work.
          */
-        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.rawraw";
+        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.yadda";
         private boolean mHaveServiceName = false;
         private boolean mHaveRawServiceName = false;
         
@@ -173,7 +174,6 @@ public class Client extends Activity {
         private ProxyBusObject mProxyObj = null;
         private RawInterface mRawInterface = null;
         
-        private String mFoundName = null;
         private int mMsgSessionId = -1;
         private int mRawSessionId = -1;
         private boolean mIsConnected = false;;
@@ -223,32 +223,22 @@ public class Client extends Activity {
                  * BusAttachement and tell the attachment about it
                  */
                 mBus.registerBusListener(new BusListener() {
+                	/**
+                	 * Callback indicating that the system has found an instance
+                	 * of a name we are searching for.
+                	 * 
+                	 * When the service comes up it does housekeeping related to
+                	 * creating all of the resources and when it is ready to
+                	 * accept clients, it advertises SERVICE_NAME.  We look for
+                	 * instances of services advertising this name and when we
+                	 * find one, we join its sessions.  As usual, we send a 
+                	 * message to the AllJoyn handler to make this happen.
+                	 */
                 	@Override
                 	public void foundAdvertisedName(String name, short transport, String namePrefix) {
                 		logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-                        /*
-                         * TODO: Remove this hack when ephemeral session ports
-                         * fully work.  In an intermediate development stage
-                         * we have to advertise ephemeral ports so the only 
-                         * way this can work is if we have received ads for
-                         * both the service and the hacky raw version.  When
-                         * we have both, we can tell ourselves to join the
-                         * contact port for the base session since we know
-                         * we'll be able to join the "ephemeral" session when
-                         * the time comes.
-                         */
                 		if (name.equals(SERVICE_NAME)) {
-                			logInfo("found SERVICE");
-                			mHaveServiceName = true;
-                		}
-                		if (name.equals(RAW_SERVICE_NAME)) {
-                   			logInfo("found RAW SERVICE");
-                			mHaveRawServiceName = true;
-                		}
-                		if (mHaveServiceName == true && mHaveRawServiceName == true) {
-                   			logInfo("have SERIVCE and RAW SERVICE");
-                			mFoundName = SERVICE_NAME;
-                			mBusHandler.sendEmptyMessage(BusHandler.JOIN_SESSION);
+                    		mBusHandler.sendEmptyMessage(BusHandler.JOIN_SESSION);
                 		}
                 	}
                 });
@@ -262,7 +252,7 @@ public class Client extends Activity {
                 }
 
                 /*
-                 * Now find an instance of the AllJoyn object we want to call.  We start by looking for
+                 * Now find an instance of the AllJoyn service we want to talk to.  We start by looking for
                  * a name, then connecting to the device that is advertising that name.
                  *
                  * In this case, we are looking for the well-known SERVICE_NAME.
@@ -273,7 +263,7 @@ public class Client extends Activity {
                 	finish();
                 	return;
                 }
-
+                
                 break;
             }
             case (JOIN_SESSION): {
@@ -296,28 +286,27 @@ public class Client extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession(mFoundName, contactPort, sessionId, sessionOpts);
+                Status status = mBus.joinSession(SERVICE_NAME, contactPort, sessionId, sessionOpts, new SessionListener());
                 logStatus("BusAttachment.joinSession()", status);
-                    
-                if (status == Status.OK) {
-                	/*
-                     * To communicate with an AllJoyn object, we create a ProxyBusObject.  
-                     * A ProxyBusObject is composed of a name, path, sessionID and interfaces.
-                     * 
-                     * This ProxyBusObject is located at the well-known SERVICE_NAME, under path
-                     * "/RawService", uses sessionID of CONTACT_PORT, and implements the RawInterface.
-                     */
-                	mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME, 
-                										"/RawService",
-                										sessionId.value,
-                										new Class<?>[] { RawInterface.class });
-
-                	/* We make calls to the methods of the AllJoyn object through one of its interfaces. */
-                	mRawInterface =  mProxyObj.getInterface(RawInterface.class);
-                	
-                	mMsgSessionId = sessionId.value;
-                	mIsConnected = true;
+                if (Status.OK != status) {
+                 	break;
                 }
+
+                /*
+                 * To communicate with an AllJoyn object, we create a ProxyBusObject.  
+                 * A ProxyBusObject is composed of a name, path, sessionID and interfaces.
+                 * 
+                 * This ProxyBusObject is located at the well-known SERVICE_NAME, under path
+                 * "/RawService", uses sessionID of CONTACT_PORT, and implements the RawInterface.
+                 */
+                mProxyObj = mBus.getProxyBusObject(SERVICE_NAME, "/RawService", sessionId.value,
+                    new Class<?>[] { RawInterface.class });
+
+                /* We make calls to the methods of the AllJoyn object through one of its interfaces. */
+                mRawInterface =  mProxyObj.getInterface(RawInterface.class);
+                	
+                mMsgSessionId = sessionId.value;
+                mIsConnected = true;
                 break;
             }
             
@@ -328,7 +317,7 @@ public class Client extends Activity {
                 	Status status = mBus.leaveSession(mMsgSessionId);
                     logStatus("BusAttachment.leaveSession(): message-based session", status);
                     
-                	Status status = mBus.leaveSession(mRawSessionId);
+                	status = mBus.leaveSession(mRawSessionId);
                     logStatus("BusAttachment.leaveSession(): raw session", status);
             	}
                 mBus.disconnect();
@@ -371,24 +360,27 @@ public class Client extends Activity {
                 if (mStreamUp == false) {
                     try {
                         /*
-                         * In order get a raw session to join, we need to get a
-                         * contact port.  As a part of the RawInterface, we 
-                         * have a method used to get that port.  Note that this
-                         * bus method is wrapped in a try/catch to deal with
-                         * errors.  
+                         * In order get a raw session to join, we need to get an
+                         * ephemeral contact port.  As a part of the RawInterface,
+                         * we have a method used to get that port.  Note that 
+                         * errors are returned through Java exceptions, and so we
+                         * wrap this code in a try catch block.  
                          */
                         logInfo("RequestRawSession()");
                         short contactPort = mRawInterface.RequestRawSession();
+                        logInfo(String.format("RequestRawSession() returns %d", contactPort));
                         
                         /*
-                         * Now join the session.  Once this happens, the
+                         * Now join the raw session.  Note that we are asking
+                         * for TRAFFIC_RAW_RELIABLE.  Once this happens, the
                          * session is ready for raw traffic that will not be
-                         * encapsulated in AllJoyn message.
+                         * encapsulated in AllJoyn messages.
                          */
                         SessionOpts sessionOpts = new SessionOpts();
+                        sessionOpts.traffic = SessionOpts.TRAFFIC_RAW_RELIABLE;
                         Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                         logInfo("joinSession()");
-                        Status status = mBus.joinSession(RAW_SERVICE_NAME, contactPort, sessionId, sessionOpts);
+                        Status status = mBus.joinSession(SERVICE_NAME, contactPort, sessionId, sessionOpts, new SessionListener());
                         logStatus("BusAttachment.joinSession()", status);               
                         if (status != Status.OK) {
                             break;
@@ -422,14 +414,15 @@ public class Client extends Activity {
                         mOutputStream = new FileOutputStream(fd);
                         mStreamUp = true;
                     } catch (Throwable ex) {
-                        logInfo("Exception Bringing up raw stream");
+                        logInfo(String.format("Exception bringing up raw stream: %s", ex.toString()));
                     }
                 }
 
                 /*
                  * If we've sucessfully created an output stream from the raw
-                 * session connection established by AllJoyn, we write the bytes
-                 * to the TCP stream that underlies it all.
+                 * session connection established by AllJoyn, we write the
+                 * byte string (from the user) to the TCP stream that now
+                 * underlies it all.
                  */
                 if (mStreamUp == true) {
                 	String string = (String)msg.obj;
