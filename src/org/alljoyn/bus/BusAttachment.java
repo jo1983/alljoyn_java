@@ -590,42 +590,6 @@ public class BusAttachment {
     private native Status registerNativeSignalHandler(String ifaceName, String signalName,
             Object obj, Method handlerMethod, String source);
 
-    @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "FoundAdvertisedName")
-    private void foundAdvertisedName(String name, Short transport, String namePrefix) {
-        final FindAdvertisedNameListener listener;
-        synchronized (findAdvertisedNameListeners) {
-            listener = findAdvertisedNameListeners.get(namePrefix);
-        }
-        final String n = name;
-        final Short t = transport;
-        final String np = namePrefix;
-        if (listener != null) {
-            execute(new Runnable() {
-                    public void run() { 
-                        listener.foundAdvertisedName(n, t, np); 
-                    }
-                });
-        }
-    }
-
-    @BusSignalHandler(iface = "org.alljoyn.Bus", signal = "LostAdvertisedName")
-    private void lostAdvertisedName(String name, Short transport, String namePrefix) {
-        final FindAdvertisedNameListener listener;
-        synchronized (findAdvertisedNameListeners) {
-            listener = findAdvertisedNameListeners.get(namePrefix);
-        }
-        final String n = name;
-        final Short t = transport;
-        final String np = namePrefix;
-        if (listener != null) {
-            execute(new Runnable() {
-                    public void run() { 
-                        listener.lostAdvertisedName(n, t, np); 
-                    }
-                });
-        }
-    }
-
     /** Release resources. */
     protected void finalize() {
         destroy();
@@ -674,15 +638,7 @@ public class BusAttachment {
     public Status connect() {
         address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
         if (address != null) {
-            Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener,
-                                    keyStoreFileName);
-            if (status == Status.OK) {
-                status = registerSignalHandler("org.alljoyn.Bus", "FoundAdvertisedName", this, foundAdvertisedName);
-            }
-            if (status == Status.OK) {
-                status = registerSignalHandler("org.alljoyn.Bus", "LostAdvertisedName", this, lostAdvertisedName);
-            }
-            return status;
+            return connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName);
         } else {
             return Status.INVALID_CONNECT_ARGS;
         }
