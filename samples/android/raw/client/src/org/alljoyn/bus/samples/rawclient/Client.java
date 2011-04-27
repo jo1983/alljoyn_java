@@ -166,7 +166,7 @@ public class Client extends Activity {
         /*
          * TODO: Remove this hack when ephemeral sockets work.
          */
-        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.yadda";
+        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.yadda888";
         private boolean mHaveServiceName = false;
         private boolean mHaveRawServiceName = false;
         
@@ -238,6 +238,12 @@ public class Client extends Activity {
                 	public void foundAdvertisedName(String name, short transport, String namePrefix) {
                 		logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
                 		if (name.equals(SERVICE_NAME)) {
+                			mHaveServiceName = true;
+                		}
+                		if (name.equals(RAW_SERVICE_NAME)) {
+                			mHaveRawServiceName = true;
+                		}
+                		if (mHaveServiceName == true && mHaveRawServiceName == true) {
                     		mBusHandler.sendEmptyMessage(BusHandler.JOIN_SESSION);
                 		}
                 	}
@@ -264,6 +270,12 @@ public class Client extends Activity {
                 	return;
                 }
                 
+                status = mBus.findAdvertisedName(RAW_SERVICE_NAME);
+                logStatus(String.format("BusAttachement.findAdvertisedName(%s)", RAW_SERVICE_NAME), status);
+                if (Status.OK != status) {
+                	finish();
+                	return;
+                }                
                 break;
             }
             case (JOIN_SESSION): {
@@ -357,7 +369,7 @@ public class Client extends Activity {
              * establishment.
              */
             case SEND_RAW: {
-                if (mStreamUp == false) {
+                if (mIsConnected == false || mStreamUp == false) {
                     try {
                         /*
                          * In order get a raw session to join, we need to get an
@@ -380,7 +392,7 @@ public class Client extends Activity {
                         sessionOpts.traffic = SessionOpts.TRAFFIC_RAW_RELIABLE;
                         Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                         logInfo("joinSession()");
-                        Status status = mBus.joinSession(SERVICE_NAME, contactPort, sessionId, sessionOpts, new SessionListener());
+                        Status status = mBus.joinSession(RAW_SERVICE_NAME, contactPort, sessionId, sessionOpts, new SessionListener());
                         logStatus("BusAttachment.joinSession()", status);               
                         if (status != Status.OK) {
                             break;

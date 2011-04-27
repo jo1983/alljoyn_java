@@ -253,7 +253,7 @@ public class Service extends Activity {
         /*
          * TODO: Remove this when we ephemeral session ports is fully implemented.
          */
-        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.yadda";
+        private static final String RAW_SERVICE_NAME = "org.alljoyn.bus.samples.yadda888";
         private static final short RAW_PORT = 888;
         
         private BusAttachment mBus = null;
@@ -442,6 +442,13 @@ public class Service extends Activity {
                  */
                 status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
                 logStatus(String.format("BusAttachement.advertiseName(%s)", SERVICE_NAME), status);
+                if (status != Status.OK) {
+                	finish();
+                	return;
+                }
+                
+                status = mBus.advertiseName(RAW_SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
+                logStatus(String.format("BusAttachement.advertiseName(%s)", RAW_SERVICE_NAME), status);
                 if (status != Status.OK) {
                 	finish();
                 	return;
