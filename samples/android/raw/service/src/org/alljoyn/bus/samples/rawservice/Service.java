@@ -41,7 +41,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 
 import java.io.InputStream;
 import java.io.FileDescriptor;
@@ -260,6 +260,8 @@ public class Service extends Activity {
         private int mRawSessionId = -1;
     	public BufferedReader mInputStream = null;
         boolean mStreamUp = false;
+        
+        private Thread mReader = null;
 
         /*
          * These are the (event) messages sent to the BusHandler to tell it
@@ -350,6 +352,18 @@ public class Service extends Activity {
                     return;
                 }
 
+                /*
+                 * TODO: Remove this second advertisement which is used until
+                 * we can fix the ephemeral session port problem.
+                 */
+                status = mBus.requestName(RAW_SERVICE_NAME, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
+                logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", RAW_SERVICE_NAME, 
+                                         BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE), status);
+                if (status != Status.OK) {
+                    finish();
+                    return;
+                }
+                
                 /*
                  * If we sucessfully receive permission to use the requested
                  * service name, we need to Create a new session listening on
@@ -480,39 +494,43 @@ public class Service extends Activity {
                 logStatus("BusAttachment.getSession()", status);
                 try {
                 	/*
-                	 * The Java FileDescriptor class has a private constructor
-                	 * that allows one to pass a file descriptor.  This is
-                	 * exactly what we want, and we can use reflection to 
-                	 * find this constructor, make it accessible and use it
-                	 * to create a new FileDescriptor with the socket FD we
-                	 * got from AllJoyn.
+                	 * We have a socked FD, but now we need a Java file
+                	 * descriptor.  There is no appropriate constructor,
+                	 * public or not in the Dalvik FileDescriptor, so 
+                	 * we new up a file descriptor and set its internal
+                	 * descriptor field using reflection.
                 	 */
-                	Class<FileDescriptor> clazz = FileDescriptor.class;
-                	Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
-                	c.setAccessible(true);
-                	FileDescriptor fd = c.newInstance(sockFd.value);
+                	Field field = FileDescriptor.class.getDeclaredField("descriptor");
+                	field.setAccessible(true);
+                 	FileDescriptor fd = new FileDescriptor();
+                	field.set(fd, sockFd.value);
                 	
                 	/*
-                	 * Now that we have a FileDescriptor, we can use it like
+                	 * Now that we have a FileDescriptor with an AllJoyn
+                	 * raw session socket FD in it, we can use it like
                 	 * any other "normal" FileDescriptor.
                 	 */
                 	InputStream is = new FileInputStream(fd);
                 	final BufferedReader br = new BufferedReader(new InputStreamReader(is));
                 	
-                	logInfo("Spinning up thread to read raw Java stream");
-                	new Thread("Reader") {
-                		@Override
+                	logInfo("Spinning up read thread");
+                	mReader = new Thread(new Runnable() {
                 		public void run() {
+                        	logInfo("Thread running");
+                        	Looper.myLooper().prepare();
                 			String line;
                 			try {
                 				while ((line = br.readLine()) != null) {
-                	                logInfo(String.format("Read %s from raw Java stream", line));
+                		            Toast.makeText(getApplicationContext(), line, Toast.LENGTH_LONG).show();
                 				}
                 			} catch (Throwable ex) {
-                            	logInfo("Exception reading raw Java stream");
+                         		logInfo(String.format("Exception reading raw Java stream: %s", ex.toString()));
                 			}
+                        	logInfo("Thread exiting");
                 		}
-                	};
+                	}, "reader");
+                	mReader.start();
+                	
                 } catch (Throwable ex) {
                 	logInfo("Exception Bringing up raw Java stream");
                 }

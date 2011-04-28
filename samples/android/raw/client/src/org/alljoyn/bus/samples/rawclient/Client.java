@@ -43,6 +43,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 
 import java.io.OutputStream;
 import java.io.FileDescriptor;
@@ -413,16 +414,23 @@ public class Client extends Activity {
                         	break;
                         }
 
-                        /*
-                         * What we are going to do with the connection is to 
-                         * create a Java file descriptor out of the socket
-                         * file descriptor, and then use that FD to create
-                         * an output stream.
-                         */
-                        Class<FileDescriptor> clazz = FileDescriptor.class;
-                        Constructor<FileDescriptor> c = clazz.getDeclaredConstructor(new Class[] { Integer.TYPE });
-                        c.setAccessible(true);
-                        FileDescriptor fd = c.newInstance(sockFd.value);
+                      	/*
+                    	 * We have a socked FD, but now we need a Java file
+                    	 * descriptor.  There is no appropriate constructor,
+                    	 * public or not in the Dalvik FileDescriptor, so 
+                    	 * we new up a file descriptor and set its internal
+                    	 * descriptor field using reflection.
+                    	 */
+                    	Field field = FileDescriptor.class.getDeclaredField("descriptor");
+                    	field.setAccessible(true);
+                     	FileDescriptor fd = new FileDescriptor();
+                    	field.set(fd, sockFd.value);
+                    	
+                    	/*
+                    	 * Now that we have a FileDescriptor with an AllJoyn
+                    	 * raw session socket FD in it, we can use it like
+                    	 * any other "normal" FileDescriptor.
+                    	 */
                         mOutputStream = new FileOutputStream(fd);
                         mStreamUp = true;
                     } catch (Throwable ex) {
@@ -437,9 +445,11 @@ public class Client extends Activity {
                  * underlies it all.
                  */
                 if (mStreamUp == true) {
-                	String string = (String)msg.obj;
+                	String string = (String)msg.obj + "\n";
                 	try {
+                        logInfo(String.format("Writing %s to output stream", string));
                 		mOutputStream.write(string.getBytes());
+                        logInfo(String.format("Flushing stream", string));
                 		mOutputStream.flush();
                 	} catch (IOException ex) {
                         logInfo("Exception writing and flushing the string");
