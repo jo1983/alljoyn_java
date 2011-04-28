@@ -17,15 +17,11 @@
 package org.alljoyn.bus.samples.rawservice;
 
 import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.BusException;
-import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
-import org.alljoyn.bus.annotation.BusInterface;
-import org.alljoyn.bus.annotation.BusMethod;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -47,6 +43,7 @@ import java.io.InputStream;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.BufferedReader;
 import java.io.IOException;
 
@@ -92,7 +89,7 @@ public class Service extends Activity {
         };
     
     /*
-     * An event loop used to make calls to AllJoyn methods. See onCreate().
+     * An event loop used to make calls to AllJoyn methods.
      */
     private Handler mBusHandler;
 
@@ -511,17 +508,50 @@ public class Service extends Activity {
                 	 * any other "normal" FileDescriptor.
                 	 */
                 	InputStream is = new FileInputStream(fd);
-                	final BufferedReader br = new BufferedReader(new InputStreamReader(is));
+                	final Reader reader = new BufferedReader(new InputStreamReader(is), 80);
                 	
+                	/*
+                	 * We don't want to block the AllJoyn message handler so we
+                	 * spin up a thread to read characters from the raw reliable
+                	 * stream.  This is far from a real example of something 
+                	 * useful to do with the stream, but we do show bytes moving
+                	 * across the underlying TCP connection.
+                	 */
                 	logInfo("Spinning up read thread");
                 	mReader = new Thread(new Runnable() {
                 		public void run() {
                         	logInfo("Thread running");
-                        	Looper.myLooper().prepare();
-                			String line;
+                        	Looper.myLooper().prepare(); 
+        					StringBuilder stringBuilder = new StringBuilder();
                 			try {
-                				while ((line = br.readLine()) != null) {
-                		            Toast.makeText(getApplicationContext(), line, Toast.LENGTH_LONG).show();
+                				while (true) {
+                					int c;
+                					/*
+                					 * Wait until a character is available.
+                					 */
+                					if (reader.ready() == false) {
+                    					Thread.sleep(100);
+                						continue;
+                					}
+                					
+                					/*
+                					 * Build a string out of the characters and
+                					 * when we see a newline, cook up a toast
+                					 * do display them.
+                					 */
+                					try {
+                						c = reader.read();
+                						logInfo(String.format("Read %d from stream", c));
+                						stringBuilder.append((char)c);
+                						if (c == 10) {
+                							String s = stringBuilder.toString();
+                    						logInfo(String.format("Read %s from stream", s));
+                    			            Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST, s);
+                    			            mHandler.sendMessage(toastMsg);
+                        		            stringBuilder.delete(0, stringBuilder.length() - 1);
+                						}
+                					} catch (IOException ex) {
+                					}
                 				}
                 			} catch (Throwable ex) {
                          		logInfo(String.format("Exception reading raw Java stream: %s", ex.toString()));

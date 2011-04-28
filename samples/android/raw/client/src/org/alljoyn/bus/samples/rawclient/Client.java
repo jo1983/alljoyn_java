@@ -106,10 +106,14 @@ public class Client extends Activity {
                 public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
                     if (actionId == EditorInfo.IME_NULL
                         && event.getAction() == KeyEvent.ACTION_UP) {
-                        /* Call the remote object's Ping method. */
-                        Message msg = mBusHandler.obtainMessage(BusHandler.SEND_RAW, 
-                                                                view.getText().toString());
+                        /*
+                         * Send the text in the control to the service over 
+                         * the raw session connection.
+                         */
+                        Message msg = mBusHandler.obtainMessage(BusHandler.SEND_RAW, view.getText().toString());
                         mBusHandler.sendMessage(msg);
+                        
+                        view.setText("");
                     }
                     return true;
                 }
