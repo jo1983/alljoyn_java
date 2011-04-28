@@ -95,6 +95,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    removeMatch
+ * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch
+  (JNIEnv *, jobject,
+   jstring);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    advertiseName
  * Signature: (Ljava/lang/String;S)Lorg/alljoyn/bus/Status;
  */

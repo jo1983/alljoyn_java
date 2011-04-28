@@ -2144,6 +2144,52 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*env, jobject thiz,
+                                                                         jstring jrule)
+{
+    QCC_DbgPrintf(("BusAttachment_addMatch()\n"));
+
+    //
+    // Load the C++ well-known name with the Java well-known name.
+    //
+    JString rule(jrule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        return NULL;
+    }
+
+    //
+    // Get a copy of the pointer to the BusAttachment (via a managed object)
+    //
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        return NULL;
+    }
+    assert(bus);
+
+    //
+    // Make the AllJoyn call.
+    //
+    QCC_DbgPrintf(("BusAttachment_removeMatch(): Call RemoveMatch(%s)\n",
+                   rule.c_str()));
+
+    QStatus status = (*bus)->RemoveMatch(rule.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_removeMatch(): Back from RemoveMatch(%s)\n",
+                   rule.c_str()));
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_removeMatch(): RemoveMatch() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEnv* env, jobject thiz,
                                                                            jstring jname, jshort jtransports)
 {

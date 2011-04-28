@@ -125,6 +125,22 @@ public class BusAttachment {
     public native Status addMatch(String rule);
 
     /**
+     * Remove a DBus match rule.
+     * This method is a shortcut/helper that issues an org.freedesktop.DBus.RemoveMatch method call to the local daemon.
+     *
+     * @param rule  Match rule to be removed (see the DBus specification for the
+     *              format of this string).
+     *
+     * @return 
+     * <ul>
+     * <li>OK if the match rule was removed.</li>  
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li> 
+     * <li>other error status codes indicating a failure</li>
+     * </ul>
+     */
+    public native Status removeMatch(String rule);
+
+    /**
      * Advertise the existence of a well-known name to other (possibly disconnected) AllJoyn daemons.
      *
      * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.AdvertisedName method call to the local daemon
