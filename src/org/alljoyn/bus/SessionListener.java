@@ -29,4 +29,10 @@ public class SessionListener {
      * @param sessionId     Id of session that was lost.
      */
     public void sessionLost(int sessionId) {}
+
+    /**
+     * The opaque pointer to the underlying C++ object which is actually tied
+     * to the AllJoyn code.
+     */
+    private long handle = 0;
 }

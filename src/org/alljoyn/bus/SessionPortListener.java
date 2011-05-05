@@ -46,4 +46,9 @@ public class SessionPortListener {
      */
     public void sessionJoined(short sessionPort, int id, String joiner) {}
 
+    /**
+     * The opaque pointer to the underlying C++ object which is actually tied
+     * to the AllJoyn code.
+     */
+    private long handle = 0;
 }

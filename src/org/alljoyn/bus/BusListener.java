@@ -62,4 +62,11 @@ public class BusListener {
      * Called when a bus that this listener is registered with is stopping.
      */
     public void busStopping() {}
+
+    /**
+     * The opaque pointer to the underlying C++ object which is actually tied
+     * to the AllJoyn code.
+     */
+    private long handle = 0;
+    
 }
