@@ -70,8 +70,8 @@ using namespace ajn;
  * for the programmer doing the binding since the JNI code turns out to be lots
  * of brain-dead translation, but then again, that is exactly what we want.
  *
- * The basic idea is to take a call from Java and create C++ objects 
- * corresponding to the Java parameters objects.  We use Java reflection to 
+ * The basic idea is to take a call from Java and create C++ objects
+ * corresponding to the Java parameters objects.  We use Java reflection to
  * reach into the Java objects and use the values we find to initialize the
  * C++ objects and then make C++ calls.  For callbacks, the reverse is done.
  *
@@ -107,7 +107,7 @@ using namespace ajn;
  *
  * At this point, we do have objects being passed from one module (the Java
  * code) to another (the C++ code) and we have the additional complexity of
- * the memory model impedance mismatches.  This is best illustrated in the 
+ * the memory model impedance mismatches.  This is best illustrated in the
  * following example from a Java program that is talking to the bindings:
  *
  *   mBus.registerBusListener(new BusListener() {
@@ -145,15 +145,15 @@ using namespace ajn;
  *
  * 1) The Java client code creates a new BusListener object and passes it into
  *    the bindings code through the BusAttachment's registerBusListener call.
- *    The client may or may not hold onto a reference to the object, so we 
- *    must do so in the bindings if we want to support the unnamed object 
+ *    The client may or may not hold onto a reference to the object, so we
+ *    must do so in the bindings if we want to support the unnamed object
  *    idiom.
  * 2) The BusAttachement binding needs to create a new C++ object to "ghost"
  *    the Java object.  The purpose of the C++ object is to receive the C++
  *    callback and to translate that callback into an appropriate call into
  *    the Java object.
  * 3) The BusAttachment binding then makes a call into the C++ version of
- *    the bus attachment and provides the C++ callback object in order to 
+ *    the bus attachment and provides the C++ callback object in order to
  *    register it at the AllJoyn level.
  * 4) When the AllJoyn C++ code needs to make a callback, it invokes the C++
  *    version of the callback object that we registered.  This C++ object
@@ -163,7 +163,7 @@ using namespace ajn;
  *
  * This is straightforward, and the translation mentioned in (2) is done using
  * Java reflection in a commonly used idiom.  The problem is, where did the
- * 
+ *
  *   delete s_busListener
  *
  * of the C++ program go?  It got lost in the translation.  This is a general
@@ -178,7 +178,7 @@ using namespace ajn;
  * The JNI code must hold references to both Java objects and C++ objects.  The
  * C++ references (pointers) are explicitly memory managed.  The Java objects
  * are garbage collected and the JNI code looks for finalize() calls to know
- * when those Java objects are garbage.  The finalize() mechanism drives the 
+ * when those Java objects are garbage.  The finalize() mechanism drives the
  * release of C++ resources.  To prevent unwanted garbage collection in case
  * the Java client decides to use the unnamed object idiom, references to Java
  * objects must be "strong".
@@ -271,7 +271,7 @@ static void DeleteEnv(jint result)
  * Store a pointer to the JavaVM and do as much of the fairly expensive calls
  * into Java reflection as we can.  This is also useful since we may not have
  * access to all of the bits and pieces in all contexts, so it is useful
- * to get at them all where/when we can.    
+ * to get at them all where/when we can.
  */
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
                                   void* reserved)
@@ -519,7 +519,7 @@ static void ThrowErrorReplyBusException(const char* name, const char* message)
  * Get the native C++ handle of a given Java object.
  *
  * If we have an object that has a native counterpart, we need a way to get at
- * the native object from the Java object.  We do this by storing the native 
+ * the native object from the Java object.  We do this by storing the native
  * pointer as an opaque handle in a Java field named "handle".  We use Java
  * reflection to pull the field out and return the handle value.
  *
@@ -551,7 +551,7 @@ static void* GetHandle(jobject jobj)
  * Set the native C++ handle of a given Java object.
  *
  * If we have an object that has a native counterpart, we need a way to get at
- * the native object from the Java object.  We do this by storing the native 
+ * the native object from the Java object.  We do this by storing the native
  * pointer as an opaque handle in a Java field named "handle".  We use Java
  * reflection to determine the field out and set the handle value.
  *
@@ -638,8 +638,8 @@ MessageContext::~MessageContext()
  *
  * As mentioned in the memory management sidebar (at the start of this file) we
  * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a weak reference so we 
- * don't interfere with Java garbage collection.  See the member variable 
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.  See the member variable
  * jkeyStoreListener for this reference.
  *
  * Think of the weak reference as the counterpart to the handle pointer found in
@@ -651,7 +651,7 @@ MessageContext::~MessageContext()
  * counterpart.  Because of this, the constructor performs reflection on the
  * provided Java object to determine the methods that need to be called.  When
  * The callback from C++ is executed, we make corresponding Java calls using
- * the weak reference to the java object and the reflection information we 
+ * the weak reference to the java object and the reflection information we
  * discovered in the constructor.
  */
 class JKeyStoreListener : public KeyStoreListener {
@@ -818,7 +818,7 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
  *
  * As mentioned in the memory management sidebar (at the start of this file) we
  * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a strong reference so we 
+ * the corresponding Java object.  This reference is a strong reference so we
  * don't allow the listener to be garbage collected if the client chooses to use
  * the unnamed parameter idiom.  See the member variable jbusListener for this reference.
  *
@@ -908,7 +908,7 @@ JBusListener::JBusListener(jobject jlistener)
  * We remove the reference to the associated Java object when the C++
  * object goes away.  Since the C++ callback is gone, we can no longer call
  * the corresponding Java object, and it is garbage.
- * 
+ *
  */
 JBusListener::~JBusListener()
 {
@@ -929,12 +929,12 @@ JBusListener::~JBusListener()
  * formal parameters we got from AllJoyn into their Java counterparts; call the
  * corresponding Java method in the listener object using the helper method
  * env->CallVoidMethod().  To call out to Java, we need to pass the java object
- * "this" pointer which is the strong reference, the desired method ID which we 
+ * "this" pointer which is the strong reference, the desired method ID which we
  * found in the constructor, and the the translated Java parameters.
- * 
+ *
  * @param name         A well known name that the remote bus is advertising.
  * @param transport    Transport that received the advertisment.
- * @param namePrefix   The well-known name prefix used in call to 
+ * @param namePrefix   The well-known name prefix used in call to
  *                     FindAdvertisedName that triggered this callback.
  */
 void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
@@ -979,12 +979,12 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
  * formal parameters we got from AllJoyn into their Java counterparts; call the
  * corresponding Java method in the listener object using the helper method
  * env->CallVoidMethod().  To call out to Java, we need to pass the java object
- * "this" pointer which is the weak reference, the desired method ID which we 
+ * "this" pointer which is the weak reference, the desired method ID which we
  * found in the constructor, and the the translated Java parameters.
- * 
+ *
  * @param name         A well known name that the remote bus is advertising.
  * @param transport    Transport that received the advertisment.
- * @param namePrefix   The well-known name prefix used in call to 
+ * @param namePrefix   The well-known name prefix used in call to
  *                     FindAdvertisedName that triggered this callback.
  */
 void JBusListener::LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
@@ -1021,16 +1021,16 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
 
 /**
  * Handle the C++ NameOwnerChanged callback from the AllJoyn system.
- * 
+ *
  * Called by the bus when the ownership of any well-known name changes.
  *
  * This is a callback returning void, so we just need to translate the C++
  * formal parameters we got from AllJoyn into their Java counterparts; call the
  * corresponding Java method in the listener object using the helper method
  * env->CallVoidMethod().  To call out to Java, we need to pass the java object
- * "this" pointer which is the strong reference, the desired method ID which we 
+ * "this" pointer which is the strong reference, the desired method ID which we
  * found in the constructor, and the the translated Java parameters.
- * 
+ *
  * @param busName        The well-known name that has changed.
  * @param previousOwner  The unique name that previously owned the name or NULL if there was no previous owner.
  * @param newOwner       The unique name that now owns the name or NULL if the there is no new owner.
@@ -1073,7 +1073,7 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
 
 /**
  * Handle the C++ BusStopping callback from the AllJoyn system.
- * 
+ *
  * Called when a bus this listener is registered with is stopping.
  *
  * This is a callback returning void, with no formal parameters, so we just
@@ -1182,16 +1182,16 @@ JSessionListener::~JSessionListener()
 
 /**
  * Handle the C++ SessionLost callback from the AllJoyn system.
- * 
+ *
  * Called by the bus when an existing session becomes disconnected.
  *
  * This is a callback returning void, so we just need to translate the C++
  * formal parameters we got from AllJoyn into their Java counterparts; call the
  * corresponding Java method in the listener object using the helper method
  * env->CallVoidMethod().  To call out to Java, we need to pass the java object
- * "this" pointer which is the weak reference, the desired method ID which we 
+ * "this" pointer which is the weak reference, the desired method ID which we
  * found in the constructor, and the the translated Java parameters.
- * 
+ *
  * @param sessionId     Id of session that was lost.
  */
 void JSessionListener::SessionLost(const SessionId& sessionId)
@@ -1319,10 +1319,10 @@ JSessionPortListener::~JSessionPortListener()
  * formal parameters we got from AllJoyn into their Java counterparts; call the
  * corresponding Java method in the listener object using the helper method
  * env->CallBoolMethod().  To call out to Java, we need to pass the java object
- * "this" pointer which is the weak reference, the desired method ID which we 
+ * "this" pointer which is the weak reference, the desired method ID which we
  * found in the constructor, and the the translated Java parameters.  The helper
  * passes us back the boolean return value which we return to AllJoyn.
- * 
+ *
  * @param sessionPort    Session port that was joined.
  * @param joiner         Unique name of potential joiner.
  * @param opts           Session options requested by the joiner.
@@ -1375,7 +1375,7 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
 
 /**
  * Handle the C++ SessionJoined callback from the AllJoyn system.
- * 
+ *
  * Called by the bus when a session has been successfully joined. The session is
  * now fully up.
  *
@@ -1386,9 +1386,9 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
  * formal parameters we got from AllJoyn into their Java counterparts; call the
  * corresponding Java method in the listener object using the helper method
  * env->CallVoidMethod().  To call out to Java, we need to pass the java object
- * "this" pointer which is the weak reference, the desired method ID which we 
+ * "this" pointer which is the weak reference, the desired method ID which we
  * found in the constructor, and the the translated Java parameters.
- * 
+ *
  * @param sessionPort    Session port that was joined.
  * @param id             Id of session.
  * @param joiner         Unique name of the joiner.
@@ -1423,8 +1423,8 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
  *
  * As mentioned in the memory management sidebar (at the start of this file) we
  * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a weak reference so we 
- * don't interfere with Java garbage collection.  See the member variable 
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.  See the member variable
  * jbusListener for this reference.  The bindings hold separate strong references
  * in this case.
  *
@@ -2423,7 +2423,7 @@ class _Bus : public BusAttachment {
      * listeners to registerBusListener, they can forget that the listeners
      * exist after the register call and never explicitly call unregister.
      *
-     * Since we need these Java objects around, we need to hold a strong 
+     * Since we need these Java objects around, we need to hold a strong
      * reference to them to keep them from being garbage collected.  We also
      * have corresponding C++ classes to adapt the C++ callbacks to the Java
      * callbacks.  Since the client may have forgotten the Java objects and
@@ -2522,7 +2522,7 @@ void _Bus::Disconnect(const char* connectArgs)
      * Whenever we arrange a path from AllJoyn into Java, we are provided a Java
      * listener object.  We also create a C++ object to adapt the calls.  It is
      * reasonable to assume that the client will have used the unnamed parameter
-     * idiom to provide the listener and so we have needed to stash the C++ 
+     * idiom to provide the listener and so we have needed to stash the C++
      * objects we create so we can clean them up when there is no longer a
      * possibility that they can be called by AllJoyn.
      *
@@ -2673,15 +2673,15 @@ typedef ManagedObj<_Bus> Bus;
  * We are provided a "this" reference, which is a reference to the Java
  * BusAttachment which is being constructed.  Inside this BusAttachment we expect
  * to find a field named "handle" into which we place the pointer to the new
- * C++ bus attachment.  Since the BusAttachment only provides a path for 
+ * C++ bus attachment.  Since the BusAttachment only provides a path for
  * making calls into C++ there is no need for a reference back from C++ to
  * Java and we don't need the corresponding weak reference.
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
- * @param japplicationName A name to give the application.  Used primarily in 
+ * @param japplicationName A name to give the application.  Used primarily in
  *                         authentication.
  * @param allowRemoteMessages If true allow communication with attachments
  *                            on physically remote attachments.
@@ -2720,7 +2720,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env,
  * is presented to the Java user.  As described in the sidebars at the start of
  * this file, the Java BusAttachment has a corresponding C++ class.
  *
- * The Java object lifetime is managed by the JVM garbage collector, but the 
+ * The Java object lifetime is managed by the JVM garbage collector, but the
  * C++ object needs to be explicitly managed.  In order to accomodate this, we
  * hook the finalize() method in the Java BusAttachment finalize() method, which
  * will be called when the Java object has been determined to be garbage.
@@ -2741,7 +2741,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env,
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
@@ -2758,7 +2758,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
 
 /**
  * Register an object that will receive bus event notifications.  In this
- * context, registering a listener should be thought of as "adding another 
+ * context, registering a listener should be thought of as "adding another
  * listener."  You may register zero (if you are not interested in receiving
  * notifications) or more listeners.
  *
@@ -2781,7 +2781,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param listener  Object instance that will receive bus event notifications.
  */
@@ -2791,8 +2791,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
 
     /*
      * If there is already a C++ object associated with the provided Java
-     * listener object, it means that it is being registered twice.  We 
-     * just return since the plumbing is already in place to get the 
+     * listener object, it means that it is being registered twice.  We
+     * just return since the plumbing is already in place to get the
      * callbacks.
      */
     if (GetHandle(jlistener)) {
@@ -2839,7 +2839,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
 
     /*
      * Save the pointer in case the client is using the unnamed parameter idiom
-     * and will promptly forget the Java object.  In this case, we need to 
+     * and will promptly forget the Java object.  In this case, we need to
      * remember the C++ object so we can clean up.
      */
     (*bus)->busListeners.push_back(busListener);
@@ -2858,7 +2858,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param listener  Object instance that will receive bus event notifications.
  */
@@ -2894,7 +2894,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
         /*
          * If our client has made the effort to release the listener, we should
          * return the favor and not crash with a double free error when the bus
-         * attachment shuts down.  So, remove the saved entry corresponding to the 
+         * attachment shuts down.  So, remove the saved entry corresponding to the
          * C++ listener object.
          */
         for (list<JBusListener*>::iterator i = (*bus)->busListeners.begin(); i != (*bus)->busListeners.end(); ++i) {
@@ -2903,12 +2903,12 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
                 break;
             }
         }
-        
+
         /*
          * Once we have disconneced the callbacks, we can delete the C++ object
          * we created to receive those callbacks.  This will remove the strong
          * reference to the Java listener class that is held by the C++ object
-         * and allow Java garbage collection to do what it needs with the 
+         * and allow Java garbage collection to do what it needs with the
          * listener.
          */
         delete busListener;
@@ -3287,7 +3287,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
 
 /**
  * Bind a session port with the BusAttachment.  This makes a SessionPort
- * available for external BusAttachments to join, and enables callbacks to the 
+ * available for external BusAttachments to join, and enables callbacks to the
  * associated listener.
  *
  * Each BusAttachment binds its own set of SessionPorts. Session joiners use the
@@ -3295,7 +3295,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
  * persistent logical connection (called a Session) with the original
  * BusAttachment.  A SessionPort and bus name form a unique identifier that
  * BusAttachments use internally as a "half-association" when joining a session.
- *                                                                                                                              
+ *
  * SessionPort values can be pre-arranged between AllJoyn services and their
  * clients (well-known SessionPorts) in much the same way as a well-known IP
  * port number, although SessionPorts have scope local to the associated
@@ -3307,7 +3307,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
  * create additional sessions with the service by calling JoinSession with these
  * dynamic SessionPort ids.
  *
- * The bus will return events related to the management of sessions related to 
+ * The bus will return events related to the management of sessions related to
  * the given session port through a listener object.  This listener object is
  * expected to inherit from class SessionPortListener and specialize the callback
  * methods in which a user is interested.
@@ -3339,7 +3339,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
  * pointer.  We also have a strong referece held in the C++ object to the
  * associated java object.  When we destroy the C++ class, its destructor
  * will delete the global reference it holds to the Java class, allowing the
- * Java garbage collector to free the Java listener if the client has 
+ * Java garbage collector to free the Java listener if the client has
  * used the unnamed parameter idiom to give us the listener object reference.
  * If the user has a named reference to the listener, the Java listener will
  * hang around, but since there is no C++ plumbing underneath there will be
@@ -3348,7 +3348,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param jsessionPort The SessionPort value to bind or SESSION_PORT_ANY to allow
  *                     this method to choose an available port. On successful
@@ -3454,7 +3454,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      * the only time that the AllJoyn system keeps a reference to the
      * listener is if it returns ER_OK.  So if we either get an exception
      * or an error status, we can safely delete the listener.  This removes
-     * the strong referece to the Java listener object, allowing it to be 
+     * the strong referece to the Java listener object, allowing it to be
      * garbage collected, and since there is no reference to the C++ object
      * in the AllJoyn code, callbacks will never happen.
      */
@@ -3511,7 +3511,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param jsessionPort The SessionPort value to bind or SESSION_PORT_ANY to allow
  *                     this method to choose an available port. On successful
@@ -3550,25 +3550,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
      * we know that the only time the AllJoyn bus attachement actually forgets
      * the listener is when UnbindSessionPort returns status ER_OK.
      *
-     * This means that if there was any kind of error, AllJoyn can still call 
+     * This means that if there was any kind of error, AllJoyn can still call
      * back into our C++ Object.  Therefore we must keep it around.  Since the
      * C++ object is around, the Java object must be kept around to receive
      * translated callbacks from the C++ object.
      *
      * We can only delete the C++ callback object and release our strong reference
-     * to its associated Java object if there has been no exception and the 
-     * return status is ER_OK.  If there is an error, cleanup will have to wait 
+     * to its associated Java object if there has been no exception and the
+     * return status is ER_OK.  If there is an error, cleanup will have to wait
      * until the bus attachment and all of its associated proxy bus objects are
      * finalized.
      */
-    if (env->ExceptionCheck() == false && status == ER_OK ) {
+    if (env->ExceptionCheck() == false && status == ER_OK) {
         QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Success\n"));
 
         /*
          * We have a pointer to the C++ object in the sesion port listener Java
          * object, but we can't get at it from there, and we don't ask the user
          * to remember it so she can use the unnamed parameter idiom while binding
-         * the port.  We have it stored in a map of session ports to listener 
+         * the port.  We have it stored in a map of session ports to listener
          * objects because of this.
          */
         JSessionPortListener* spl = (*bus)->sessionPortListenerMap[jsessionPort];
@@ -3589,7 +3589,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
  * persistent logical connection (called a Session) with the original
  * BusAttachment.  A SessionPort and bus name form a unique identifier that
  * BusAttachments use internally as a "half-association" when joining a session.
- *                                                                                                                              
+ *
  * SessionPort values can be pre-arranged between AllJoyn services and their
  * clients (well-known SessionPorts) in much the same way as a well-known IP
  * port number, although SessionPorts have scope local to the associated
@@ -3635,7 +3635,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param jsessionPort The SessionPort value representing the contact port.
  * @param jsessionId Set to the resulting SessionID value if the call succeeds.
@@ -3746,7 +3746,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      * the only time that the AllJoyn system keeps a reference to the
      * listener is if it returns ER_OK.  So if we either get an exception
      * or an error status, we can safely delete the listener.  This removes
-     * the strong referece to the Java listener object, allowing it to be 
+     * the strong referece to the Java listener object, allowing it to be
      * garbage collected, and since there is no reference to the C++ object
      * in the AllJoyn code, callbacks will never happen.
      */
@@ -3807,7 +3807,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
 }
 
 /**
- * Leave (cancel) a session.  This releases the resources allocated for the 
+ * Leave (cancel) a session.  This releases the resources allocated for the
  * session, notifies the other side that we have left, and disables callbacks
  * to the associated listener.
  *
@@ -3826,7 +3826,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param jsessionId The SessionId value of the session to end.
  */
@@ -3868,19 +3868,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
      * translated callbacks from the C++ object.
      *
      * We can only delete the C++ callback object and release our strong reference
-     * to its associated Java object if there has been no exception and the 
-     * return status is ER_OK.  If there is an error, cleanup will have to wait 
+     * to its associated Java object if there has been no exception and the
+     * return status is ER_OK.  If there is an error, cleanup will have to wait
      * until the bus attachment and all of its associated proxy bus objects are
      * finalized.
      */
-    if (env->ExceptionCheck() == false && status == ER_OK ) {
+    if (env->ExceptionCheck() == false && status == ER_OK) {
         QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Success\n"));
 
         /*
          * We have a pointer to the C++ object in the sesion port listener Java
          * object, but we can't get at it from there, and we don't ask the user
          * to remember it so she can use the unnamed parameter idiom while binding
-         * the port.  We have it stored in a map of session ports to listener 
+         * the port.  We have it stored in a map of session ports to listener
          * objects because of this.
          */
         JSessionListener* sl = (*bus)->sessionListenerMap[jsessionId];
@@ -3896,12 +3896,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
 /**
  * Explicitly set a session listener for a given session ID.
  *
- * Clients provide session listeners when they join sessions since it makes 
+ * Clients provide session listeners when they join sessions since it makes
  * sense to associate the provided listener with the expected session ID.
  * Services, on the other hand, do not join sessions, they are notified when
  * clients join the sessions they are exporting.  So there is no easy way to
  * make the session ID to session joiner association.  Because of this, it is
- * expected that a service will make that association explicitly in its 
+ * expected that a service will make that association explicitly in its
  * session joined callback by calling this method.
  *
  * Although this is intended to be used by services, there is no rule that
@@ -3945,7 +3945,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
  *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a 
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
  *             "this" pointer in C++.
  * @param jsessionPort The SessionPort value representing the contact port.
  * @param jsessionId Set to the resulting SessionID value if the call succeeds.
