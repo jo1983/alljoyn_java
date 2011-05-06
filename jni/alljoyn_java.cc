@@ -4090,6 +4090,63 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv* env,
+                                                                         jobject thiz,
+                                                                         jstring jname,
+                                                                         jobject jguid)
+{
+    QCC_DbgPrintf(("BusAttachment::getPeerGUID()\n"));
+
+    /*
+     * Load the C++ name string from the java parameter.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): Exception\n"));
+        return NULL;
+    }
+
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(bus);
+
+    /*
+     * Make the AllJoyn call.
+     */
+    qcc::String guidstr;
+    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Call GetPeerGUID(%s, %s)\n", name.c_str(), guidstr.c_str()));
+
+    QStatus status = (*bus)->GetPeerGUID(name.c_str(), guidstr);
+
+    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Back from GetPeerGUID(%s, %s)\n", name.c_str(), guidstr.c_str()));
+
+    /*
+     * Locate the C++ GUID string.  Note that the reference to the string is
+     * passed in as an [out] parameter using a mutable object, so we are really
+     * finding the field which we will write our found GUID string reference into.  
+     */
+    JLocalRef<jclass> clazz = env->GetObjectClass(jguid);
+    jfieldID guidValueFid = env->GetFieldID(clazz, "value", "Ljava/lang/String;");
+    assert(guidValueFid);
+
+    /*
+     * We provided an empty C++ string to AllJoyn, and it has put the GUID in
+     * that string if it succeeded.  We need to create a Java string with the
+     * returned bytes and put it into the StringValue object's "value" field
+     * which we just located.
+     */
+    jstring jstr = env->NewStringUTF(guidstr.c_str());
+    env->SetObjectField(jguid, guidValueFid, jstr);
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_getPeerGUID(): GetPeerGUID() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIEnv*env, jobject thiz,
                                                                             jstring jmodule, jint jlevel)
 {
@@ -4372,7 +4429,40 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* 
         return;
     }
     assert(bus);
+
     (*bus)->ClearKeyStore();
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* env,
+                                                                       jobject thiz,
+                                                                       jstring jguid)
+{
+    QCC_DbgPrintf(("BusAttachment::clearKeys()\n"));
+
+    /*
+     * Load the C++ guid string from the java parameter
+     */
+    JString guid(jguid);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_clearKeys(): Exception\n"));
+        return NULL;
+    }
+
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(bus);
+
+    QCC_DbgPrintf(("BusAttachment_clearKeys(): Call ClearKeys(%s)\n", guid.c_str()));
+
+    QStatus status = (*bus)->ClearKeys(guid.c_str());
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_clearKeys(): ClearKeys() fails\n"));
+    }
+
+    return JStatus(status);
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(JNIEnv* env,

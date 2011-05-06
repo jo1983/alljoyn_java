@@ -345,6 +345,25 @@ public class BusAttachment {
     public native Status getSessionFd(int sessionId, Mutable.IntegerValue sockFd);
 
     /**
+     * Get the peer GUID for this peer or an authenticated remote peer. Peer
+     * GUIDs are used by the authentication mechanisms to uniquely and identify
+     * a remote application instance. The peer GUID for a remote peer is only
+     * available if the remote peer has been authenticated.
+     *
+     * @param name  Name of a remote peer or NULL to get the local (our) peer
+     *              GUID.
+     * @param guid  Mutable value that contains a reference to the returned
+     *              GUID string (think C++ [out] parameter.
+     *
+     * @return 
+     * <ul>
+     * <li>OK if the requested GUID was obtained</li>
+     * <li>other error status codes indicating a failure</li>
+     * <ul>
+     */
+    public native Status getPeerGUID(String name, Mutable.StringValue guid);
+
+    /**
      * This sets the debug level of the local AllJoyn daemon if that daemon
      * was built in debug mode.
      *
@@ -885,6 +904,20 @@ public class BusAttachment {
      * when establishing secure peer connections.
      */
     public native void clearKeyStore();
+
+    /**
+     * Clear the keys associated with a specific peer identified by its GUID.
+     *
+     * @param guid  The guid of a remote authenticated peer.
+     *
+     * @return
+     * <ul>
+     * <li>OK if the key was cleared</li>
+     * <li>UNKNOWN GUID if theere is no peer with the specified GUID</li>
+     * <li>other error status codes indicating a failure</li>
+     * <ul>
+     */
+    public native Status clearKeys(String guid);
 
     /**
      * Registers a user-defined authentication listener class with a specific default key store.

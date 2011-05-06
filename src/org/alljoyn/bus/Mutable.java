@@ -27,6 +27,30 @@ package org.alljoyn.bus;
 public class Mutable {
 
     /**
+     * A class providing [in,out] parameter semantics for Java Strings.
+     */
+    static public class StringValue {
+        /**
+         * Construct a StringValue.
+         */
+        public StringValue() {
+            value = "";
+        }
+
+        /**
+         * Construct a StringValue with the given value.
+         */
+        public StringValue(String string) {
+            value = string;
+        }
+
+        /**
+         * The string in question.
+         */
+        public String value;
+    }
+
+    /**
      * A class providing inout parameter semantics for Java ints.
      */
     static public class IntegerValue {

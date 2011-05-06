@@ -194,6 +194,14 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    getPeerGUID
+ * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$StringValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_geetPeerGUID
+  (JNIEnv *, jobject, jstring, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    setDaemonDebug
  * Signature: (Ljava/lang/String;I)Lorg/alljoyn/bus/Status;
  */
@@ -300,6 +308,14 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore
   (JNIEnv *, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    clearKeys
+ * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys
+  (JNIEnv *, jobject, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
