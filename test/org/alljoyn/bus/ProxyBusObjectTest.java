@@ -49,7 +49,7 @@ public class ProxyBusObjectTest extends TestCase {
     private boolean isAndroid = false; // running on android device?
 
     public void setUp() throws Exception {
-//        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=bluebus");
+//        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
 //        name = "org.alljoyn.bus.ProxyBusObjectTest.advertise";
 //
 //        daemon = new AllJoynDaemon();
