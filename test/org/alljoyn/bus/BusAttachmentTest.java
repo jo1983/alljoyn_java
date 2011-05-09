@@ -100,7 +100,7 @@ public class BusAttachmentTest extends TestCase {
     public void setUp() throws Exception {
         bus = null;
         name = "org.alljoyn.bus.BusAttachmentTest.advertise";
-        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=bluebus");
+        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
     }
 
     public void tearDown() throws Exception {
