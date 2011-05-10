@@ -57,12 +57,6 @@ public class ProxyBusObject {
 
     private Method busConnectionLost;
 
-    private String busAddress;
-
-    private ProxyBusObjectListener listener;
-
-    private String nameOwner;
-
     /**
      * Construct a ProxyBusObject.
      *
@@ -331,29 +325,6 @@ public class ProxyBusObject {
      */
     public void setAutoStart(boolean autoStart) {
         this.flags = autoStart ? this.flags | AUTO_START : this.flags & ~AUTO_START;
-    }
-
-    private void nameOwnerChanged(String name, String oldOwner, String newOwner) {
-        if (name.equals(getBusName())) {
-            synchronized (this) {
-                nameOwner = newOwner;
-                notify();
-            }
-        }
-    }
-
-    private void busConnectionLost(String busAddress) {
-        if ((this.busAddress != null) && this.busAddress.equals(busAddress)) {
-            final ProxyBusObjectListener l = listener;
-            if (l != null) {
-                final String ba = busAddress;
-                bus.execute(new Runnable() {
-                        public void run() {
-                            l.disconnected(ba);
-                        }
-                    });
-            }
-        }
     }
 }
 

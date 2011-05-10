@@ -192,29 +192,6 @@ public class ProxyBusObjectTest extends TestCase {
 //        assertTrue(thrown);
     }
 
-    private String disconnectedAddress;
-
-    public class DisconnectedListener implements ProxyBusObjectListener {
-        public void disconnected(String busAddress) {
-            disconnectedAddress = busAddress;
-        }
-    }
-
-    public void testDisconnectedListener() throws Exception {
-//        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, 
-//                     otherBus.getDBusProxyObj().RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS));
-//        assertEquals(AllJoynProxyObj.AdvertiseNameResult.Success, otherBus.getAllJoynProxyObj().AdvertiseName(name));
-//
-//        proxyObj = bus.getProxyBusObject(name, "/simple", new Class[] { SimpleInterface.class });
-//        assertEquals(Status.OK, proxyObj.connect(daemon.remoteAddress(), 5 * 1000, new DisconnectedListener()));
-//        disconnectedAddress = null;
-//        daemon.stop();
-//
-//        Thread.currentThread().sleep(1000);
-//        assertEquals(daemon.remoteAddress(), disconnectedAddress);
-//        daemon = null;
-    }
-
     public class Emitter implements EmitterInterface, 
                                     BusObject {
         public void Emit(String str) { /* Do nothing, this is a signal. */ }
