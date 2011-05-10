@@ -671,7 +671,15 @@ public class BusAttachment {
      * @return OK if successful
      */
     public Status connect() {
-        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
+    	/*
+    	 * os.name is one of the standard system properties will be used to 
+    	 * decide the value of org.alljoyn.bus.address.
+    	 */
+    	if ( System.getProperty("os.name").startsWith("Windows")) {
+    		address = System.getProperty("org.alljoyn.bus.address", "tcp:addr=127.0.0.1,port=9955");
+    	} else {
+    		address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
+    	}
         if (address != null) {
             return connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName);
         } else {
