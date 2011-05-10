@@ -27,7 +27,7 @@ then
 	export BUS_SERVER_ADDRESSES="tcp:addr=0.0.0.0,port=5342"
 else
 	: Linux
-	export BUS_SERVER_ADDRESSES="unix:abstract=/tmp/mbustest;tcp:addr=0.0.0.0,port=5342"
+	export BUS_SERVER_ADDRESSES="unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=5342"
 fi
 
 # set ALLJOYN_JAVA and/or ALLJOYN_DIST either through environment variables...
@@ -120,7 +120,7 @@ date
 			-Ddist="$( cygpath -wa "$ALLJOYN_DIST/java" )" \
 			-Dclasses="$( cygpath -wa "$classes" )" \
 			-Dorg.alljoyn.bus.address="tcp:addr=127.0.0.1,port=5342" \
-			-Dorg.alljoyn.bus.daemonaddress="tcp:addr=0.0.0.0,port=5343" \
+			-Dorg.alljoyn.bus.daemonaddress="tcp:addr=127.0.0.1,port=5343" \
 			-Dorg.alljoyn.bus.daemonremoteaddress="tcp:addr=127.0.0.1,port=5343" \
 			-Dorg.alljoyn.bus.authMechanisms=EXTERNAL \
 			test
@@ -132,7 +132,7 @@ date
 			-Dbuild="$build" \
 			-Ddist="$ALLJOYN_DIST/java" \
 			-Dclasses="$classes" \
-			-Dorg.alljoyn.bus.address="unix:abstract=/tmp/mbustest" \
+			-Dorg.alljoyn.bus.address="unix:abstract=alljoyn" \
 			-Dorg.alljoyn.bus.daemonaddress="unix:abstract=AllJoynDaemonTest" \
 			-Dorg.alljoyn.bus.daemonremoteaddress="tcp:addr=127.0.0.1,port=5343" \
 			-Dorg.alljoyn.bus.authMechanisms=EXTERNAL \
