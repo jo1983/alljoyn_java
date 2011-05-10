@@ -6,7 +6,7 @@
   <property name="classes" value="./test/${build}/obj/classes" />
   <property name="test" value="./${build}/test" />
   <property name="checkstyle" value="./${build}/checkstyle" />
-  <property name="org.alljoyn.bus.address" value="unix:abstract=bluebus"/>
+  <property name="org.alljoyn.bus.address" value="unix:abstract=alljoyn"/>
   <property name="org.alljoyn.bus.daemonaddress" value="unix:abstract=AllJoynDaemonTest"/>
   <property name="org.alljoyn.bus.daemonremoteaddress" value="tcp:addr=127.0.0.1,port=5343"/>
   
