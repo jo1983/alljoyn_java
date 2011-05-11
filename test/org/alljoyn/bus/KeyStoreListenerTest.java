@@ -79,17 +79,28 @@ public class KeyStoreListenerTest extends TestCase {
     public void setUp() throws Exception {
         bus = new BusAttachment(getClass().getName());
         authListener = new BusAuthListener();
-        assertEquals(Status.OK, 
-                     bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener,
-                                              File.createTempFile("alljoyn", "ks").getAbsolutePath()));
+        if ( System.getProperty("os.name").startsWith("Windows")) {
+        	assertEquals(Status.OK, 
+                    bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener));	
+        } else {
+        	assertEquals(Status.OK, 
+                    bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener,
+                                             File.createTempFile("alljoyn", "ks").getAbsolutePath()));	
+        }
+        
         service = new SecureService();
         assertEquals(Status.OK, bus.registerBusObject(service, "/secure"));        
 
         otherBus = new BusAttachment(getClass().getName() + ".other");
         otherAuthListener = new BusAuthListener();
-        assertEquals(Status.OK, 
-                     otherBus.registerAuthListener("ALLJOYN_SRP_KEYX", otherAuthListener,
-                                                   File.createTempFile("alljoyn_other", "ks").getAbsolutePath()));
+        if ( System.getProperty("os.name").startsWith("Windows")) {
+        	assertEquals(Status.OK, 
+                    otherBus.registerAuthListener("ALLJOYN_SRP_KEYX", otherAuthListener));	
+        } else {
+        	assertEquals(Status.OK, 
+                    otherBus.registerAuthListener("ALLJOYN_SRP_KEYX", otherAuthListener,
+                                                  File.createTempFile("alljoyn_other", "ks").getAbsolutePath()));	
+        }
     }
 
     /* Must register key store listener before connecting, so setUp is split into two functions. */

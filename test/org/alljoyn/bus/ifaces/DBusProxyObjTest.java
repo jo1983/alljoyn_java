@@ -112,14 +112,36 @@ public class DBusProxyObjTest extends TestCase {
     }
 
     public void testGetConnectionUnixUser() throws Exception {
-        String name = "org.alljoyn.bus.ifaces.testGetConnectionUnixUser";
-        DBusProxyObj.RequestNameResult res1 = dbus.RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS);
-        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res1);
+    	if ( System.getProperty("os.name").startsWith("Windows")){
+    		/* 
+    		 * In windows there is no UnixUser.  Calling the DBus method 
+    		 * GetConnectionUnixUser will result in a ErrorReplyBusEception when
+    		 * running in windows.
+    		 */
+    		String name = "org.alljoyn.bus.ifaces.testGetConnectionUnixUser";
+    		DBusProxyObj.RequestNameResult res1 = dbus.RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS);
+    		assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res1);
+    		boolean thrown = false;
+    		try {
+    			int uid = dbus.GetConnectionUnixUser(name);
+    		} catch (ErrorReplyBusException ex) {
+    			thrown=true;
+    		} finally {
+    			assertTrue(thrown);
+    		}
+    		
+    		DBusProxyObj.ReleaseNameResult res2 = dbus.ReleaseName(name);
+    		assertEquals(DBusProxyObj.ReleaseNameResult.Released, res2);
+    	} else {
+    		String name = "org.alljoyn.bus.ifaces.testGetConnectionUnixUser";
+    		DBusProxyObj.RequestNameResult res1 = dbus.RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS);
+    		assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res1);
 
-        int uid = dbus.GetConnectionUnixUser(name);
+    		int uid = dbus.GetConnectionUnixUser(name);
 
-        DBusProxyObj.ReleaseNameResult res2 = dbus.ReleaseName(name);
-        assertEquals(DBusProxyObj.ReleaseNameResult.Released, res2);
+    		DBusProxyObj.ReleaseNameResult res2 = dbus.ReleaseName(name);
+    		assertEquals(DBusProxyObj.ReleaseNameResult.Released, res2);
+    	}
     }
 
     public void testGetConnectionUnixUserNoName() throws Exception {
@@ -134,14 +156,36 @@ public class DBusProxyObjTest extends TestCase {
     }
 
     public void testGetConnectionUnixProcessID() throws Exception {
-        String name = "org.alljoyn.bus.ifaces.testGetConnectionUnixProcessID";
-        DBusProxyObj.RequestNameResult res1 = dbus.RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS);
-        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res1);
+    	if ( System.getProperty("os.name").startsWith("Windows")){
+    		/* 
+    		 * In windows there is no UnixUser.  Calling the DBus method 
+    		 * GetConnectionUnixProcessID will result in a ErrorReplyBusEception 
+    		 * when running in windows.
+    		 */
+    		String name = "org.alljoyn.bus.ifaces.testGetConnectionUnixProcessID";
+    		DBusProxyObj.RequestNameResult res1 = dbus.RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS);
+    		assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res1);
+    		boolean thrown = false;
+    		try {
+    			int pid = dbus.GetConnectionUnixProcessID(name);
+    		} catch (ErrorReplyBusException ex) {
+    			thrown = true;
+    		} finally {
+    			assertTrue(thrown);
+    		}
 
-        int pid = dbus.GetConnectionUnixProcessID(name);
+    		DBusProxyObj.ReleaseNameResult res2 = dbus.ReleaseName(name);
+    		assertEquals(DBusProxyObj.ReleaseNameResult.Released, res2);    		
+    	} else {
+    		String name = "org.alljoyn.bus.ifaces.testGetConnectionUnixProcessID";
+    		DBusProxyObj.RequestNameResult res1 = dbus.RequestName(name, DBusProxyObj.REQUEST_NAME_NO_FLAGS);
+    		assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res1);
 
-        DBusProxyObj.ReleaseNameResult res2 = dbus.ReleaseName(name);
-        assertEquals(DBusProxyObj.ReleaseNameResult.Released, res2);
+    		int pid = dbus.GetConnectionUnixProcessID(name);
+
+    		DBusProxyObj.ReleaseNameResult res2 = dbus.ReleaseName(name);
+    		assertEquals(DBusProxyObj.ReleaseNameResult.Released, res2);
+    	}
     }
 
     public void testGetConnectionUnixProcessIDNoName() throws Exception {
