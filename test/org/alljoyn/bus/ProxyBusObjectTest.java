@@ -29,10 +29,6 @@ import junit.framework.TestCase;
 public class ProxyBusObjectTest extends TestCase {
     public ProxyBusObjectTest(String name) {
         super(name);
-        if ("The Android Project".equals(System.getProperty("java.vendor"))) 
-        {
-            isAndroid = true;
-        }
     }
 
     static {
@@ -46,7 +42,6 @@ public class ProxyBusObjectTest extends TestCase {
     private Service service;
     private BusAttachment bus;
     private ProxyBusObject proxyObj;
-    private boolean isAndroid = false; // running on android device?
 
     public void setUp() throws Exception {
 //        address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");

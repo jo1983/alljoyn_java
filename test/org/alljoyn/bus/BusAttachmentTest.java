@@ -87,14 +87,9 @@ public class BusAttachmentTest extends TestCase {
     private AllJoynDaemon daemon;
     private String name;
     private String address;
-    private boolean isAndroid = false; // running on android device?
 
     public BusAttachmentTest(String name) {
         super(name);
-        if ("The Android Project".equals(System.getProperty("java.vendor"))) 
-        {
-            isAndroid = true;
-        }
     }
 
     public void setUp() throws Exception {
@@ -577,8 +572,6 @@ public class BusAttachmentTest extends TestCase {
     }
     
     public void testLostExistingName() throws Exception {
-        if (!isAndroid) // Android device always fails this test
-        {
         // The client part
         bus = new BusAttachment(getClass().getName());
         assertEquals(Status.OK, bus.connect());
@@ -608,7 +601,6 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, otherBus.cancelAdvertiseName("org.alljoyn.bus.BusAttachmentTest.advertise.happy", SessionOpts.TRANSPORT_ANY));
         Thread.currentThread().sleep(10 * 1000);
         assertEquals(true, lost);
-        }
     }
 
     public class FindExistingNameBusListener extends BusListener {
