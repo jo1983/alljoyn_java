@@ -602,8 +602,7 @@ public class AllJoynChat extends Activity {
                 status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
                     @Override
                 	public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                    	logInfo(String.format("MySessionPortListener.acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, 
-                    		sessionOpts.toString()));
+                    	logInfo(String.format("MySessionPortListener.acceptSessionJoiner(%d, %s)", sessionPort, joiner));
                     	return true;
                     }
                 });
