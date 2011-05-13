@@ -928,6 +928,19 @@ public class BusAttachment {
     public native Status clearKeys(String guid);
 
     /**
+     * Reloads the key store for this bus attachment. This function would normally only be called in
+     * the case where a single key store is shared between multiple bus attachments, possibly by different
+     * applications. It is up to the applications to coordinate how and when the shared key store is
+     * modified.
+     *
+     * @return
+     * <ul>
+     * <li>OK if the key store was succesfully reloaded</li>
+     * <li>An error status indicating that the key store reload failed</li>
+     */
+    public native Status reloadKeyStore();
+     
+    /**
      * Registers a user-defined authentication listener class with a specific default key store.
      *
      * @param authMechanisms the authentication mechanism(s) to use for peer-to-peer authentication

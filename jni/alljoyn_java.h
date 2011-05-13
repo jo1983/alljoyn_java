@@ -319,6 +319,13 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    reloadKeyStore
+ * Signature: ()Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore
+  (JNIEnv *, jobject);
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    getMessageContext
  * Signature: ()Lorg/alljoyn/bus/MessageContext;
  */

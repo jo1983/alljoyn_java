@@ -4125,7 +4125,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv*
     /*
      * Locate the C++ GUID string.  Note that the reference to the string is
      * passed in as an [out] parameter using a mutable object, so we are really
-     * finding the field which we will write our found GUID string reference into.  
+     * finding the field which we will write our found GUID string reference into.
      */
     JLocalRef<jclass> clazz = env->GetObjectClass(jguid);
     jfieldID guidValueFid = env->GetFieldID(clazz, "value", "Ljava/lang/String;");
@@ -4460,6 +4460,28 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_clearKeys(): ClearKeys() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIEnv* env,
+                                                                            jobject thiz)
+{
+    QCC_DbgPrintf(("BusAttachment::reloadKeyStore()\n"));
+
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(bus);
+
+    QCC_DbgPrintf(("BusAttachment_reloadKeyStore(): Call ReloadKeyStore()\n"));
+
+    QStatus status = (*bus)->ReloadKeyStore();
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_reloadKeyStore(): ReloadKeyStore() fails\n"));
     }
 
     return JStatus(status);
