@@ -14,6 +14,7 @@
  *    limitations under the License.
  *
  ******************************************************************************/
+
 #include <jni.h>
 #include <stdio.h>
 #include <assert.h>
@@ -725,6 +726,7 @@ JKeyStoreListener::~JKeyStoreListener()
     JNIEnv* env = GetEnv();
     if (jkeyStoreListener) {
         env->DeleteGlobalRef(jkeyStoreListener);
+        jkeyStoreListener = NULL;
     }
 }
 
@@ -915,6 +917,7 @@ JBusListener::~JBusListener()
     JNIEnv* env = GetEnv();
     if (jbusListener) {
         env->DeleteGlobalRef(jbusListener);
+        jbusListener = NULL;
     }
 }
 
@@ -947,7 +950,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
      */
     JLocalRef<jstring> jname = env->NewStringUTF(name);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
         return;
     }
 
@@ -955,14 +958,14 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
 
     JLocalRef<jstring> jnamePrefix = env->NewStringUTF(namePrefix);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
         return;
     }
 
     QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jbusListener, MID_foundAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
         return;
     }
 
@@ -997,7 +1000,7 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
      */
     JLocalRef<jstring> jname = env->NewStringUTF(name);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::LostAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
         return;
     }
 
@@ -1005,14 +1008,14 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
 
     JLocalRef<jstring> jnamePrefix = env->NewStringUTF(namePrefix);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::LostAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
         return;
     }
 
     QCC_DbgPrintf(("JBusListener::LostAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jbusListener, MID_lostAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::LostAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
         return;
     }
 
@@ -1045,26 +1048,26 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
      */
     JLocalRef<jstring> jbusName = env->NewStringUTF(busName);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
         return;
     }
 
     JLocalRef<jstring> jpreviousOwner = env->NewStringUTF(previousOwner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
         return;
     }
 
     JLocalRef<jstring> jnewOwner = env->NewStringUTF(newOwner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
         return;
     }
 
     QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Call out to listener object and method\n"));
     env->CallVoidMethod(jbusListener, MID_nameOwnerChanged, (jstring)jbusName, (jstring)jpreviousOwner, (jstring)jnewOwner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
         return;
     }
 
@@ -1087,7 +1090,7 @@ void JBusListener::BusStopping(void)
     QCC_DbgPrintf(("JBusListener::BusStopping(): Call out to listener object and method\n"));
     env->CallVoidMethod(jbusListener, MID_busStopping);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JBusListener::BusStopping(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Exception\n"));
         return;
     }
 
@@ -1177,6 +1180,7 @@ JSessionListener::~JSessionListener()
     JNIEnv* env = GetEnv();
     if (jsessionListener) {
         env->DeleteGlobalRef(jsessionListener);
+        jsessionListener = NULL;
     }
 }
 
@@ -1207,7 +1211,7 @@ void JSessionListener::SessionLost(const SessionId& sessionId)
     QCC_DbgPrintf(("JSessionListener::SessionLost(): Call out to listener object and method\n"));
     env->CallVoidMethod(jsessionListener, MID_sessionLost, jsessionId);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JSessionListener::SessionLost(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::SessionLost(): Exception\n"));
         return;
     }
 
@@ -1304,6 +1308,7 @@ JSessionPortListener::~JSessionPortListener()
     JNIEnv* env = GetEnv();
     if (jsessionPortListener) {
         env->DeleteGlobalRef(jsessionPortListener);
+        jsessionPortListener = NULL;
     }
 }
 
@@ -1335,37 +1340,40 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
         return false;
     }
 
     jmethodID mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
     if (!mid) {
-        QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Can't find SessionOpts.<init>\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Can't find SessionOpts constructor\n"));
         return false;
     }
 
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Create new SessionOpts\n"));
     JLocalRef<jobject> jsessionopts = env->NewObject(CLS_SessionOpts, mid);
+    if (!jsessionopts) {
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Cannot create SessionOpts\n"));
+    }
 
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Load SessionOpts\n"));
     jfieldID fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
-    env->SetByteField(CLS_SessionOpts, fid, opts.traffic);
+    env->SetByteField(jsessionopts, fid, opts.traffic);
 
     fid = env->GetFieldID(CLS_SessionOpts, "isMultipoint", "Z");
-    env->SetBooleanField(CLS_SessionOpts, fid, opts.isMultipoint);
+    env->SetBooleanField(jsessionopts, fid, opts.isMultipoint);
 
     fid = env->GetFieldID(CLS_SessionOpts, "proximity", "B");
-    env->SetByteField(CLS_SessionOpts, fid, opts.proximity);
+    env->SetByteField(jsessionopts, fid, opts.proximity);
 
     fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
-    env->SetShortField(CLS_SessionOpts, fid, opts.transports);
+    env->SetShortField(jsessionopts, fid, opts.transports);
 
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
     bool result = env->CallBooleanMethod(jsessionPortListener, MID_acceptSessionJoiner,
                                          sessionPort, (jstring)jjoiner, (jobject)jsessionopts);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
         return false;
     }
 
@@ -1400,13 +1408,13 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception\n"));
     }
 
     QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Call out to listener object and method\n"));
     env->CallVoidMethod(jsessionPortListener, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception\n"));
         return;
     }
 
@@ -1515,6 +1523,7 @@ JAuthListener::~JAuthListener()
     JNIEnv* env = GetEnv();
     if (jauthListener) {
         env->DeleteGlobalRef(jauthListener);
+        jauthListener = NULL;
     }
 }
 
@@ -2316,9 +2325,11 @@ JSignalHandler::~JSignalHandler()
     JNIEnv* env = GetEnv();
     if (jmethod) {
         env->DeleteGlobalRef(jmethod);
+        jmethod = NULL;
     }
     if (jsignalHandler) {
         env->DeleteGlobalRef(jsignalHandler);
+        jsignalHandler = NULL;
     }
 }
 

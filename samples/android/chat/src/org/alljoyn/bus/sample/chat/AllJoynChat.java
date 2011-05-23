@@ -409,7 +409,7 @@ public class AllJoynChat extends Activity {
          */
         private List<ChatInterface> mChatList;
         private List<Integer> mSessionList;
-        
+
         /**
          * Constructor for the handler thread.
          * 
@@ -581,15 +581,16 @@ public class AllJoynChat extends Activity {
                 /*
                  * If we sucessfully receive permission to use the requested
                  * service name, we need to Create a new session listening on
-                 * the contact port of the raw service.  The default session
-                 * options are sufficient for our purposes
+                 * the contact port of the raw service.  We ask for reliable
+                 * message-based traffic and point-to-multipoint sessions (true)
+                 * so all of our chatters can talk with a single message send.
+                 * We aren't worried about the proximity or the physical
+                 * transport used to send get messages to us so we allow "ANY"
+                 * of these.
                  */
                 Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
-                SessionOpts sessionOpts = new SessionOpts();
-                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-                sessionOpts.isMultipoint = false;
-                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+                SessionOpts sessionOpts = new SessionOpts(SessionOpts.TRAFFIC_MESSAGES, true, SessionOpts.PROXIMITY_ANY,
+                	SessionOpts.TRANSPORT_ANY);
 
                 /*
                  * When we ask to bind the session port, we provide a listener
@@ -652,7 +653,7 @@ public class AllJoynChat extends Activity {
                  */
               	status = mBus.findAdvertisedName(NAME_PREFIX);
                 logStatus(String.format("BusAttachment.findAdvertisedName(%s)", 
-                    wellKnownName), status, Status.OK);
+                    NAME_PREFIX), status, Status.OK);
                 break;
             }
 
@@ -681,10 +682,14 @@ public class AllJoynChat extends Activity {
                  * of the definition of the chat service.  As a result of joining
                  * the session, we get a session identifier which we must use to 
                  * identify the created session communication channel whenever we
-                 * talk to the remote side.
+                 * talk to the remote side.  We use the same session options we 
+                 * used when we bound our own session port, assuming that other
+                 * chat implementations (the C++ version in particular) will do
+                 * the same.
                  */
                 short contactPort = CONTACT_PORT;
-                SessionOpts sessionOpts = new SessionOpts();
+                SessionOpts sessionOpts = new SessionOpts(SessionOpts.TRAFFIC_MESSAGES, true, SessionOpts.PROXIMITY_ANY,
+                    SessionOpts.TRANSPORT_ANY);
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
                 /*
