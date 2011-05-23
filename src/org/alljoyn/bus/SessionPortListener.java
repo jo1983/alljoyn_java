@@ -34,7 +34,7 @@ public class SessionPortListener {
      *
      * @return Return true if JoinSession request is accepted. false if rejected.
      */
-    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {return false;}
+    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts opts) {return false;}
 
     /**
      * Called by the bus when a session has been successfully joined. The

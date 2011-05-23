@@ -56,14 +56,13 @@ public class BusAttachment {
      * This method is a shortcut/helper that issues an org.freedesktop.DBus.RequestName method call to the local daemon
      * and interprets the response.
      *
-     * @param requestedName  Well-known name being requested.
-     * @param flags          Bitmask name flag (see DBusStd.h)
-     * 						<ul>
-     * 						<li>ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT</li>
-     * 						<li>ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING</li>
-     * 						<li>ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE</li>
-     * 						</ul>
-     * 							
+     * @param name    Well-known name being requested.
+     * @param flags   Bitmask name flag (see DBusStd.h)
+     * 	                <ul>
+     *                  <li>ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT</li>
+     *                  <li>ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING</li>
+     *                  <li>ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE</li>
+     *                  </ul>
      *
      * @return
      * <ul>
@@ -248,7 +247,7 @@ public class BusAttachment {
      * <ul>
      */
     public native Status bindSessionPort(Mutable.ShortValue sessionPort,
-                                         SessionOpts sessionOpts,
+                                         SessionOpts opts,
                                          SessionPortListener listener);
 
     /** 
