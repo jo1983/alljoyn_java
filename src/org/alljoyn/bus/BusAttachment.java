@@ -819,7 +819,7 @@ public class BusAttachment {
                                                     source);
         if (status == Status.BUS_NO_SUCH_INTERFACE) {
             try {
-                Class iface = Class.forName(ifaceName);
+                Class<?> iface = Class.forName(ifaceName);
                 InterfaceDescription desc = new InterfaceDescription();
                 status = desc.create(this, iface);
                 if (status == Status.OK) {

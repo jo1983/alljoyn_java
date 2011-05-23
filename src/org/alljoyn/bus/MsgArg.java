@@ -83,6 +83,7 @@ final class MsgArg {
      *                      object corresponding to the ordinal value cannot be
      *                      determined
      */
+    @SuppressWarnings("unchecked")
     private static Enum getEnumObject(Type type, int value) throws BusException {
         if (type instanceof Class) {
             Class c = (Class) type;
@@ -112,6 +113,7 @@ final class MsgArg {
      * @throws BusException if {@code obj} is an {@code Enum}, but the ordinal
      *                      value cannot be determined
      */
+    @SuppressWarnings("unchecked")
     private static int getEnumValue(Object obj) throws BusException {
         if (obj != null) {
             Class c = obj.getClass();
@@ -210,6 +212,7 @@ final class MsgArg {
      * @return the unmarshalled Java object
      * @throws MarshalBusException if the unmarshalling fails
      */
+    @SuppressWarnings("unchecked")
     public static Object unmarshal(long msgArg, Type type) throws MarshalBusException {
         try {
             Object object;
@@ -223,23 +226,23 @@ final class MsgArg {
                         long element  = getElement(msgArg, i);
                         Type[] typeArgs = ((ParameterizedType) type).getActualTypeArguments();
                         // TODO Can't seem to get it to suppress the warning here...
-                        ((Map) object).put(unmarshal(getKey(element), typeArgs[0]),
-                                           unmarshal(getVal(element), typeArgs[1]));
+                        ((Map<Object, Object>) object).put(unmarshal(getKey(element), typeArgs[0]),
+                                                           unmarshal(getVal(element), typeArgs[1]));
                     }
                     return object;
                 } else {
                     Type componentType = (type instanceof GenericArrayType) 
                         ? ((GenericArrayType) type).getGenericComponentType()
                         : ((Class) type).getComponentType();
-                    Class componentClass;
+                    Class<?> componentClass;
                     if (componentType instanceof ParameterizedType) {
                         Type rawType = ((ParameterizedType) componentType).getRawType();
                         rawType = (rawType == Map.class) ? HashMap.class : rawType;
-                        componentClass = (Class) rawType;
+                        componentClass = (Class<?>) rawType;
                     } else {
-                        componentClass = (Class) componentType;
+                        componentClass = (Class<?>) componentType;
                     }
-                    object = Array.newInstance((Class) componentClass, getNumElements(msgArg));
+                    object = Array.newInstance(componentClass, getNumElements(msgArg));
                     for (int i = 0; i < getNumElements(msgArg); ++i) {
                         /*
                          * Under Sun the Array.set() is sufficient to check the
@@ -278,7 +281,7 @@ final class MsgArg {
             case ALLJOYN_INT16_ARRAY:
                 return getInt16Array(msgArg);
             case ALLJOYN_INT32:
-                object = getEnumObject(type, (int) getInt32(msgArg));
+                object = getEnumObject(type, getInt32(msgArg));
                 if (object == null) {
                     return getInt32(msgArg);
                 }
@@ -323,7 +326,7 @@ final class MsgArg {
             case ALLJOYN_UINT16_ARRAY:
                 return getUint16Array(msgArg);
             case ALLJOYN_UINT32:
-                object = getEnumObject(type, (int) getUint32(msgArg));
+                object = getEnumObject(type, getUint32(msgArg));
                 if (object == null) {
                     return getUint32(msgArg);
                 }
@@ -409,7 +412,7 @@ final class MsgArg {
             case ALLJOYN_INT32:
             case ALLJOYN_UINT32:
                 if (value != -1) {
-                    set(msgArg, sig, (int) value);
+                    set(msgArg, sig, value);
                 } else {
                     set(msgArg, sig, ((Number) arg).intValue());
                 }
