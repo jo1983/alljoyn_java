@@ -545,8 +545,6 @@ public class BusAttachment {
     /** Default key store file name. */
     private String keyStoreFileName;
 
-    private Map<String, FindAdvertisedNameListener> findAdvertisedNameListeners;
-
     private Method foundAdvertisedName;
 
     private ExecutorService executor;
@@ -575,7 +573,6 @@ public class BusAttachment {
     public BusAttachment(String applicationName, RemoteMessage policy) {
         this.allowRemoteMessages = (policy == RemoteMessage.Receive);
         busAuthListener = new AuthListenerInternal();
-        findAdvertisedNameListeners = Collections.synchronizedMap(new HashMap<String, FindAdvertisedNameListener>());
         try {
             foundAdvertisedName = getClass().getDeclaredMethod(
                 "foundAdvertisedName", String.class, Short.class, String.class);
