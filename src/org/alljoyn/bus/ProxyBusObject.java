@@ -295,7 +295,7 @@ public class ProxyBusObject {
      * @param intf one of the interfaces supplied when the proxy bus object was
      *             created
      * @return the proxy implementing the interface
-     * @see BusAttachment#getProxyBusObject(String, String, Class[])
+     * @see BusAttachment#getProxyBusObject(String, String, int, Class[])
      */
     public <T> T getInterface(Class<T> intf) {
         @SuppressWarnings(value = "unchecked")

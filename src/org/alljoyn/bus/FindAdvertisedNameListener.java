@@ -18,14 +18,14 @@ package org.alljoyn.bus;
 
 /**
  * Called by AllJoyn to inform users of found names.
- * @see BusAttachment#findAdvertisedName(String, FindAdvetisedNameListener)
+ * @see BusAttachment#findAdvertisedName(String)
  */
 public interface FindAdvertisedNameListener {
 
     /**
      * Called by the bus when an external bus is discovered that is advertising
      * a well-known name that this attachment has registered interest in via
-     * {@link BusAttachment#findAdvertisedName(String, FindAdvertisedNameListener)}.
+     * {@link BusAttachment#findAdvertisedName(String)}.
      *
      * @param name a well known name that the remote bus is advertising that is
      *             of interest to this attachment
@@ -39,7 +39,7 @@ public interface FindAdvertisedNameListener {
     /**
      * Called by the bus when a previously discovered name advertisement (reported
      * through foundName) is determined to have become unavailable.
-     * {@link BusAttachment#findAdvertisedName(String, FindAdvertisedNameListener)}.
+     * {@link BusAttachment#findAdvertisedName(String)}.
      *
      * @param name a well-known name that the remote bus was advertising that is
      *             of interest to this attachment.

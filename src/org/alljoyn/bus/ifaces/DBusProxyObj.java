@@ -29,8 +29,6 @@ import org.alljoyn.bus.annotation.BusSignal;
  * The functionality of DBusProxyObj is limited to functions that are available
  * in the DBus protocols. To use advanced AllJoyn features such as Peer-to-peer
  * connections, use AllJoynProxyObj.
- *
- * @see AllJoynProxyObj
  */
 @BusInterface(name = "org.freedesktop.DBus")
 public interface DBusProxyObj {

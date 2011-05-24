@@ -48,7 +48,7 @@ import java.lang.annotation.Target;
  * is known to the BusAttachment via a previous call to {@link
  * org.alljoyn.bus.BusAttachment#registerBusObject(BusObject, String)}
  * or {@link org.alljoyn.bus.BusAttachment#getProxyBusObject(String,
- * String, Class[])}.
+ * String, int, Class[])}.
  * <p>
  * The second example may be used succesfully when {@code
  * IMyInterface} is unknown to the BusAttachment.
