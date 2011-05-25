@@ -272,7 +272,7 @@ public class BusAttachment {
      * <li>BUS_NOT_CONNECTED if connection has not been made with the local daemon.</li>
      * <li>other error status codes indicating a failure</li> 
      */
-    public native Status unbindSessionPort(Mutable.ShortValue sessionPort);
+    public native Status unbindSessionPort(short sessionPort);
 
     /**
      * Join a session.
