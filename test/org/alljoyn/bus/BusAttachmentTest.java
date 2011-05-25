@@ -83,8 +83,6 @@ public class BusAttachmentTest extends TestCase {
     private int handledSignals3;
     private int handledSignals4;
     private boolean pinRequested;
-    private BusAttachment otherBus;
-    private AllJoynDaemon daemon;
     private String name;
     private String address;
 
@@ -106,23 +104,6 @@ public class BusAttachmentTest extends TestCase {
         	}
         	bus.disconnect();
             bus = null;
-        }
-
-        if (otherBus != null) {
-            String[] busNamesList = otherBus.getDBusProxyObj().ListNames();
-        	for(String busName : busNamesList) {
-        		if (busName.equals(name)) {
-        			assertEquals(Status.OK, otherBus.cancelAdvertiseName(name, SessionOpts.TRANSPORT_ANY));
-        			assertEquals(Status.OK, otherBus.releaseName(name));
-        		}
-        	}
-            
-        	otherBus.disconnect();
-            otherBus = null;
-        }
-
-        if (daemon != null) {
-            daemon.stop();
         }
     }
 
@@ -542,13 +523,9 @@ public class BusAttachmentTest extends TestCase {
         lost = false;
         assertEquals(Status.OK, bus.findAdvertisedName(name));
         
-        daemon = new AllJoynDaemon();
-        System.setProperty("org.alljoyn.bus.address", daemon.address());
-        otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-        assertEquals(Status.OK, otherBus.connect());
         int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
-        assertEquals(Status.OK, otherBus.requestName(name, flag));
-        assertEquals(Status.OK, otherBus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.requestName(name, flag));
+        assertEquals(Status.OK, bus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
      
         Thread.currentThread().sleep(5 * 1000);
         assertEquals(true, found);
@@ -575,14 +552,9 @@ public class BusAttachmentTest extends TestCase {
     	BusListener testBusListener = new LostExistingNameBusListener();
     	bus.registerBusListener(testBusListener);
 
-    	// A new daemon comes up and we have otherBus on which the service is running
-    	daemon = new AllJoynDaemon();
-    	System.setProperty("org.alljoyn.bus.address", daemon.address());
-    	otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-    	assertEquals(Status.OK, otherBus.connect());
     	int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
-    	assertEquals(Status.OK, otherBus.requestName(name, flag));
-    	assertEquals(Status.OK, otherBus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
+    	assertEquals(Status.OK, bus.requestName(name, flag));
+    	assertEquals(Status.OK, bus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
 
     	found = false;
     	lost = false;
@@ -591,17 +563,16 @@ public class BusAttachmentTest extends TestCase {
 
     	// Advertise a name and then cancel it.
     	Thread.currentThread().sleep(2 * 1000);
-    	assertEquals(Status.OK, otherBus.advertiseName("org.alljoyn.bus.BusAttachmentTest.advertise.happy", SessionOpts.TRANSPORT_ANY));
+    	assertEquals(Status.OK, bus.advertiseName("org.alljoyn.bus.BusAttachmentTest.advertise.happy", SessionOpts.TRANSPORT_ANY));
     	Thread.currentThread().sleep(2 * 1000);
     	assertEquals(true , found);
-    	assertEquals(Status.OK, otherBus.cancelAdvertiseName("org.alljoyn.bus.BusAttachmentTest.advertise.happy", SessionOpts.TRANSPORT_ANY));
+    	assertEquals(Status.OK, bus.cancelAdvertiseName("org.alljoyn.bus.BusAttachmentTest.advertise.happy", SessionOpts.TRANSPORT_ANY));
     	Thread.currentThread().sleep(10 * 1000);
     	assertEquals(true, lost);
     }
 
     public class FindExistingNameBusListener extends BusListener {
     	public void foundAdvertisedName(String name, short transport, String namePrefix) {
-    		//System.out.println("Name is :  "+name);
     		found = true;
         }
 
@@ -618,13 +589,9 @@ public class BusAttachmentTest extends TestCase {
         
         assertEquals(Status.OK, bus.connect());
         
-        daemon = new AllJoynDaemon();
-        System.setProperty("org.alljoyn.bus.address", daemon.address());
-        otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-        assertEquals(Status.OK, otherBus.connect());
         int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
-        assertEquals(Status.OK, otherBus.requestName(name, flag));
-        assertEquals(Status.OK, otherBus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.requestName(name, flag));
+        assertEquals(Status.OK, bus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
 
         found = false;
         lost = false;
@@ -689,29 +656,25 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, bus.findAdvertisedName("name.A"));
         assertEquals(Status.OK, bus.findAdvertisedName("name.B"));
 
-        daemon = new AllJoynDaemon();
-        System.setProperty("org.alljoyn.bus.address", daemon.address());
-        otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-        assertEquals(Status.OK, otherBus.connect());
-        assertEquals(Status.OK, otherBus.advertiseName("name.A", SessionOpts.TRANSPORT_ANY));
-        assertEquals(Status.OK, otherBus.advertiseName("name.B", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.advertiseName("name.A", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.advertiseName("name.B", SessionOpts.TRANSPORT_ANY));
         Thread.currentThread().sleep(4 * 1000);
 
         assertEquals(true, foundNameA);
         assertEquals(true, foundNameB);
         
-        assertEquals(Status.OK, otherBus.cancelAdvertiseName("name.A", SessionOpts.TRANSPORT_ANY));
-        assertEquals(Status.OK, otherBus.cancelAdvertiseName("name.B", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.cancelAdvertiseName("name.A", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.cancelAdvertiseName("name.B", SessionOpts.TRANSPORT_ANY));
 
         assertEquals(Status.OK, bus.cancelFindAdvertisedName("name.B"));
         foundNameA = foundNameB = false;
-        assertEquals(Status.OK, otherBus.advertiseName("name.A", SessionOpts.TRANSPORT_ANY));
-        assertEquals(Status.OK, otherBus.advertiseName("name.B", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.advertiseName("name.A", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.advertiseName("name.B", SessionOpts.TRANSPORT_ANY));
         Thread.currentThread().sleep(2 * 1000);
 
         assertEquals(Status.OK, bus.cancelFindAdvertisedName("name.A"));
-        assertEquals(Status.OK, otherBus.cancelAdvertiseName("name.A", SessionOpts.TRANSPORT_ANY));
-        assertEquals(Status.OK, otherBus.cancelAdvertiseName("name.B", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.cancelAdvertiseName("name.A", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.cancelAdvertiseName("name.B", SessionOpts.TRANSPORT_ANY));
         assertEquals(true, foundNameA);
         assertEquals(false, foundNameB);
     }
@@ -726,7 +689,7 @@ public class BusAttachmentTest extends TestCase {
     }
     
     public void testCancelFindNameInsideListener() throws Exception {
-        bus = new BusAttachment(getClass().getName());
+        bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
         
         BusListener testBusListener = new CancelFindNameInsideListenerBusListener();
         bus.registerBusListener(testBusListener);
@@ -735,11 +698,7 @@ public class BusAttachmentTest extends TestCase {
         found = false;
         assertEquals(Status.OK, bus.findAdvertisedName(name));
 
-        daemon = new AllJoynDaemon();
-        System.setProperty("org.alljoyn.bus.address", daemon.address());
-        otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
-        assertEquals(Status.OK, otherBus.connect());
-        assertEquals(Status.OK, otherBus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, bus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
 
         Thread.currentThread().sleep(1 * 1000);
         assertEquals(true, found);
@@ -754,6 +713,138 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, bus.cancelFindAdvertisedName(name));
     }
     
+    /*
+     * this test verifies when bindSessionPort is called when the bus is not 
+     * connected the BUS_NOT_CONNECTED status is returned.
+     * 
+     * Also test bindSessionPort after connecting with the bus.
+     */
+    public void testBindSessionPort() throws Exception {
+    	bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+    	
+    	SessionOpts sessionOpts = new SessionOpts();
+    	sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+		sessionOpts.isMultipoint = false;
+		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+		
+		Mutable.ShortValue sessionPort = new Mutable.ShortValue((short) 42);
+    	
+		assertEquals(Status.BUS_NOT_CONNECTED, bus.bindSessionPort(sessionPort, sessionOpts, new SessionPortListener()));
+		
+		assertEquals(Status.OK, bus.connect());
+		
+    	assertEquals(Status.OK, bus.bindSessionPort(sessionPort, sessionOpts, new SessionPortListener()));
+    	
+    }
+    
+    /*
+     * test unBindSessionPort by binding the with the sessionPort and instantly
+     * unbinding with the session port.
+     */
+    public void testUnBindSessionPort() throws Exception {
+    	bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+    	
+    	SessionOpts sessionOpts = new SessionOpts();
+    	sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+		sessionOpts.isMultipoint = false;
+		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+		
+		Mutable.ShortValue sessionPort = new Mutable.ShortValue((short) 42);
+		
+    	assertEquals(Status.OK, bus.connect());
+		
+    	assertEquals(Status.OK, bus.bindSessionPort(sessionPort, sessionOpts, new SessionPortListener()));
+    	assertEquals(Status.OK, bus.unbindSessionPort(sessionPort.value));
+    }
+    
+    private boolean sessionAccepted;
+    private boolean joined;
+    private Status joinSessionStatus;
+    private String joinSessionName;
+    //TODO the JoinSession test is still not complete and needs fixing
+    public void testJoinSession() throws Exception {
+    	
+    	found = false;
+    	sessionAccepted = false;
+    	joined = false;
+    	
+    	bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+    	assertEquals(Status.OK, bus.connect());
+        
+    	SessionOpts sessionOpts = new SessionOpts();
+    	sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+		sessionOpts.isMultipoint = false;
+		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+		
+		Mutable.ShortValue sessionPort = new Mutable.ShortValue((short) 42);
+
+    	assertEquals(Status.OK, bus.bindSessionPort(sessionPort, sessionOpts, 
+    			new SessionPortListener(){
+    		public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+    			System.out.println(String.format("acceptSessionJoiner(%d, %s, %s)", sessionPort, joiner, sessionOpts));
+    			if (sessionPort == 42) {
+    				sessionAccepted = true;
+    				return true;
+    			} else {
+    				sessionAccepted = false;
+    				return false;
+    			}
+    		}
+    		
+    		public void sessionJoined(short sessionPort, int id, String joiner) {
+    			System.out.println(String.format("SessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+    			if (sessionPort == 42) {
+    				joined = true;
+    			} else {
+    				joined = false;
+    			}
+    		}
+    	}));
+    	
+    	assertEquals(Status.OK, bus.advertiseName(name, SessionOpts.TRANSPORT_ANY));
+        
+    	
+        bus.registerBusListener(new BusListener() {
+            	public void foundAdvertisedName(String name, short transport, String namePrefix) {
+            		System.out.println(String.format("BusListener.foundAdvertisedName(%s, %d, %s)", name, transport, namePrefix));
+            		
+            		found = true;
+            		SessionOpts sessionOpts = new SessionOpts();
+                	sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+            		sessionOpts.isMultipoint = false;
+            		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+            		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+            		
+//            		Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);            	     
+//            		joinSessionStatus = bus.joinSession(name, (short)42, sessionId, 
+//                    		sessionOpts, new SessionListener() {});
+//            		
+//            		System.out.println(String.format("bus.joinSession(%s, 42, %d, %s)", name, sessionId.value, sessionOpts.toString()));
+            		joinSessionName = name;
+            	}
+        });
+        
+        assertEquals(Status.OK, bus.findAdvertisedName(name));
+        
+        Thread.currentThread().sleep(1 * 1000);
+        
+        assertEquals(true, found);
+        
+//        Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);            	     
+//		joinSessionStatus = bus.joinSession(joinSessionName, sessionPort.value, sessionId, 
+//        		sessionOpts, new SessionListener() {});
+//		
+//		System.out.println(String.format("bus.joinSession(%s, %d, %d, %s)", name, sessionPort.value, sessionId.value, sessionOpts.toString()));
+		
+		Thread.currentThread().sleep(1 * 1000);
+        
+        assertEquals(Status.OK, joinSessionStatus);
+        assertEquals(true, sessionAccepted);
+        assertEquals(true, joined);
+    }
     /*
      *  TODO
      *  Verify that all of the BusAttachment methods are tested
