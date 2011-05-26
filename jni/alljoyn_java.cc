@@ -4548,7 +4548,9 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
                                                                            jobject thiz,
                                                                            jobject jbus,
                                                                            jstring jname,
-                                                                           jboolean secure)
+                                                                           jboolean secure,
+                                                                           jint numProps,
+                                                                           jint numMembers)
 {
     Bus* bus = (Bus*)GetHandle(jbus);
     if (env->ExceptionCheck()) {
@@ -4563,9 +4565,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
     InterfaceDescription* intf;
     QStatus status = (*bus)->CreateInterface(name.c_str(), intf, secure);
     if (ER_BUS_IFACE_ALREADY_EXISTS == status) {
+        /*
+         * We know that an interface exists with the same name, but it may differ in other parameters,
+         * so confirm that other parameters are the same too before returning ER_OK.
+         *
+         * Note that we're not checking members or properties here, that check will be done later in
+         * addMember and addProperty.
+         */
         intf = (InterfaceDescription*)(*bus)->GetInterface(name.c_str());
         assert(intf);
-        status = ER_OK;
+        if ((intf->IsSecure() == secure) &&
+            (intf->GetProperties() == (size_t)numProps) &&
+            (intf->GetMembers() == (size_t)numMembers)) {
+            status = ER_OK;
+        }
     }
     if (ER_OK == status) {
         SetHandle(thiz, intf);
@@ -4606,7 +4619,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
     QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(),
                                      inputSig.c_str(), outSig.c_str(), NULL, annotation);
     if (ER_BUS_MEMBER_ALREADY_EXISTS == status || ER_BUS_INTERFACE_ACTIVATED == status) {
-        status = ER_OK;
+        /*
+         * We know that a member exists with the same name, but check that the other parameters
+         * are identical as well before returning ER_OK.  See also the comment in create above.
+         */
+        const InterfaceDescription::Member* member = intf->GetMember(name.c_str());
+        if (member && 
+            (member->memberType == (AllJoynMessageType)type) &&
+            (member->name == name.c_str()) &&
+            (member->signature == inputSig.c_str()) &&
+            (member->returnSignature == outSig.c_str()) &&
+            (member->annotation == annotation)) {
+            status = ER_OK;
+        }
     }
     return JStatus(status);
 }
@@ -4633,7 +4658,17 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(
 
     QStatus status = intf->AddProperty(name.c_str(), signature.c_str(), access);
     if (ER_BUS_PROPERTY_ALREADY_EXISTS == status || ER_BUS_INTERFACE_ACTIVATED == status) {
-        status = ER_OK;
+        /*
+         * We know that a property exists with the same name, but check that the other parameters
+         * are identical as well before returning ER_OK.  See also the comment in create above.
+         */
+        const InterfaceDescription::Property* prop = intf->GetProperty(name.c_str());
+        if (prop && 
+            (prop->name == name.c_str()) &&
+            (prop->signature == signature.c_str()) &&
+            (prop->access == access)) {
+            status = ER_OK;
+        }
     }
     return JStatus(status);
 }

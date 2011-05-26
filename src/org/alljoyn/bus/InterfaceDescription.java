@@ -74,7 +74,8 @@ class InterfaceDescription {
     }
 
     /** Allocate native resources. */
-    private native Status create(BusAttachment busAttachment, String name, boolean secure);
+    private native Status create(BusAttachment busAttachment, String name, boolean secure, 
+                                 int numProps, int numMembers);
 
     /** Add a member to the native interface description. */
     private native Status addMember(int type, String name, String inputSig, String outSig,
@@ -120,8 +121,17 @@ class InterfaceDescription {
      */
     public Status create(BusAttachment busAttachment, Class<?> busInterface) 
             throws AnnotationBusException {
+        Status status = getProperties(busInterface);
+        if (status != Status.OK) {
+            return status;
+        }
+        status = getMembers(busInterface);
+        if (status != Status.OK) {
+            return status;
+        }
         boolean secure = busInterface.getAnnotation(Secure.class) != null;
-        Status status = create(busAttachment, getName(busInterface), secure);
+        status = create(busAttachment, getName(busInterface), secure, properties.size(), 
+                        members.size());
         if (status != Status.OK) {
             return status;
         }
@@ -137,7 +147,7 @@ class InterfaceDescription {
         return Status.OK;
     }
 
-    private Status addProperties(Class<?> busInterface) throws AnnotationBusException {
+    private Status getProperties(Class<?> busInterface) throws AnnotationBusException {
         for (Method method : busInterface.getMethods()) {
             if (method.getAnnotation(BusProperty.class) != null) {
                 String name = getName(method);
@@ -158,6 +168,10 @@ class InterfaceDescription {
                 properties.put(name, property);
             }
         }
+        return Status.OK;
+    }
+
+    private Status addProperties(Class<?> busInterface) throws AnnotationBusException {
         for (Property property : properties.values()) {
             int access = ((property.get != null) ? READ : 0) | ((property.set != null) ? WRITE : 0);
             Status status = addProperty(property.name, property.signature, access);
@@ -168,12 +182,23 @@ class InterfaceDescription {
         return Status.OK;
     }
 
-    private Status addMembers(Class<?> busInterface) throws AnnotationBusException {
+    private Status getMembers(Class<?> busInterface) throws AnnotationBusException {
         for (Method method : busInterface.getMethods()) {
+            if (method.getAnnotation(BusMethod.class) != null) {
+                members.add(method);
+            } else if (method.getAnnotation(BusSignal.class) != null) {
+                members.add(method);
+            }
+        }
+        return Status.OK;
+    }
+
+    private Status addMembers(Class<?> busInterface) throws AnnotationBusException {
+        for (Method member : members) {
             int type = INVALID;
             int annotation = 0;
-            BusMethod m = method.getAnnotation(BusMethod.class);
-            BusSignal s = method.getAnnotation(BusSignal.class);
+            BusMethod m = member.getAnnotation(BusMethod.class);
+            BusSignal s = member.getAnnotation(BusSignal.class);
             if (m != null) {
                 type = METHOD_CALL;
                 annotation = m.annotation();
@@ -182,12 +207,11 @@ class InterfaceDescription {
                 annotation = s.annotation();
             }
             if (type != INVALID) {
-                Status status = addMember(type, getName(method), getInputSig(method),
-                                          getOutSig(method), annotation);
+                Status status = addMember(type, getName(member), getInputSig(member),
+                                          getOutSig(member), annotation);
                 if (status != Status.OK) {
                     return status;
                 }
-                members.add(method);
             }
         }
         return Status.OK;

@@ -132,28 +132,33 @@ public class MarshalStressTest extends TestCase {
     }
 
     private BusAttachment bus;
+    private BusAttachment serviceBus;
 
     private Service service;
 
     private MarshalStressInterfaceInvalid proxy;
 
     public void setUp() throws Exception {
-        bus = new BusAttachment(getClass().getName());
+        serviceBus = new BusAttachment(getClass().getName() + "Service");
         
         service = new Service();
-        Status status = bus.registerBusObject(service, "/service");
+        Status status = serviceBus.registerBusObject(service, "/service");
         assertEquals(Status.OK, status);
 
+        status = serviceBus.connect();
+        assertEquals(Status.OK, status);
+
+        DBusProxyObj control = serviceBus.getDBusProxyObj();
+        DBusProxyObj.RequestNameResult res = control.RequestName("org.alljoyn.bus.MarshalStressTest", 
+                                                                 DBusProxyObj.REQUEST_NAME_NO_FLAGS);
+        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
+
+        bus = new BusAttachment(getClass().getName());
         status = bus.connect();
         assertEquals(Status.OK, status);
 
-        DBusProxyObj control = bus.getDBusProxyObj();
-        DBusProxyObj.RequestNameResult res = control.RequestName("org.alljoyn.bus.MarshalStressTest", 
-                                                                DBusProxyObj.REQUEST_NAME_NO_FLAGS);
-        assertEquals(DBusProxyObj.RequestNameResult.PrimaryOwner, res);
-
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalStressTest", "/service", 
-        												 BusAttachment.SESSION_ID_ANY,
+                                                         BusAttachment.SESSION_ID_ANY,
                                                          new Class[] { MarshalStressInterfaceInvalid.class });
         proxy = remoteObj.getInterface(MarshalStressInterfaceInvalid.class);
     }
@@ -161,13 +166,16 @@ public class MarshalStressTest extends TestCase {
     public void tearDown() throws Exception {
         proxy = null;
 
-        DBusProxyObj control = bus.getDBusProxyObj();
+        DBusProxyObj control = serviceBus.getDBusProxyObj();
         DBusProxyObj.ReleaseNameResult res = control.ReleaseName("org.alljoyn.bus.MarshalStressTest");
         assertEquals(DBusProxyObj.ReleaseNameResult.Released, res);
 
-        bus.unregisterBusObject(service);
+        serviceBus.unregisterBusObject(service);
         service = null;
 
+        serviceBus.disconnect();
+        serviceBus = null;
+        
         bus.disconnect();
         bus = null;
     }

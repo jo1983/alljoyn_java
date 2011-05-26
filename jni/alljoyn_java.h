@@ -406,7 +406,7 @@ extern "C" {
  * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/String;Z)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create
-  (JNIEnv *, jobject, jobject, jstring, jboolean);
+  (JNIEnv *, jobject, jobject, jstring, jboolean, jint, jint);
 
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription

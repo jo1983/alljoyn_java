@@ -21,6 +21,8 @@ import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
 import org.alljoyn.bus.annotation.BusSignal;
 
+import java.util.Map;
+
 /**
  * The standard org.freedesktop.DBus interface that is implemented by the local
  * AllJoyn daemon.  It is used to control bus operations such as obtaining
@@ -32,6 +34,9 @@ import org.alljoyn.bus.annotation.BusSignal;
  */
 @BusInterface(name = "org.freedesktop.DBus")
 public interface DBusProxyObj {
+
+    @BusMethod(replySignature = "s")
+    String Hello() throws BusException;
 
     /**
      * If there is no owner of this name then take ownership.  Otherwise this
@@ -243,6 +248,53 @@ public interface DBusProxyObj {
     @BusMethod(replySignature = "s")
     String GetId() throws BusException;
 
+    /**
+     * Updates the activation environment.
+     *
+     * @param environment the environment to add or update
+     * @throws BusException
+     */
+    @BusMethod(signature = "a{ss}")
+    void UpdateActivationEnvironment(Map<String, String> environment) throws BusException;
+
+    /**
+     * Gets the list of queued owners.
+     *
+     * @param name the well-known bus name to query
+     * @return the unique bus names of connections currently queued for the name
+     * @throws BusException
+     */
+    @BusMethod(signature = "s", replySignature = "as")
+    String[] ListQueuedOwners(String name) throws BusException;
+
+    /**
+     * Gets the ADT audit session data.
+     *
+     * @param name the name of the connection to query
+     * @return an array of bytes
+     * @throws BusException
+     */
+    @BusMethod(signature = "s", replySignature = "ay")
+    byte[] GetAdtAuditSessionData(String name) throws BusException;
+
+    /**
+     * Gets the SE Linux security context for a connection.
+     *
+     * @param name the name of the connection to query
+     * @return an array of bytes
+     * @throws BusException
+     */
+    @BusMethod(signature = "s", replySignature = "ay")
+    byte[] GetConnectionSELinuxSecurityContext(String name) throws BusException;
+
+    /**
+     * Reloads the config file.
+     *
+     * @throws BusException
+     */
+    @BusMethod
+    void ReloadConfig() throws BusException;
+    
     /**
      * Signal broadcast whenever a name (well-known or unique) changes
      * ownership.
