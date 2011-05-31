@@ -73,7 +73,19 @@ public class SignalEmitter {
         proxy = Proxy.newProxyInstance(source.getClass().getClassLoader(),
                                        source.getClass().getInterfaces(), new Emitter());
     }
-
+    
+    /**
+     * construct a SignalEmitter used for broadcasting to a session
+     * 
+     * @param source the source object of any signals sent from this emitter
+     * @param sessionId A unique SessionId for this AllJoyn session instance
+     * @param globalBroadcast whether to forward broadcast signals
+     *                        across bus-to-bus connections
+     */
+    public SignalEmitter(BusObject source, int sessionId, GlobalBroadcast globalBroadcast) {
+    	this(source, null, sessionId, globalBroadcast);
+    }
+    
     /**
      * Constructs a SignalEmitter used for broadcasting.
      *
