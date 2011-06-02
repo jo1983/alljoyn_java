@@ -337,9 +337,13 @@ public class BusAttachment {
      * @param sessionId  Id of an existing streamming session.
      * @param sockFd     Socket file descriptor for session.
      *
-     * @return Status.OK if the socket FD was returned.  ER_BUS_NOT_CONNECTED if a
-     *         connection has not been made with a local bus; other error status
-     *         codes indicating a failure.                                                                        
+     * @return
+     * <ul>
+     * <li>Status.OK if the socket FD was returned.</li>
+     * <li>ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * </ul> 
+     *                                                                         
      */
     public native Status getSessionFd(int sessionId, Mutable.IntegerValue sockFd);
 
