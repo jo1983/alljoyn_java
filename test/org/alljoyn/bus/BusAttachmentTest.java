@@ -893,13 +893,13 @@ public class BusAttachmentTest extends TestCase {
         // find the AdvertisedName
         assertEquals(Status.OK, otherBus.findAdvertisedName(name));
         
-        this.wait(1 * 1000);
+        this.wait(4 * 1000);
         
         assertEquals(true, found);
 		
-        this.wait(1 * 1000);
+        this.wait(4 * 1000);
         if(!sessionAccepted || !sessionJoined) {
-        	this.wait(1 * 1000);
+        	this.wait(4 * 1000);
         }
 		
         assertEquals(Status.OK, joinSessionStatus);
@@ -960,6 +960,7 @@ public class BusAttachmentTest extends TestCase {
     			if (sessionPort == 42) {
     				sessionJoined = true;
     				busSessionId = id;
+    				System.out.println("sessionJoined ID: " + id);
     			} else {
     				sessionJoined = false;
     			}
@@ -991,6 +992,7 @@ public class BusAttachmentTest extends TestCase {
             		joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
                     		sessionOpts, new LeaveSessionSessionListener());
             		otherBusSessionId = sessionId.value;
+            		System.out.println("joinSession call ID: " + sessionId.value);
             		stopWait();
             	}
         });
@@ -998,13 +1000,13 @@ public class BusAttachmentTest extends TestCase {
         // find the AdvertisedName
         assertEquals(Status.OK, otherBus.findAdvertisedName(name));
         
-        this.wait(1 * 1000);
+        this.wait(4 * 1000);
         
         assertEquals(true, found);
 		
-        this.wait(1 * 1000);
+        this.wait(4 * 1000);
         if(!sessionAccepted || !sessionJoined) {
-        	this.wait(1 * 1000);
+        	this.wait(4 * 1000);
         }
 		
         assertEquals(Status.OK, joinSessionStatus);
@@ -1013,10 +1015,37 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(busSessionId, otherBusSessionId);
         
         assertEquals(Status.OK, otherBus.leaveSession(otherBusSessionId));
+        assertEquals(Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION, bus.leaveSession(busSessionId));
+        
+        found = false;
+        sessionAccepted = sessionJoined = false;
+        busSessionId = otherBusSessionId = 0;
+        
+        
+        
+        otherBus.cancelFindAdvertisedName(name);
+        otherBus.findAdvertisedName(name);
+        
+        this.wait(4 * 1000);
+        
+        assertEquals(true, found);
+        
+        this.wait(4 * 1000);
+        if(!sessionAccepted || !sessionJoined) {
+        	this.wait(4 * 1000);
+        }
+		
+        assertEquals(Status.OK, joinSessionStatus);
+        assertEquals(true, sessionAccepted);
+        assertEquals(true, sessionJoined);
+        assertEquals(busSessionId, otherBusSessionId);
+        
         assertEquals(Status.OK, bus.leaveSession(busSessionId));
+        assertEquals(Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION, otherBus.leaveSession(otherBusSessionId));
+		
         // TODO figure out why not seeing the sessionLost signal
-        //this.wait(4 * 1000);
-        //assertEquals(true, sessionLost);
+//        this.wait(4 * 1000);
+//        assertEquals(true, sessionLost);
     }
     /*
      *  TODO
