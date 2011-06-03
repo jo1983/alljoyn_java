@@ -813,7 +813,11 @@ public class BusAttachmentTest extends TestCase {
     private Status joinSessionStatus;
     private int busSessionId;
     private int otherBusSessionId;
-    private String joinName;
+    
+    public class JoinSessionSessionListener extends SessionListener{
+		
+	}
+    
     public synchronized void testJoinSession() throws Exception {
     	
     	found = false;
@@ -871,7 +875,17 @@ public class BusAttachmentTest extends TestCase {
         otherBus.registerBusListener(new BusListener() {
             	public void foundAdvertisedName(String name, short transport, String namePrefix) {            		
             		found = true;
-            		joinName = name;
+            		SessionOpts sessionOpts = new SessionOpts();
+                	sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+            		sessionOpts.isMultipoint = false;
+            		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+            		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+            		
+            		Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);    
+            		// Join session once the AdvertisedName has been found
+            		joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
+                    		sessionOpts, new JoinSessionSessionListener());
+            		otherBusSessionId = sessionId.value;
             		stopWait();
             	}
         });
@@ -882,27 +896,28 @@ public class BusAttachmentTest extends TestCase {
         this.wait(1 * 1000);
         
         assertEquals(true, found);
-        
-        Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);    
 		
-        // Join session once the AdvertisedName has been found
-//        assertEquals(Status.OK, otherBus.joinSession(joinName, sessionPort.value, sessionId, 
-//        		sessionOpts, new SessionListener() {}));
-//		otherBusSessionId = sessionId.value;
-//        
-//        this.wait(1 * 1000);
-//        if(!sessionAccepted || !sessionJoined) {
-//        	this.wait(1 * 1000);
-//        }
-//		
-//        assertEquals(true, sessionAccepted);
-//        assertEquals(true, sessionJoined);
-//        assertEquals(busSessionId, otherBusSessionId);
+        this.wait(1 * 1000);
+        if(!sessionAccepted || !sessionJoined) {
+        	this.wait(1 * 1000);
+        }
+		
+        assertEquals(Status.OK, joinSessionStatus);
+        assertEquals(true, sessionAccepted);
+        assertEquals(true, sessionJoined);
+        assertEquals(busSessionId, otherBusSessionId);
     }
     
     private boolean sessionLost;
+    
+    public class LeaveSessionSessionListener extends SessionListener {
+    	public void sessionLost(int sessionId) {
+			sessionLost = true;
+			stopWait();
+		}
+	}
     //TODO figure out how to produce the sessionLost signal
-    public synchronized void testLeaveSession() throws Exception{
+    public synchronized void testLeaveSession() throws Exception {
     	found = false;
     	sessionAccepted = false;
     	sessionJoined = false;
@@ -965,7 +980,17 @@ public class BusAttachmentTest extends TestCase {
         otherBus.registerBusListener(new BusListener() {
             	public void foundAdvertisedName(String name, short transport, String namePrefix) {            		
             		found = true;
-            		joinName = name;
+            		SessionOpts sessionOpts = new SessionOpts();
+                	sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+            		sessionOpts.isMultipoint = false;
+            		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+            		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+            		
+            		Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);    
+            		// Join session once the AdvertisedName has been found
+            		joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
+                    		sessionOpts, new LeaveSessionSessionListener());
+            		otherBusSessionId = sessionId.value;
             		stopWait();
             	}
         });
@@ -977,24 +1002,18 @@ public class BusAttachmentTest extends TestCase {
         
         assertEquals(true, found);
 		
-        Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);    
+        this.wait(1 * 1000);
+        if(!sessionAccepted || !sessionJoined) {
+        	this.wait(1 * 1000);
+        }
 		
-//        // Join session once the AdvertisedName has been found
-//        assertEquals(Status.OK, otherBus.joinSession(joinName, sessionPort.value, sessionId, 
-//        		sessionOpts, new SessionListener() {}));
-//		otherBusSessionId = sessionId.value;
-//        
-//        this.wait(1 * 1000);
-//        if(!sessionAccepted || !sessionJoined) {
-//        	this.wait(1 * 1000);
-//        }
-//		
-//        assertEquals(true, sessionAccepted);
-//        assertEquals(true, sessionJoined);
-//        assertEquals(busSessionId, otherBusSessionId);
-//        
-//        assertEquals(Status.OK, otherBus.leaveSession(otherBusSessionId));
-//        assertEquals(Status.OK, bus.leaveSession(busSessionId));
+        assertEquals(Status.OK, joinSessionStatus);
+        assertEquals(true, sessionAccepted);
+        assertEquals(true, sessionJoined);
+        assertEquals(busSessionId, otherBusSessionId);
+        
+        assertEquals(Status.OK, otherBus.leaveSession(otherBusSessionId));
+        assertEquals(Status.OK, bus.leaveSession(busSessionId));
         // TODO figure out why not seeing the sessionLost signal
         //this.wait(4 * 1000);
         //assertEquals(true, sessionLost);
