@@ -154,7 +154,7 @@ public class KeyStoreListenerTest extends TestCase {
         assertEquals(null, otherAuthListener.authMechanismRequested);
     }
 
-    public void testDefaultKeyStoreListener() throws Exception {
+    public void DISABLEDtestDefaultKeyStoreListener() throws Exception {
         setUp2();
         /*
          * The first method call may result in an auth request depending on
@@ -167,7 +167,7 @@ public class KeyStoreListenerTest extends TestCase {
         assertEquals(null, authListener.authMechanismRequested);
     }
 
-    public void testClearKeyStore() throws Exception {
+    public void DISABLEDtestClearKeyStore() throws Exception {
         InMemoryKeyStoreListener keyStoreListener = new InMemoryKeyStoreListener();
         bus.registerKeyStoreListener(keyStoreListener);
         InMemoryKeyStoreListener otherKeyStoreListener = new InMemoryKeyStoreListener();

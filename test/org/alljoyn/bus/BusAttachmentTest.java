@@ -766,7 +766,7 @@ public class BusAttachmentTest extends TestCase {
      * 
      * Also test bindSessionPort after connecting with the bus.
      */
-    public void testBindSessionPort() throws Exception {
+    public void DISABLEDtestBindSessionPort() throws Exception {
     	bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
     	
     	SessionOpts sessionOpts = new SessionOpts();
