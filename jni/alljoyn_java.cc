@@ -4624,7 +4624,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
          * are identical as well before returning ER_OK.  See also the comment in create above.
          */
         const InterfaceDescription::Member* member = intf->GetMember(name.c_str());
-        if (member && 
+        if (member &&
             (member->memberType == (AllJoynMessageType)type) &&
             (member->name == name.c_str()) &&
             (member->signature == inputSig.c_str()) &&
@@ -4663,7 +4663,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(
          * are identical as well before returning ER_OK.  See also the comment in create above.
          */
         const InterfaceDescription::Property* prop = intf->GetProperty(name.c_str());
-        if (prop && 
+        if (prop &&
             (prop->name == name.c_str()) &&
             (prop->signature == signature.c_str()) &&
             (prop->access == access)) {
