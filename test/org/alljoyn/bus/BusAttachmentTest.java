@@ -960,7 +960,6 @@ public class BusAttachmentTest extends TestCase {
     			if (sessionPort == 42) {
     				sessionJoined = true;
     				busSessionId = id;
-    				System.out.println("sessionJoined ID: " + id);
     			} else {
     				sessionJoined = false;
     			}
@@ -992,7 +991,6 @@ public class BusAttachmentTest extends TestCase {
             		joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
                     		sessionOpts, new LeaveSessionSessionListener());
             		otherBusSessionId = sessionId.value;
-            		System.out.println("joinSession call ID: " + sessionId.value);
             		stopWait();
             	}
         });

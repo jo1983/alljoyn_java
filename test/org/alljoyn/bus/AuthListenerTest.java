@@ -966,31 +966,43 @@ public class AuthListenerTest extends TestCase {
             "user2".toCharArray());
         /* Trust client certificate */
         serviceAuthListener.addTrustAnchor(
-            "-----BEGIN CERTIFICATE-----\n" +
-            "MIIBszCCARwCCQDuCh+BWVBk2DANBgkqhkiG9w0BAQUFADAeMQ0wCwYDVQQKDARN\n" +
-            "QnVzMQ0wCwYDVQQDDARHcmVnMB4XDTEwMDUxNzE1MTg1N1oXDTExMDUxNzE1MTg1\n" +
-            "N1owHjENMAsGA1UECgwETUJ1czENMAsGA1UEAwwER3JlZzCBnzANBgkqhkiG9w0B\n" +
-            "AQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt8e7GTIyXeM8z49Ie1mrQ\n" +
-            "h7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPsXV8kZdbkLGUMPl2GoZY3\n" +
-            "xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpikZvQhMKPDUAEkucQ95Z8C\n" +
-            "AwEAATANBgkqhkiG9w0BAQUFAAOBgQBkYY6zzf92LRfMtjkKs2am9qvjbqXyDJLS\n" +
-            "viKmYe1tGmNBUzucDC5w6qpPCTSe23H2qup27///fhUUuJ/ssUnJ+Y77jM/u1O9q\n" +
-            "PIn+u89hRmqY5GKHnUSZZkbLB/yrcFEchHli3vLo4FOhVVHwpnwLtWSpfBF9fWcA\n" +
-            "7THIAV79Lg==\n" +
+        	"-----BEGIN CERTIFICATE-----\n" +
+            "MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
+            "BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
+            "VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
+            "MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
+            "MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
+            "MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
+            "8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
+            "XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
+            "ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
+            "C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
+            "MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
+            "QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
+            "BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
+            "ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
+            "cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
+            "NeEMMSIgpTeBZoUP/kGQ\n" +
             "-----END CERTIFICATE-----");
         RsaAuthListener authListener = new RsaAuthListener(
             /* certificate */
-            "-----BEGIN CERTIFICATE-----\n" +
-            "MIIBszCCARwCCQDuCh+BWVBk2DANBgkqhkiG9w0BAQUFADAeMQ0wCwYDVQQKDARN\n" +
-            "QnVzMQ0wCwYDVQQDDARHcmVnMB4XDTEwMDUxNzE1MTg1N1oXDTExMDUxNzE1MTg1\n" +
-            "N1owHjENMAsGA1UECgwETUJ1czENMAsGA1UEAwwER3JlZzCBnzANBgkqhkiG9w0B\n" +
-            "AQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt8e7GTIyXeM8z49Ie1mrQ\n" +
-            "h7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPsXV8kZdbkLGUMPl2GoZY3\n" +
-            "xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpikZvQhMKPDUAEkucQ95Z8C\n" +
-            "AwEAATANBgkqhkiG9w0BAQUFAAOBgQBkYY6zzf92LRfMtjkKs2am9qvjbqXyDJLS\n" +
-            "viKmYe1tGmNBUzucDC5w6qpPCTSe23H2qup27///fhUUuJ/ssUnJ+Y77jM/u1O9q\n" +
-            "PIn+u89hRmqY5GKHnUSZZkbLB/yrcFEchHli3vLo4FOhVVHwpnwLtWSpfBF9fWcA\n" +
-            "7THIAV79Lg==\n" +
+        	"-----BEGIN CERTIFICATE-----\n" +
+            "MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
+            "BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
+            "VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
+            "MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
+            "MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
+            "MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
+            "8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
+            "XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
+            "ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
+            "C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
+            "MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
+            "QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
+            "BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
+            "ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
+            "cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
+            "NeEMMSIgpTeBZoUP/kGQ\n" +
             "-----END CERTIFICATE-----",
             /* privateKey */
             "-----BEGIN RSA PRIVATE KEY-----\n" +
@@ -1037,7 +1049,7 @@ public class AuthListenerTest extends TestCase {
         assertEquals(Status.OK, bus.registerAuthListener("ALLJOYN_RSA_KEYX", authListener));
         proxy.Ping("hello");
         assertEquals("user2", authListener.verified);
-        assertEquals("greg", serviceAuthListener.verified);
+        assertEquals("user1", serviceAuthListener.verified);
     }
 
     public void testRsaReject() throws Exception {
@@ -1098,31 +1110,43 @@ public class AuthListenerTest extends TestCase {
             "user2".toCharArray());
         /* Trust client certificate */
         serviceAuthListener.addTrustAnchor(
-            "-----BEGIN CERTIFICATE-----\n" +
-            "MIIBszCCARwCCQDuCh+BWVBk2DANBgkqhkiG9w0BAQUFADAeMQ0wCwYDVQQKDARN\n" +
-            "QnVzMQ0wCwYDVQQDDARHcmVnMB4XDTEwMDUxNzE1MTg1N1oXDTExMDUxNzE1MTg1\n" +
-            "N1owHjENMAsGA1UECgwETUJ1czENMAsGA1UEAwwER3JlZzCBnzANBgkqhkiG9w0B\n" +
-            "AQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt8e7GTIyXeM8z49Ie1mrQ\n" +
-            "h7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPsXV8kZdbkLGUMPl2GoZY3\n" +
-            "xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpikZvQhMKPDUAEkucQ95Z8C\n" +
-            "AwEAATANBgkqhkiG9w0BAQUFAAOBgQBkYY6zzf92LRfMtjkKs2am9qvjbqXyDJLS\n" +
-            "viKmYe1tGmNBUzucDC5w6qpPCTSe23H2qup27///fhUUuJ/ssUnJ+Y77jM/u1O9q\n" +
-            "PIn+u89hRmqY5GKHnUSZZkbLB/yrcFEchHli3vLo4FOhVVHwpnwLtWSpfBF9fWcA\n" +
-            "7THIAV79Lg==\n" +
-            "-----END CERTIFICATE-----");
+        	"-----BEGIN CERTIFICATE-----\n" +
+        	"MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
+        	"BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
+        	"VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
+        	"MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
+        	"MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
+        	"MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
+        	"8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
+        	"XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
+        	"ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
+        	"C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
+        	"MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
+        	"QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
+        	"BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
+        	"ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
+        	"cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
+        	"NeEMMSIgpTeBZoUP/kGQ\n" +
+        	"-----END CERTIFICATE-----");
         RsaAuthListener authListener = new RsaAuthListener(
             /* certificate */
             "-----BEGIN CERTIFICATE-----\n" +
-            "MIIBszCCARwCCQDuCh+BWVBk2DANBgkqhkiG9w0BAQUFADAeMQ0wCwYDVQQKDARN\n" +
-            "QnVzMQ0wCwYDVQQDDARHcmVnMB4XDTEwMDUxNzE1MTg1N1oXDTExMDUxNzE1MTg1\n" +
-            "N1owHjENMAsGA1UECgwETUJ1czENMAsGA1UEAwwER3JlZzCBnzANBgkqhkiG9w0B\n" +
-            "AQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt8e7GTIyXeM8z49Ie1mrQ\n" +
-            "h7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPsXV8kZdbkLGUMPl2GoZY3\n" +
-            "xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpikZvQhMKPDUAEkucQ95Z8C\n" +
-            "AwEAATANBgkqhkiG9w0BAQUFAAOBgQBkYY6zzf92LRfMtjkKs2am9qvjbqXyDJLS\n" +
-            "viKmYe1tGmNBUzucDC5w6qpPCTSe23H2qup27///fhUUuJ/ssUnJ+Y77jM/u1O9q\n" +
-            "PIn+u89hRmqY5GKHnUSZZkbLB/yrcFEchHli3vLo4FOhVVHwpnwLtWSpfBF9fWcA\n" +
-            "7THIAV79Lg==\n" +
+            "MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
+            "BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
+            "VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
+            "MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
+            "MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
+            "MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
+            "8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
+            "XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
+            "ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
+            "C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
+            "MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
+            "QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
+            "BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
+            "ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
+            "cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
+            "NeEMMSIgpTeBZoUP/kGQ\n" +
             "-----END CERTIFICATE-----",
             /* privateKey */
             "-----BEGIN RSA PRIVATE KEY-----\n" +
@@ -1148,24 +1172,31 @@ public class AuthListenerTest extends TestCase {
         /* Only trust ourself */
         authListener.addTrustAnchor(
             "-----BEGIN CERTIFICATE-----\n" +
-            "MIIBszCCARwCCQDuCh+BWVBk2DANBgkqhkiG9w0BAQUFADAeMQ0wCwYDVQQKDARN\n" +
-            "QnVzMQ0wCwYDVQQDDARHcmVnMB4XDTEwMDUxNzE1MTg1N1oXDTExMDUxNzE1MTg1\n" +
-            "N1owHjENMAsGA1UECgwETUJ1czENMAsGA1UEAwwER3JlZzCBnzANBgkqhkiG9w0B\n" +
-            "AQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt8e7GTIyXeM8z49Ie1mrQ\n" +
-            "h7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPsXV8kZdbkLGUMPl2GoZY3\n" +
-            "xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpikZvQhMKPDUAEkucQ95Z8C\n" +
-            "AwEAATANBgkqhkiG9w0BAQUFAAOBgQBkYY6zzf92LRfMtjkKs2am9qvjbqXyDJLS\n" +
-            "viKmYe1tGmNBUzucDC5w6qpPCTSe23H2qup27///fhUUuJ/ssUnJ+Y77jM/u1O9q\n" +
-            "PIn+u89hRmqY5GKHnUSZZkbLB/yrcFEchHli3vLo4FOhVVHwpnwLtWSpfBF9fWcA\n" +
-            "7THIAV79Lg==\n" +
+            "MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
+            "BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
+            "VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
+            "MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
+            "MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
+            "MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
+            "8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
+            "XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
+            "ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
+            "C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
+            "MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
+            "QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
+            "BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
+            "ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
+            "cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
+            "NeEMMSIgpTeBZoUP/kGQ\n" +
             "-----END CERTIFICATE-----");
         assertEquals(Status.OK, serviceBus.registerAuthListener("ALLJOYN_RSA_KEYX", serviceAuthListener));
         assertEquals(Status.OK, bus.registerAuthListener("ALLJOYN_RSA_KEYX", authListener));
+        
         try {
             proxy.Ping("hello");
         } catch (BusException ex) {
         }
         assertEquals("user2", authListener.rejected);
-        assertEquals("greg", serviceAuthListener.verified);
+        assertEquals("user1", serviceAuthListener.verified);
     }
 }
