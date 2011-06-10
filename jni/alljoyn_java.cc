@@ -778,7 +778,7 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
-    QStatus status = LoadKeys(keyStore, source, String((const char*)password, env->GetArrayLength(jpassword)));
+    QStatus status = PutKeys(keyStore, source, String((const char*)password, env->GetArrayLength(jpassword)));
     memset(password, 0, env->GetArrayLength(jpassword) * sizeof(jbyte));
     env->ReleaseByteArrayElements(jpassword, password, 0);
     return status;
@@ -790,7 +790,7 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
 QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
 {
     String sink;
-    QStatus status = StoreKeys(keyStore, sink);
+    QStatus status = GetKeys(keyStore, sink);
     if (ER_OK != status) {
         return status;
     }
