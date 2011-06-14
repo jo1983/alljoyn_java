@@ -3876,20 +3876,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
 }
 
 class JJoinSessionAsyncCB : public BusAttachment::JoinSessionAsyncCB {
-public:
+  public:
     JJoinSessionAsyncCB(jobject jonJoinSessionListener, JSessionListener* sessionListener, Bus& bus);
     ~JJoinSessionAsyncCB();
 
     void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
 
-private:
+  private:
     jobject jonJoinSessionListener;
     jmethodID MID_onJoinSession;
     JSessionListener* sessionListener;
     Bus bus;
 };
 
-JJoinSessionAsyncCB::JJoinSessionAsyncCB(jobject jonJoinSessionListener, JSessionListener* sessionListener, 
+JJoinSessionAsyncCB::JJoinSessionAsyncCB(jobject jonJoinSessionListener, JSessionListener* sessionListener,
                                          Bus& bus)
     : jonJoinSessionListener(NULL), sessionListener(sessionListener), bus(bus)
 {
@@ -3996,11 +3996,11 @@ void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, Ses
     }
 
     QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Return\n"));
- exit:
+exit:
     delete this;
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env, 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env,
                                                                               jobject thiz,
                                                                               jstring jsessionHost,
                                                                               jshort jsessionPort,
@@ -4095,7 +4095,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
                    sessionHost.c_str(), jsessionPort, sessionOpts.traffic, sessionOpts.isMultipoint,
                    sessionOpts.proximity, sessionOpts.transports));
 
-    QStatus status = (*bus)->JoinSessionAsync(sessionHost.c_str(), jsessionPort, sessionListener, sessionOpts, 
+    QStatus status = (*bus)->JoinSessionAsync(sessionHost.c_str(), jsessionPort, sessionListener, sessionOpts,
                                               callback);
     if (ER_OK != status) {
         delete callback;
