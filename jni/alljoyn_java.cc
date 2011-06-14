@@ -39,7 +39,8 @@ using namespace qcc;
 using namespace ajn;
 
 /*
- * Basic architectural sidebar:
+ * Basic architectural sidebar
+ * ---------------------------
  *
  * The job of the Java bindings is to translate parameters and method calls
  * from Java to C++ and vice versa.  The basic guiding philosophy in how to
@@ -76,7 +77,39 @@ using namespace ajn;
  * reach into the Java objects and use the values we find to initialize the
  * C++ objects and then make C++ calls.  For callbacks, the reverse is done.
  *
- * Memory management sidebar:
+ * Exception handling sidebar
+ * --------------------------
+ *
+ * When a JNI function returns an error code, it typically has also raised an
+ * exception.  Exceptions aren't handled in the bindings, but are expected to
+ * be propagated back up to the user code and be handled (or ignored) there.
+ * It is a serious programming error to make a call to a JNI function with a
+ * pending exception, which results in undefined behavior.  Because of this,
+ * the bindings have two basic strategies available: we can stop work and 
+ * return or we can clear the exeption and try and proceed.  Trying to figure
+ * out how to recover is not always possible, so we adopt the "stop and return"
+ * approach.  Since it requires a JNI call to construct a JNI object to return
+ * a status code, we must return NULL from any binding that expects a return
+ * value if we get an internal JNI error.
+ *
+ * Since an internal JNI error always has an excpetion raised, this is okay.
+ * We return NULL, but the Java code calling the bindings never sees it because
+ * the exception is raised as soon as the binding exits.  You may see something
+ * like the following code repeated over and over again:
+ *
+ *   if (env->ExceptionCheck()) {
+ *     QCC_LogError(ER_FAIL, ("Descriptive text\n"));
+ *     return NULL;
+ *   }
+ *
+ * And wonder why the Java client code never checks for the possibility of NULL
+ * as a return value.  It is because the NULL case will never be seen by the 
+ * client code since it is always the byproduct of an exception.  This, in turn
+ * means that the client never sees the NULL return value, but starts executing
+ * in an exception handler or dies a horrible death.
+ * 
+ * Memory management sidebar
+ * -------------------------
  *
  * Often, memory management approaches are some of the least obvious and most
  * problematic pieces of code.  Since we have diferent languages, each with
@@ -3465,14 +3498,24 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      * the only time that the AllJoyn system keeps a reference to the
      * listener is if it returns ER_OK.  So if we either get an exception
      * or an error status, we can safely delete the listener.  This removes
-     * the strong referece to the Java listener object, allowing it to be
+     * the strong reference to the Java listener object, allowing it to be
      * garbage collected, and since there is no reference to the C++ object
      * in the AllJoyn code, callbacks will never happen.
+     *
+     * Note that the almost identical error checks are required since we
+     * cannot make a JNI call to create the return object if an exception
+     * is in process.
      */
-    if (env->ExceptionCheck() || status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Exception or error\n"));
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
         delete sessionPortListener;
         return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
+        delete sessionPortListener;
+        return JStatus(status);
     }
 
     /*
@@ -3572,7 +3615,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
      * until the bus attachment and all of its associated proxy bus objects are
      * finalized.
      */
-    if (env->ExceptionCheck() == false && status == ER_OK) {
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    if (status == ER_OK) {
         QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Success\n"));
 
         /*
@@ -3588,7 +3636,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
         return JStatus(status);
     }
 
-    QCC_LogError(status, ("BusAttachment_bindSessionPort(): Exception or error\n"));
+    QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
     return JStatus(status);
 }
 
@@ -3760,11 +3808,21 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      * the strong referece to the Java listener object, allowing it to be
      * garbage collected, and since there is no reference to the C++ object
      * in the AllJoyn code, callbacks will never happen.
+     *
+     * Note that the almost identical error checks are required since we
+     * cannot make a JNI call to create the return object if an exception
+     * is in process.
      */
-    if (env->ExceptionCheck() || status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_joinSession(): Exception or error\n"));
+    if (env->ExceptionCheck()) {
+        QCC_LogError(status, ("BusAttachment_joinSession(): Exception\n"));
         delete sessionListener;
         return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_joinSession(): Error\n"));
+        delete sessionListener;
+        return JStatus(status);
     }
 
     /*
@@ -3884,7 +3942,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
      * until the bus attachment and all of its associated proxy bus objects are
      * finalized.
      */
-    if (env->ExceptionCheck() == false && status == ER_OK) {
+    if (env->ExceptionCheck()) {
+        QCC_LogError(status, ("BusAttachment_leaveSession(): Exception\n"));
+        return NULL;
+    }
+
+    if (status == ER_OK) {
         QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Success\n"));
 
         /*
@@ -3900,7 +3963,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
         return JStatus(status);
     }
 
-    QCC_LogError(status, ("BusAttachment_leaveSession(): Exception or error\n"));
+    QCC_LogError(status, ("BusAttachment_leaveSession(): Error\n"));
     return JStatus(status);
 }
 
