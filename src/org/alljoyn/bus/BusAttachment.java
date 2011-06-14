@@ -282,7 +282,7 @@ public class BusAttachment {
      * interprets the response.
      *
      * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
-     * @param sessionPort   SessionPort of sessionHost to be joined.                                                           
+     * @param sessionPort   SessionPort of sessionHost to be joined.   
      * @param sessionId     Set to the unique identifier for session.
      * @param opts          Set to the actual session options of the joined session.
      * @param listener      Listener to be called when session related asynchronous 
@@ -300,6 +300,60 @@ public class BusAttachment {
                                      Mutable.IntegerValue sessionId,
                                      SessionOpts opts,
                                      SessionListener listener);
+
+    /**
+     * Interface definition for a callback to be invoked when a join session request completes.
+     */
+    public static interface OnJoinSessionListener {
+        /**
+         * Called when {@link #joinSession(String, short, SessionOpts, SessionListener,
+         * OnJoinSessionListener)} completes.
+         *
+         * @param status <ul><li>OK if the session was joined.</li>
+         *                   <li>BUS_NOT_CONNECTED if a connection has not been made with a local
+         *                       bus</li>
+         *                   <li>other error status codes indicating a failure.</li></ul>
+         * @param sessionId     Set to the unique identifier for session.
+         * @param opts          Set to the actual session options of the joined session.
+         */
+        void onJoinSession(Status status, int sessionId, SessionOpts opts);
+    };
+
+    /*
+     * The JNI loader can't resolve the overloaded joinSession if both the sync and async versions
+     * are native.  This is the workaround.
+     */
+    private native Status joinSessionAsync(String sessionHost,
+                                           short sessionPort,
+                                           SessionOpts opts,
+                                           SessionListener listener,
+                                           OnJoinSessionListener onJoinSession);
+
+    /**
+     * Asynchronous version of {@link #joinSession(String, short, Mutable.IntegerValue, SessionOpts,
+     * SessionListener)}.
+     *
+     * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
+     * @param sessionPort   SessionPort of sessionHost to be joined.             
+     * @param opts          The requested session options of the session to be joined.
+     * @param listener      Listener to be called when session related asynchronous 
+     *                      events occur.
+     * @param onJoinSession Listener to be called when joinSession completes.
+     *
+     * @return
+     * <ul> 
+     * <li>OK iff method call to local daemon response was was successful.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus.</li>
+     * <li>Other error status codes indicating a failure.</li>
+     * </ul>                                                                                 
+     */
+    public Status joinSession(String sessionHost,
+                              short sessionPort,
+                              SessionOpts opts,
+                              SessionListener listener,
+                              OnJoinSessionListener onJoinSession) {
+        return joinSessionAsync(sessionHost, sessionPort, opts, listener, onJoinSession);
+    }
 
     /**
      * Leave an existing session.
