@@ -3875,6 +3875,234 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     return JStatus(status);
 }
 
+class JJoinSessionAsyncCB : public BusAttachment::JoinSessionAsyncCB {
+public:
+    JJoinSessionAsyncCB(jobject jonJoinSessionListener, JSessionListener* sessionListener, Bus& bus);
+    ~JJoinSessionAsyncCB();
+
+    void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
+
+private:
+    jobject jonJoinSessionListener;
+    jmethodID MID_onJoinSession;
+    JSessionListener* sessionListener;
+    Bus bus;
+};
+
+JJoinSessionAsyncCB::JJoinSessionAsyncCB(jobject jonJoinSessionListener, JSessionListener* sessionListener, 
+                                         Bus& bus)
+    : jonJoinSessionListener(NULL), sessionListener(sessionListener), bus(bus)
+{
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB()\n"));
+    JNIEnv* env = GetEnv();
+    this->jonJoinSessionListener = env->NewGlobalRef(jonJoinSessionListener);
+    if (!this->jonJoinSessionListener) {
+        return;
+    }
+
+    JLocalRef<jclass> clazz = env->GetObjectClass(this->jonJoinSessionListener);
+
+    MID_onJoinSession = env->GetMethodID(clazz, "onJoinSession", "(Lorg/alljoyn/bus/Status;ILorg/alljoyn/bus/SessionOpts;)V");
+    if (!MID_onJoinSession) {
+        QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB(): Can't find onJoinSession() in jonJoinSessionListener\n"));
+    }
+}
+
+JJoinSessionAsyncCB::~JJoinSessionAsyncCB()
+{
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::~JJoinSessionAsyncCB()\n"));
+    delete sessionListener;
+    if (jonJoinSessionListener) {
+        JNIEnv* env = GetEnv();
+        env->DeleteGlobalRef(jonJoinSessionListener);
+    }
+}
+
+void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
+{
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+                   QCC_StatusText(status), sessionId, opts.traffic, opts.isMultipoint,
+                   opts.proximity, opts.transports));
+    JScopedEnv env;
+    JLocalRef<jobject> jstatus;
+    jint jsessionId;
+    jmethodID mid;
+    JLocalRef<jobject> jopts;
+    jfieldID fid;
+
+    /*
+     * Translate the C++ formal parameters into their JNI counterparts.
+     */
+    jstatus = JStatus(status);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Exception\n"));
+        goto exit;
+    }
+
+    jsessionId = sessionId;
+
+    mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
+    if (!mid) {
+        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Can't find SessionOpts constructor\n"));
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Create new SessionOpts\n"));
+    jopts = env->NewObject(CLS_SessionOpts, mid);
+    if (!jopts) {
+        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Cannot create SessionOpts\n"));
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Load SessionOpts\n"));
+    fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
+    env->SetByteField(jopts, fid, opts.traffic);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "isMultipoint", "Z");
+    env->SetBooleanField(jopts, fid, opts.isMultipoint);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "proximity", "B");
+    env->SetByteField(jopts, fid, opts.proximity);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
+    env->SetShortField(jopts, fid, opts.transports);
+
+    if ((status == ER_OK) && sessionListener) {
+        /*
+         * We need to keep an association between the session ID and the C++ object
+         * so we can delete that C++ object when we're done with it.  We need to be
+         * careful about when we delete any existing C++ objects, though.  Note that
+         * it was possible for the AllJoyn system to call back on an existing object
+         * at any time up until we set the replacement in the call to JoinSession.
+         *
+         * There can be only one session listener associated with each session ID,
+         * so if we have a C++ listener already associated with the port we need to
+         * free it before making a new association.
+         */
+        JSessionListener* spl = bus->sessionListenerMap[sessionId];
+        if (spl) {
+            delete spl;
+            spl = 0;
+        }
+        bus->sessionListenerMap[sessionId] = sessionListener;
+        sessionListener = 0; /* sessionListenerMap now owns sessionListener */
+    }
+
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jonJoinSessionListener, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Exception\n"));
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Return\n"));
+ exit:
+    delete this;
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env, 
+                                                                              jobject thiz,
+                                                                              jstring jsessionHost,
+                                                                              jshort jsessionPort,
+                                                                              jobject jsessionOpts,
+                                                                              jobject jsessionListener,
+                                                                              jobject jonJoinSessionListener)
+{
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync()\n"));
+
+    /*
+     * Load the C++ session host string from the java parameter
+     */
+    JString sessionHost(jsessionHost);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Load the [in] C++ session options from the Java session options.
+     */
+    SessionOpts sessionOpts;
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionOpts);
+    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    /*
+     * Create the C++ listener object.  The C++ object keeps a strong reference
+     * to the Java object which we pass into the constructor as the jobject
+     * jsessionListener.
+     */
+    JSessionListener* sessionListener = NULL;
+    if (jsessionListener) {
+        sessionListener = new JSessionListener(jsessionListener);
+        if (!sessionListener) {
+            Throw("java/lang/OutOfMemoryError", NULL);
+        }
+        if (env->ExceptionCheck()) {
+            delete sessionListener;
+            return NULL;
+        }
+
+        /*
+         * Point the handle field in the Java object to the C++ object.  To avoid
+         * memory leaks, this handle field must be zero.  Since GetHandle is going
+         * to do reflection, it may throw an exception.
+         */
+        assert(GetHandle(jsessionListener) == NULL);
+        SetHandle(jsessionListener, sessionListener);
+        if (env->ExceptionCheck()) {
+            delete sessionListener;
+            return NULL;
+        }
+    }
+
+    /*
+     * Get a copy of the pointer to the BusAttachment (via a managed object)
+     */
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        delete sessionListener;
+        return NULL;
+    }
+    assert(bus);
+
+    /*
+     * Make the AllJoyn call.
+     */
+    JJoinSessionAsyncCB* callback = new JJoinSessionAsyncCB(jonJoinSessionListener, sessionListener, (*bus));
+    if (!callback) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+    }
+    if (env->ExceptionCheck()) {
+        delete callback;
+        return NULL;
+    }
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+                   sessionHost.c_str(), jsessionPort, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports));
+
+    QStatus status = (*bus)->JoinSessionAsync(sessionHost.c_str(), jsessionPort, sessionListener, sessionOpts, 
+                                              callback);
+    if (ER_OK != status) {
+        delete callback;
+    }
+    return JStatus(status);
+}
+
 /**
  * Leave (cancel) a session.  This releases the resources allocated for the
  * session, notifies the other side that we have left, and disables callbacks
@@ -4126,7 +4354,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv
      */
     Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
         return NULL;
     }
     assert(bus);
