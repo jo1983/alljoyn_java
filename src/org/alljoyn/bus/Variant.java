@@ -73,8 +73,12 @@ public class Variant {
     private synchronized native void destroy();
 
     /** Releases resources. */
-    protected void finalize() {
-        destroy();
+    protected void finalize() throws Throwable {
+        try {
+            destroy();
+        } finally {
+            super.finalize();
+        }
     }
 
     /** Gets the wrapped native object. */

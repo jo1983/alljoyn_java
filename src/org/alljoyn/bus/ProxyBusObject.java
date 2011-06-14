@@ -267,8 +267,12 @@ public class ProxyBusObject {
     }
 
     /** Release native resources. */
-    protected void finalize() {
-        destroy();
+    protected void finalize() throws Throwable {
+        try {
+            destroy();
+        } finally {
+            super.finalize();
+        }
     }
 
     /**
