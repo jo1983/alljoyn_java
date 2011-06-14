@@ -85,7 +85,7 @@ using namespace ajn;
  * be propagated back up to the user code and be handled (or ignored) there.
  * It is a serious programming error to make a call to a JNI function with a
  * pending exception, which results in undefined behavior.  Because of this,
- * the bindings have two basic strategies available: we can stop work and 
+ * the bindings have two basic strategies available: we can stop work and
  * return or we can clear the exeption and try and proceed.  Trying to figure
  * out how to recover is not always possible, so we adopt the "stop and return"
  * approach.  Since it requires a JNI call to construct a JNI object to return
@@ -103,11 +103,11 @@ using namespace ajn;
  *   }
  *
  * And wonder why the Java client code never checks for the possibility of NULL
- * as a return value.  It is because the NULL case will never be seen by the 
+ * as a return value.  It is because the NULL case will never be seen by the
  * client code since it is always the byproduct of an exception.  This, in turn
  * means that the client never sees the NULL return value, but starts executing
  * in an exception handler or dies a horrible death.
- * 
+ *
  * Memory management sidebar
  * -------------------------
  *
