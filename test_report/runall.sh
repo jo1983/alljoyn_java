@@ -59,6 +59,13 @@ else
 	ALLJOYN_DIST=$t
 fi
 
+# fix MBUS-488: sometimes Windows "home" does not work for JUnit tests ClearKeyStore, DefaultKeyStoreListener
+if cygpath -wa . > /dev/null 2>&1
+then
+	: Cygwin
+    export USERPROFILE="$( cygpath -wa . )"
+fi
+
 : start two copies of bbdaemon
 
 ( cd "$ALLJOYN_DIST/bin" && ls -l bbdaemon ) || { echo >&2 "error, bbdaemon not found." ; exit 2 ; }
