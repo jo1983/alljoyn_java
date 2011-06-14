@@ -925,7 +925,6 @@ public class BusAttachmentTest extends TestCase {
                     }
                     public void sessionJoined(short sessionPort, int id, String joiner) {
                         assertEquals(42, sessionPort);
-                        busSessionId = id;
                     }
                 }));
     	int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | 
@@ -956,7 +955,6 @@ public class BusAttachmentTest extends TestCase {
             new JoinSessionSessionListener(), new BusAttachment.OnJoinSessionListener() {
                 public void onJoinSession(Status status, int sessionId, SessionOpts opts) {
                     assertEquals(Status.OK, status);
-                    assertEquals(busSessionId, sessionId);
                     onJoined = true;
                     stopWait();
                 }
