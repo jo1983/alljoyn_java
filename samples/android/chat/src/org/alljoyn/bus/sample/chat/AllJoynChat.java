@@ -75,6 +75,7 @@ public class AllJoynChat extends Activity {
 
     private static final int DIALOG_ADVERTISE = 1;
     private static final int MESSAGE_CHAT = 1;
+    private static final int MESSAGE_POST_TOAST = 2;
     private static final String TAG = "AllJoynChat";
 
     private EditText mEditText;
@@ -266,25 +267,34 @@ public class AllJoynChat extends Activity {
      * unexpected. If the result is the expected result (as specified by
      * passStatus) we only send the message to the Android log.  If we get
      * an unexpected reslt we log the message and send a Toast for the
-     * user to see. 
+     * user to see. Displaying the toast must be done on the UI thread so
+     * we send a message back to the activity.
      */
     private void logStatus(String msg, Object status, Object passStatus) {
         String log = String.format("%s: %s", msg, status);
         if (status == passStatus) {
             Log.i(TAG, log);
         } else {
-            Toast.makeText(this, log, Toast.LENGTH_LONG).show();
-            Log.e(TAG, log);
+            Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST);
+            toastMsg.obj = log;
+            mHandler.sendMessage(toastMsg);
+
         }
     }
 
     /**
      * When an exception is thrown, we use this method to Toast the name of
-     * the exception and send a log of the exception to the Android log.
+     * the exception and send a log of the exception to the Android log.  Note
+     * that the toast must be posted from the main UI thread, so we send it a
+     * message asking for the toast.
      */
     private void logException(String msg, BusException ex) {
         String log = String.format("%s: %s", msg, ex);
-        Toast.makeText(this, log, Toast.LENGTH_LONG).show();
+        
+        Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST);
+        toastMsg.obj = log;
+        mHandler.sendMessage(toastMsg);
+        
         Log.e(TAG, log, ex);
     }
     
@@ -352,6 +362,9 @@ public class AllJoynChat extends Activity {
                 mListViewArrayAdapter.add((String) msg.obj); 
                 break;
             }
+            case MESSAGE_POST_TOAST:
+                Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
+                break;
             default: 
                 break;
             }
@@ -699,14 +712,19 @@ public class AllJoynChat extends Activity {
                  * session.  Since this is a point-to-point session, we don't
                  * need to handle the latter.  In a "real" application, we could
                  * do much more (like map the session ID to a user name), but we
-                 * just toast a simple message if we lose one of the sessions.
+                 * just toast a simple message if we lose one of the sessions.  The
+                 * toast must be posted in the main UI thread, so we need to send
+                 * it a request to post the toast.
                  */
                 Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener() {
                     @Override
                     public void sessionLost(int sessionId) {
                         logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
                         String s = String.format("Session %d lost", sessionId);
-                        Toast.makeText(getApplicationContext(), s, Toast.LENGTH_LONG).show();
+                        
+                        Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST);
+                        toastMsg.obj = s;
+                        mHandler.sendMessage(toastMsg);
                     }
                 });
                 logStatus("BusAttachment.joinSession()", status);
@@ -759,7 +777,18 @@ public class AllJoynChat extends Activity {
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;
                 Status status;
-
+                
+                /*
+                 * Release the binding of the session port, preventing any new
+                 * joiners from coming in.
+                 */
+             	status = mBus.unbindSessionPort(CONTACT_PORT);
+                logStatus(String.format("BusAttachment.unbindSessionPort(%d)", 
+                    CONTACT_PORT), status, Status.OK);
+                
+                /*
+                 * Leave any sessions that we may be joined.
+                 */
                 for (Integer sid : mSessionList) {
                 	status = mBus.leaveSession(sid);
                     logStatus("BusAttachment.leaveSession()", status);
