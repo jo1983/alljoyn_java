@@ -13,6 +13,25 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
+
+// ================================================================================
+// WARNING.  This sample is deprecated and should not be used as a model for actual
+// AllJoyn development.  It is a conversion of a historical sample that, becuase of
+// its history is implemented in an inefficient manner.  Specifically, it is very
+// wasteful of network resources, particularly sessions -- it does not take advantage
+// of multicast sessions, which it should.
+//
+// We continue to provide this code since it does work and may provide some insights
+// into details of AllJoyn if perused.  We are replacing this sample with one which
+// better illustrates best practices with respect to session resources.  Until the
+// new chat sample is available, we recommend using the C++ chat sample as an 
+// architectural guide.
+//
+// We do provide an extensive comment discussing the shortcomings of this sample
+// and its duplication, and general inefficient use, of resources. Search for the
+// string "Session Sidebar Comment" for the details. 
+// ================================================================================
+
 package org.alljoyn.bus.sample.chat;
 
 import java.util.List;
@@ -46,6 +65,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
+import android.view.Gravity;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -363,7 +383,9 @@ public class AllJoynChat extends Activity {
                 break;
             }
             case MESSAGE_POST_TOAST:
-                Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
+                Toast toast = Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG);
+            	toast.setGravity(Gravity.TOP, 0, 0);
+                toast.show();
                 break;
             default: 
                 break;
@@ -384,10 +406,16 @@ public class AllJoynChat extends Activity {
      * will use to ask AllJoyn to  
      */
     public class BusHandler extends Handler {
+    	
     	private static final short CONTACT_PORT = 42;
         private static final String CHAT_SERVICE_PATH = "/chatService";
         private static final String NAME_PREFIX = "org.alljoyn.bus.samples.chat";
         private static final String CHAT_INTERFACE_NAME = "org.alljoyn.bus.samples.chat";
+        
+        /*
+         * The well known bus name that we request and advertise.
+         */
+        private String mWellKnownName;
         
         /*
          * The following constants correspond to the messages that can be sent
@@ -489,8 +517,11 @@ public class AllJoynChat extends Activity {
                 /*
                  * Create a bus listener class to handle advertisement
                  * callbacks from the BusAttachment.  Whenever we find an
-                 * adtertisement of chat service we join the corresponding
-                 * session and start exchanging messages.
+                 * adtertisement of chat service we send a message to ourselves
+                 * asking to join the corresponding session and start 
+                 * exchanging messages.  There are some subtleties here
+                 * that are important to understand, so please look at the 
+                 * JOIN_SESSION case.
                  */
                 mBus.registerBusListener(new BusListener() {
                 	@Override
@@ -582,10 +613,11 @@ public class AllJoynChat extends Activity {
                  * decline this opportunity so we will fail if another instance
                  * of this service is already running.
                  */
-            	String wellKnownName = NAME_PREFIX + "." + (String)msg.obj;
-                Status status = mBus.requestName(wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
+            	logInfo(String.format("Start discovering.  Name is %s", (String)msg.obj));
+            	mWellKnownName = NAME_PREFIX + "." + (String)msg.obj;
+                Status status = mBus.requestName(mWellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE);
                 logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", 
-                    wellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE), status);
+                    mWellKnownName, BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE), status);
                 if (status != Status.OK) {
                     finish();
                     return;
@@ -608,10 +640,15 @@ public class AllJoynChat extends Activity {
                 /*
                  * When we ask to bind the session port, we provide a listener
                  * that handles the callbacks related to session management.
-                 * The callback we need to implement is acceptSessionJoiner().
-                 * If we return true, we tell the system that we are allowing
-                 * the remote session to join and communicate with us over the
-                 * resulting session.
+                 * 
+                 * The acceptSessionJoiner() callback provides for admission
+                 * control to our sessions.  If we return true, we tell the
+                 * system that we are allowing the remote to join and talk
+                 * with us over the* resulting session.
+                 * 
+                 * The sessionJoined callback tells us that a remote has
+                 * successfully joined our session.  We just note that this
+                 * event has happened.
                  */
                 status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
                     @Override
@@ -619,7 +656,13 @@ public class AllJoynChat extends Activity {
                     	logInfo(String.format("MySessionPortListener.acceptSessionJoiner(%d, %s)", sessionPort, joiner));
                     	return true;
                     }
+                    
+                    public void sessionJoined(short sessionPort, int id, String joiner) {
+                    	logInfo(String.format("MySessionPortListener.sessionJoined(%d, %d, %s)", sessionPort, id, joiner));
+                        mIsConnected = true;
+                    }             
                 });
+                
                 logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)", contactPort.value, 
                     sessionOpts.toString()), status);
                 if (status != Status.OK) {
@@ -631,17 +674,17 @@ public class AllJoynChat extends Activity {
                  * Advertise the existence of our chat well-known name so future
                  * clients can discover our existence.
                  */
-                status = mBus.advertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
+                status = mBus.advertiseName(mWellKnownName, SessionOpts.TRANSPORT_ANY);
                 logStatus(String.format("BusAttachment.advertiseName(%s, 0x%04x)", 
-                	wellKnownName, SessionOpts.TRANSPORT_ANY), status, Status.OK);
+                	mWellKnownName, SessionOpts.TRANSPORT_ANY), status, Status.OK);
 
                 if (status != Status.OK) {
                 	/*
                 	 * If we are unable to advertise the name, release
                 	 * the name from the local bus.
                 	 */
-                	status = mBus.releaseName(wellKnownName);
-                	logStatus(String.format("BusAttachment.releaseName(%s)", wellKnownName), 
+                	status = mBus.releaseName(mWellKnownName);
+                	logStatus(String.format("BusAttachment.releaseName(%s)", mWellKnownName), 
                 			status);
                     mIsConnected = false;
                 } else {	
@@ -671,15 +714,88 @@ public class AllJoynChat extends Activity {
             }
 
             /*
-             * Whenever a 'FoundAdvertisedName' signal is received by the AllJoyn
-             * system, it will percolate up into a BusListener associated with
-             * our BusAttachment.  Our implementation of BusListener will arrange
-             * for the well-known name of the found service to be sent to this
-             * BusHandler case. We need to join the session that is implied by
-             * the existence of the found well-knwon name.  Since we are both the
-             * client and the service in this picture, the session contact port
-             * is clear and the AllJoyn joinSession method is used to make a peer
-             * to peer session connection between our client and the remote service.
+             * Session Sidebar Comment
+             * =======================
+             * 
+             * Whenever a 'FoundAdvertisedName' signal is received by the
+             * AllJoyn system, it will percolate up into a BusListener
+             * associated with our BusAttachment.  Our implementation of
+             * BusListener will arrange for the well-known name of the found
+             * service to be sent to this BusHandler case in the obj of the
+             * associated message.  We don't filter the found names, so we will
+             * run here when we get our own advertisements as well as those of
+             * others. We run all of the advertisements in here primarily to
+             * provide a point in this sample code for this rather lengthy
+             * comment on sessions.
+             * 
+             * When a session is bound (bindSessionPort is called) what amounts
+             * to an endpoint is created.  There is no actual session at that
+             * time, there is only the possibility of a session.  This is
+             * similar to the case of TCP when a listener is created, but no
+             * connections have been accepted.
+             * 
+             * The scope of a session from our point of view is the bus
+             * attachment we are using.  There are two ways to get a session up
+             * and running from the point of view of a bus attachment:  either
+             * the session can be explicitly joined (by calling joinSession) or
+             * it can be implicilty joined by accepting a session (by returning
+             * true in the acceptSessionJoiner callback)  If we accept a 
+             * session, we will then get a session joined callback that provides
+             * us with a session ID, as if we called join session.  The fact
+             * that we joined is implied by accepting the session joiner and the
+             * return code of that implied join is passed to the session joined
+             * callbak.  One can start a session either way, explicitly or 
+             * implicitly, but one cannot do both.
+             * 
+             * Observe that we are (1) acting as a service (by binding a
+             * session, advertising it and accepting new sessions on it);
+             * (2) acting as a client by discovering remote services and
+             * joining their sessions; and (3) doing both in the same bus
+             * attachment.  This means we need to be careful about joining the
+             * session we advertise.
+             * 
+             * The end-result is if the advertisement that caused this case to
+             * be executed is not from us (not for our own well-known name) we
+             * go ahead and join the remote session explicitly here.  If the
+             * precipitating advertisement is from us (for our own well-known
+             * name) we do not join the session explicitly here and so ignore
+             * the advertisement.  We let the implicit join from the accept
+             * session joiner/session joined mechanism happen.
+             * 
+             * This is illustrated in the following sequence diagram.
+             * 
+             *                   [ chat.a ] <----- Advertisement ------ [chat.b]
+             *                   [ chat.a ] ---------- Join ----------> [chat.b] --> session joined
+             *     explicit ID x [ chat.a ] <-------- session --------> [chat.b] implicit ID x
+             *                   [ chat.a ] ------ Advertisement -----> [chat.b]
+             * session joined <--[ chat.a ] <--------- Join ----------- [chat.b]
+             *     implicit ID y [ chat.a ] <-------- session --------> [chat.b] explicit ID y
+             *
+             * The service named chat.b advertises its existence and the client
+             * "half" of chat.a receives that advertisement.  As a result, it
+             * joins the session bound by chat.b which gets a session joined
+             * calback and is provided with a session ID x from the implicit
+             * join.  The client chat.a is returned a session ID x from the 
+             * explicit join operation.  A similar sequence of events is repeated
+             * when chat.a advertises resulting in a parallel session connection.
+             * 
+             * Since there are two parallel sessions, each side should choose only
+             * one session to send information over.  In this case, we chose 
+             * the explicitly obtained session ID.
+             * 
+             * We don't receive our own multicasts over a session so, if we want
+             * the user interface to echo a message, we need to do so outside
+             * the AllJoyn umbrella.  Additionally, even though we started an
+             * app and have a chat session *bound*, there may really no actual
+             * session until some remote device receives our advertisement and
+             * attempts to join the session.  At that time, our accept session
+             * joiner callback will be executed, and if we accept, our session
+             * joined callback will be fired.  This results in a session being
+             * created implicitly.  Until that session is created, typing a
+             * message locally will not cause a message to be sent out over the
+             * (non-existent) session.  In this case, we post a toast indicating
+             * that there is no connected session.  This is not an error, it is
+             * an advisory that there is no real session.
              */
             case (JOIN_SESSION): {
                 /*
@@ -689,6 +805,15 @@ public class AllJoynChat extends Activity {
                     break;
                 }
                 
+                /*
+                 * If the advertisement that caused the JOIN_SESSION message to be
+                 * sent is our own advertisement, we ignore it (see above long
+                 * comment).
+                 */
+                if (mWellKnownName.equals((String) msg.obj)) {
+                    break;
+                }
+                                
                 /*
                  * In order to join the session, we need to provide the well-known
                  * contact port.  This is pre-arranged between both sides as part
@@ -715,6 +840,11 @@ public class AllJoynChat extends Activity {
                  * just toast a simple message if we lose one of the sessions.  The
                  * toast must be posted in the main UI thread, so we need to send
                  * it a request to post the toast.
+                 * 
+                 * Note that every time we receive an advertisement, we do a join
+                 * session.  If for some reason, we receive an advertisement for
+                 * the same service twice, we will attempt to join its session 
+                 * twice.  The system prevents this for us.
                  */
                 Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener() {
                     @Override
@@ -730,7 +860,8 @@ public class AllJoynChat extends Activity {
                 logStatus("BusAttachment.joinSession()", status);
                     
                 if (status == Status.OK) {
-
+                	logInfo(String.format("========== Explicitly joined remote session to %s on session id %d ==========)",
+                			(String)msg.obj, sessionId.value));
                 	/*
                      * Create a signal emitter to send out the Chat signal on
                      * the new session.  The mChatService identifies the source
@@ -764,7 +895,6 @@ public class AllJoynChat extends Activity {
                 	 */
                     mChatList.add(chatInterface);
                     mSessionList.add(sessionId.value);
-                	mIsConnected = true; 
                 }
                 break;
             }
@@ -777,6 +907,14 @@ public class AllJoynChat extends Activity {
             case (END_DISCOVER): {
                 mIsStoppingDiscovery = true;
                 Status status;
+
+                /*
+                 * Leave any sessions that we may be joined.
+                 */
+                for (Integer sid : mSessionList) {
+                	status = mBus.leaveSession(sid);
+                    logStatus("BusAttachment.leaveSession()", status);
+                }
                 
                 /*
                  * Release the binding of the session port, preventing any new
@@ -785,15 +923,7 @@ public class AllJoynChat extends Activity {
              	status = mBus.unbindSessionPort(CONTACT_PORT);
                 logStatus(String.format("BusAttachment.unbindSessionPort(%d)", 
                     CONTACT_PORT), status, Status.OK);
-                
-                /*
-                 * Leave any sessions that we may be joined.
-                 */
-                for (Integer sid : mSessionList) {
-                	status = mBus.leaveSession(sid);
-                    logStatus("BusAttachment.leaveSession()", status);
-                }
-                    
+                                    
                 mIsConnected = false;
                 mSessionList.clear();
                 mChatList.clear();
@@ -837,12 +967,28 @@ public class AllJoynChat extends Activity {
              * interfaces with associated signal emitters, and we remembered
              * the list of chat interfaces corresponding to our remote peers.
              * 
-             * What we have to do is walk the list of chat interfaces and
-             * call the "Chat" method on each of them.  This will send the
-             * user string to all of the peers.
+             * The chat interfaces allow us to talk to remote devices, but we
+             * need to handle the local echo situation.  We do that first by
+             * just posting a message back to the UI.
+             * 
+             * Then we walk the list of chat interfaces and call the "Chat"
+             * method on each of them.  This will send the user string to all
+             * of the peers.
              */
             case (CHAT): {
-                try {
+
+                Message localEchoMsg = mHandler.obtainMessage(MESSAGE_CHAT);
+                localEchoMsg.obj = "Message from me : " + (String) msg.obj;
+                mHandler.sendMessage(localEchoMsg);
+                
+            	if (mChatList.isEmpty()) {
+                    Message toastMsg = mHandler.obtainMessage(MESSAGE_POST_TOAST);
+                    toastMsg.obj = "No session yet.  Not sending a message to remote devices";
+                    mHandler.sendMessage(toastMsg);
+                    break;
+            	}
+
+            	try {
                 	for (ChatInterface chatInterface : mChatList) {
                 		chatInterface.Chat((String) msg.obj);
                         Log.i(TAG, String.format("Chat(%s) msg sent to session", (String) msg.obj));
