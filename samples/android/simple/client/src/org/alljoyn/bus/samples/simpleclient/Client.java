@@ -250,8 +250,13 @@ public class Client extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener());
-                logStatus("BusAttachment.joinSession()", status);
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener() {
+                    @Override
+                    public void sessionLost(int sessionId) {
+                        logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+                    }
+                });
+                logStatus("BusAttachment.joinSession() - sessionId: " + sessionId.value, status);
                     
                 if (status == Status.OK) {
                 	/*

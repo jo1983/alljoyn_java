@@ -1162,7 +1162,7 @@ class JSessionListener : public SessionListener {
     JSessionListener(jobject jsessionListener);
     ~JSessionListener();
 
-    void SessionLost(const SessionId& sessionId);
+    void SessionLost(SessionId sessionId);
 
   private:
     jobject jsessionListener;
@@ -1231,7 +1231,7 @@ JSessionListener::~JSessionListener()
  *
  * @param sessionId     Id of session that was lost.
  */
-void JSessionListener::SessionLost(const SessionId& sessionId)
+void JSessionListener::SessionLost(SessionId sessionId)
 {
     QCC_DbgPrintf(("JSessionListener::SessionLost()\n"));
     JScopedEnv env;
