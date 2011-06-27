@@ -17,9 +17,8 @@
 
 
 set -x
-
-killall -v bbdaemon
-rm -rf daemon1.log daemon2.log
+killall -v alljoyn-daemon
+rm -rf alljoyn-daemon.log
 
 # set ALLJOYN_JAVA and/or ALLJOYN_DIST either through environment variables...
 # .. or by putting ALLJOYN_JAVA=something and/or ALLJOYN_DIST=something as commandline parameters
@@ -63,12 +62,12 @@ fi
 if cygpath -wa . > /dev/null 2>&1
 then
 	: Cygwin
-    export USERPROFILE="$( cygpath -wa . )"
+	export USERPROFILE="$( cygpath -wa . )"
 fi
 
-: start two copies of bbdaemon
+: start two copies of alljoyn-daemon
 
-( cd "$ALLJOYN_DIST/bin" && ls -l bbdaemon ) || { echo >&2 "error, bbdaemon not found." ; exit 2 ; }
+( cd "$ALLJOYN_DIST/bin" && ls -l alljoyn-daemon ) || { echo >&2 "error, alljoyn-daemon not found." ; exit 2 ; }
 
 : get target_os/target_cpu/variant
 os_cpu_variant=` cd "$ALLJOYN_DIST/.." > /dev/null && pwd | awk -F/ 'NR==1 && NF>=3 { print $(NF-2) "/" $(NF-1) "/" $NF; }' `
@@ -78,54 +77,29 @@ then
 fi
 
 (
-    :
-	: first bbdaemon on port 5342
-    :
+	:
+	: first alljoyn-daemon on port 5342
+	:
 
 	if cygpath -wa . > /dev/null 2>&1
 	then
 		: Cygwin
-		export BUS_SERVER_ADDRESSES="tcp:addr=0.0.0.0,port=5342"
+		configfile=junit-win.conf
 	else
 		: Linux
-		export BUS_SERVER_ADDRESSES="unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=5342"
+		configfile=junit-unix.conf
 	fi
 
 	cd "$ALLJOYN_DIST/bin" || exit 2
 	pwd
 	date
 
-	./bbdaemon ; xit=$?
+	./alljoyn-daemon --config-file=$ALLJOYN_JAVA/test_report/$configfile; xit=$?
 
 	date
 	set +x
 	echo exit status $xit
-) > daemon1.log 2>&1 </dev/null &
-
-(
-    :
-	: second bbdaemon on port 5343
-    :
-
-	if cygpath -wa . > /dev/null 2>&1
-	then
-		: Cygwin
-		export BUS_SERVER_ADDRESSES="tcp:addr=0.0.0.0,port=5343"
-	else
-		: Linux
-		export BUS_SERVER_ADDRESSES="unix:abstract=AllJoynDaemonTest;tcp:addr=0.0.0.0,port=5343"
-	fi
-
-	cd "$ALLJOYN_DIST/bin" || exit 2
-	pwd
-	date
-
-	./bbdaemon ; xit=$?
-
-	date
-	set +x
-	echo exit status $xit
-) > daemon2.log 2>&1 </dev/null &
+) > alljoyn-daemon.log 2>&1 </dev/null &
 
 sleep 5
 
@@ -146,12 +120,12 @@ date
 	date
 
 	# 2011-01-06 Added explicit build, dist, classes properties definitions.
-    # 2011-05-11 Cleaned up, corrected errors in bus server address properties.
-    # Windows tests now succeed so long as you run both bbdaemons externally.
-    # If running both bbdaemons externally for Windows and Android,
-    # then may as well do so for Linux too- at least we will see the log file.
-    # Prevent JUnit from starting the second bbdaemon internally,
-    # by NOT adding ALLJOYN_DIST/bin to the PATH seen by Ant.
+	# 2011-05-11 Cleaned up, corrected errors in bus server address properties.
+	# Windows tests now succeed so long as you run both bbdaemons externally.
+	# If running both bbdaemons externally for Windows and Android,
+	# then may as well do so for Linux too- at least we will see the log file.
+	# Prevent JUnit from starting the second bbdaemon internally,
+	# by NOT adding ALLJOYN_DIST/bin to the PATH seen by Ant.
 
 	if cygpath -wa . > /dev/null 2>&1
 	then
@@ -162,8 +136,6 @@ date
 			-Ddist="$( cygpath -wa "$ALLJOYN_DIST/java" )" \
 			-Dclasses="$( cygpath -wa "$classes" )" \
 			-Dorg.alljoyn.bus.address="tcp:addr=127.0.0.1,port=5342" \
-			-Dorg.alljoyn.bus.daemonaddress="tcp:addr=127.0.0.1,port=5343" \
-			-Dorg.alljoyn.bus.daemonremoteaddress="tcp:addr=127.0.0.1,port=5343" \
 			test
 		xit=$?
 	else
@@ -174,8 +146,6 @@ date
 			-Ddist="$ALLJOYN_DIST/java" \
 			-Dclasses="$classes" \
 			-Dorg.alljoyn.bus.address="unix:abstract=alljoyn" \
-			-Dorg.alljoyn.bus.daemonaddress="unix:abstract=AllJoynDaemonTest" \
-			-Dorg.alljoyn.bus.daemonremoteaddress="tcp:addr=127.0.0.1,port=5343" \
 			test
 		xit=$?
 	fi
@@ -186,7 +156,7 @@ date
 	exit $xit
 ) ; xit=$?
 
-killall -v bbdaemon
+killall -v alljoyn-daemon
 
 echo exit status $xit
 exit $xit
