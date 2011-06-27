@@ -84,17 +84,17 @@ fi
 	if cygpath -wa . > /dev/null 2>&1
 	then
 		: Cygwin
-		configfile=junit-win.conf
+		configfile=$( cygpath -wa "$ALLJOYN_JAVA/test_report/junit-win.conf" )
 	else
 		: Linux
-		configfile=junit-unix.conf
+		configfile="$ALLJOYN_JAVA/test_report/junit-unix.conf"
 	fi
 
 	cd "$ALLJOYN_DIST/bin" || exit 2
 	pwd
 	date
 
-	./alljoyn-daemon --config-file=$ALLJOYN_JAVA/test_report/$configfile; xit=$?
+	./alljoyn-daemon --config-file="$configfile"; xit=$?
 
 	date
 	set +x
