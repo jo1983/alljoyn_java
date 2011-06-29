@@ -976,6 +976,7 @@ public class AllJoynService extends Service implements Observer {
         });
         
         if (status == Status.OK) {
+            Log.i(TAG, "doJoinSession(): use sessionId is " + mUseSessionId);
         	mUseSessionId = sessionId.value;
         } else {
             /*
@@ -1068,24 +1069,59 @@ public class AllJoynService extends Service implements Observer {
      */
     @BusSignalHandler(iface = "org.alljoyn.bus.samples.irc", signal = "SendMessage")
     public void SendMessage(String string) {
-
-    	/*
-    	 * We send messages over signals.  Subscribed signals are routed to bus
-    	 * attachments that provide match rules that indicate they want to
-    	 * receive them.  This subscription is according to DBus rules, which
-    	 * don't include the concept of a session.  We have two "personalities"
-    	 * -- a "use" side and a "host" side.  They both will receive signals
-    	 * on all sessions associated with this bus attachment.  We are only
-    	 * interested in adding signals received through our "use" session, so
-    	 * we have to filter them here.  There is no session ID plumbed into
-    	 * the session handler directly, but we do have access to it through
-    	 * the context of the bus message which transported the signal.  We 
-    	 * therefore pull the session ID out of the message context and drop
-    	 * the signal if it did not come in over our mUseSessionId.
-    	 */
+    	
+        /*
+         * There are aspects of multipoint sessions using signals that are
+         * perhaps a little counter-intuitive.  This deserves a comment here
+         * since we have some code to deal with a couple of special cases.
+         * 
+         * The root of this situation is that we have a single bus attachment
+         * that can both host multipoint sessions using bindSessionPort() and
+         * can join them using joinSession().  This works great until we 
+         * join the same session we have bound.
+         * 
+         * When we bind a session port, we set up a listener to either accept
+         * or reject session joiners.  In our case, we accept any joiner that
+         * can get the contact port right.  This results in an implicit joining
+         * of the session, with the session ID passed to the sessionJoined()
+         * listener.  We don't use that session ID, but as a side-effect, 
+         * routing of signals from the bus to our bus attachment are enabled.
+         * 
+         * When we join a session, we also enable the routing of singals from
+         * the bus to our bus attachment.
+         * 
+    	 * We send our IRC messages over signals.  Signals are not "echoed"
+    	 * back to the source, so the Model does that echo for us and writes
+    	 * into its history using the nickname "Me."
+    	 * 
+    	 * Whenever we have a hosted session running, and we have had a joiner
+    	 * on our session; we have signals enabled on the session.  We will
+    	 * receive messages sent to the multipoint session.  This means we 
+    	 * have to deal with two corner cases:
+    	 * 
+    	 * (1) If the application is hosting a channel, and the user has
+    	 *     joined/used another channel, we must prevent messages sent on
+    	 *     the hosted channel from being displayed on the used channel
+    	 *     history.  In this case, the session ID of the hosted channel
+    	 *     and the used channel will be different and so we filter the
+    	 *     messages on the sessionId.
+    	 *     
+    	 * (2) If the application is hosting a channel, and the user has
+    	 *     joined/used that channel, when a user types a message it will
+    	 *     be sent out over the multipoint session and not be echoed
+    	 *     locally.  However, since there is an immplied join when the
+    	 *     hosting session does an acceptSessionJoiner(), any messages
+    	 *     sent by the joiner will be received by the hosting session and
+    	 *     it will look like the messages were echoed.  In this case, the
+    	 *     sender's unique ID will be the same as our own bus attachment
+    	 *     and we filter the messages on the sender.
+     	 */
+    	String uniqueName = mBus.getUniqueName();
     	MessageContext ctx = mBus.getMessageContext();
-    	if (ctx.sessionId != mUseSessionId) {
-            Log.i(TAG, "SendMessage(): dropped signal received on session " + ctx.sessionId);
+        Log.i(TAG, "SendMessage(): use sessionId is " + mUseSessionId);
+        Log.i(TAG, "SendMessage(): message sessionId is " + ctx.sessionId);
+    	if (ctx.sessionId != mUseSessionId || ctx.sender.equals(uniqueName)) {
+            Log.i(TAG, "SendMessage(): dropped signal received on session " + ctx.sessionId + " from " + uniqueName);
     		return;
     	}
     	

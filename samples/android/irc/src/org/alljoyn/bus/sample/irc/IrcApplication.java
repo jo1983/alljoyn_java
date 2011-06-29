@@ -410,9 +410,11 @@ public class IrcApplication extends Application implements Observable {
 	 * Whenever our local user types a message, we need to send it out on the
 	 * channel, which we do by calling addOutboundItem.  This will eventually
 	 * result in an AllJoyn Bus Signal being sent to the other participants on
-	 * the channel.
+	 * the channel.  Since the sessions that implement the channel don't "echo"
+	 * back to the source, we need to echo the message into our history.
 	 */
 	public synchronized void newLocalUserMessage(String message) {
+		addInboundItem("Me", message);
 		addOutboundItem(message);
 	}
 	
