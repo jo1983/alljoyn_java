@@ -88,11 +88,53 @@ public class IrcApplication extends Application implements Observable {
     public void onCreate() {
         Log.i(TAG, "onCreate()");
         Intent intent = new Intent(this, AllJoynService.class);
-        ComponentName component = startService(intent);
-        if (component == null) {
+        mRunningService = startService(intent);
+        if (mRunningService == null) {
             Log.i(TAG, "onCreate(): failed to startService()");
         }
 	}
+    
+    ComponentName mRunningService = null;
+    
+    /**
+     * Since our application is "rooted" in this class derived from Appliation
+     * and we have a long-running service, we can't just call finish in one of
+     * the Activities.  We have to orchestrate it from here.  We send an event
+     * notification out to all of our obsservers which tells them to exit.
+     * 
+     * Note that as a result of the notification, all of the observers will
+     * stop -- as they should.  One of the things that will stop is the AllJoyn
+     * Service.  Notice that it is started in the onCreate() method of the
+     * Application.  As noted in the Android documentation, the Application
+     * class never gets torn down, nor does it provide a way to tear itself
+     * down.  Thus, if the Irc application is ever run again, we need to have
+     * a way of detecting the case where it is "re-run" and then "re-start"
+     * the service. 
+     */
+    public void quit() {
+		notifyObservers(APPLICATION_QUIT_EVENT);
+		mRunningService = null;
+    }
+    
+    /**
+     * Application components call this method to indicate that they are alive
+     * and may have need of the AllJoyn Service.  This is required because the
+     * Android Application class doesn't have an end to its lifecycle other
+     * than through "kill -9".  See quit().
+     */
+    public void checkin() {
+        Log.i(TAG, "checkin()");
+    	if (mRunningService == null) {
+            Log.i(TAG, "checkin():  Starting the AllJoynService");
+            Intent intent = new Intent(this, AllJoynService.class);
+            mRunningService = startService(intent);
+            if (mRunningService == null) {
+                Log.i(TAG, "checkin(): failed to startService()");
+            }    		
+    	}
+    }
+	
+    public static final String APPLICATION_QUIT_EVENT = "APPLICATION_QUIT_EVENT";
 
 	/**
 	 * Called from the AllJoyn Service when it gets a FoundAdvertisedName.  We

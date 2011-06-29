@@ -148,6 +148,11 @@ public class AllJoynService extends Service implements Observer {
         Log.i(TAG, "update(" + arg + ")");
         String qualifier = (String)arg;
         
+        if (qualifier.equals(IrcApplication.APPLICATION_QUIT_EVENT)) {
+            Message message = mHandler.obtainMessage(HANDLE_APPLICATION_QUIT_EVENT);
+            mHandler.sendMessage(message);
+        }
+        
         if (qualifier.equals(IrcApplication.USE_JOIN_CHANNEL_EVENT)) {
             Message message = mHandler.obtainMessage(HANDLE_USE_JOIN_CHANNEL_EVENT);
             mHandler.sendMessage(message);
@@ -197,6 +202,17 @@ public class AllJoynService extends Service implements Observer {
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
             switch (msg.what) {
+	            case HANDLE_APPLICATION_QUIT_EVENT:
+	            {
+	                Log.i(TAG, "mHandler.handleMessage(): APPLICATION_QUIT_EVENT");
+	                mBackgroundHandler.leaveSession();
+	                mBackgroundHandler.cancelAdvertise();
+	                mBackgroundHandler.unbindSession();
+	                mBackgroundHandler.releaseName();
+	                mBackgroundHandler.exit();
+	                stopSelf();
+	            }
+	            break;            
             case HANDLE_USE_JOIN_CHANNEL_EVENT:
 	            {
 	                Log.i(TAG, "mHandler.handleMessage(): USE_JOIN_CHANNEL_EVENT");
@@ -241,6 +257,11 @@ public class AllJoynService extends Service implements Observer {
             }
         }
     };
+    
+    /**
+     * Value for the HANDLE_APPLICATION_QUIT_EVENT case observer notification handler. 
+     */
+    private static final int HANDLE_APPLICATION_QUIT_EVENT = 0;
     
     /**
      * Value for the HANDLE_USE_JOIN_CHANNEL_EVENT case observer notification handler. 

@@ -57,4 +57,11 @@
         android:layout_height="wrap_content"
         android:text="Stop Channel"
     />
+    
+    <Button
+        android:id="@+id/hostQuit"
+        android:layout_width="180dp"
+        android:layout_height="wrap_content"
+        android:text="Quit Application"
+    />
 </LinearLayout>

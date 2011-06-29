@@ -75,9 +75,12 @@ public class HostActivity extends Activity implements Observer {
         
         /*
          * Keep a pointer to the Android Appliation class around.  We use this
-         * as the Model for our MVC-based application
+         * as the Model for our MVC-based application.  Whenever we are started
+         * we need to "check in" with the application so it can ensure that our
+         * required services are running.
          */
         mIrcApplication = (IrcApplication)getApplication();
+        mIrcApplication.checkin();
         
         /*
          * Call down into the model to get its current state.  Since the model
@@ -91,6 +94,15 @@ public class HostActivity extends Activity implements Observer {
          * from other components.
          */
         mIrcApplication.addObserver(this);
+        
+        
+        mQuitButton = (Button)findViewById(R.id.hostQuit);
+        mQuitButton.setEnabled(true);
+        mQuitButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                mIrcApplication.quit();
+            }
+        });
     }
     
 	public void onDestroy() {
@@ -135,9 +147,13 @@ public class HostActivity extends Activity implements Observer {
         Log.i(TAG, "update(" + arg + ")");
         String qualifier = (String)arg;
         
+        if (qualifier.equals(IrcApplication.APPLICATION_QUIT_EVENT)) {
+            Message message = mHandler.obtainMessage(HANDLE_APPLICATION_QUIT_EVENT);
+            mHandler.sendMessage(message);
+        }
         
         if (qualifier.equals(IrcApplication.HOST_CHANNEL_STATE_CHANGED_EVENT)) {
-            Message message = mHandler.obtainMessage(HANDLE_CHANNEL_STATE_CHANGED);
+            Message message = mHandler.obtainMessage(HANDLE_CHANNEL_STATE_CHANGED_EVENT);
             mHandler.sendMessage(message);
         }
     }
@@ -192,15 +208,23 @@ public class HostActivity extends Activity implements Observer {
     private Button mSetNameButton;
     private Button mStartButton;
     private Button mStopButton;
+    private Button mQuitButton;
     
-    private static final int HANDLE_CHANNEL_STATE_CHANGED = 1;
+    private static final int HANDLE_APPLICATION_QUIT_EVENT = 0;
+    private static final int HANDLE_CHANNEL_STATE_CHANGED_EVENT = 1;
     
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
             switch (msg.what) {
-            case HANDLE_CHANNEL_STATE_CHANGED:
+	            case HANDLE_APPLICATION_QUIT_EVENT:
 	            {
-	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_CHANNEL_STATE_CHANGED");
+	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_APPLICATION_QUIT_EVENT");
+	                finish();
+	            }
+	            break; 
+            case HANDLE_CHANNEL_STATE_CHANGED_EVENT:
+	            {
+	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_CHANNEL_STATE_CHANGED_EVENT");
 	                updateChannelState();
 	            }
                 break;

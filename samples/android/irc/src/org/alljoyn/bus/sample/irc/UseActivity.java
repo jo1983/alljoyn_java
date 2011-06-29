@@ -86,9 +86,12 @@ public class UseActivity extends Activity implements Observer {
         
         /*
          * Keep a pointer to the Android Appliation class around.  We use this
-         * as the Model for our MVC-based application
+         * as the Model for our MVC-based application.    Whenever we are started
+         * we need to "check in" with the application so it can ensure that our
+         * required services are running.
          */
         mIrcApplication = (IrcApplication)getApplication();
+        mIrcApplication.checkin();
         
         /*
          * Call down into the model to get its current state.  Since the model
@@ -140,13 +143,18 @@ public class UseActivity extends Activity implements Observer {
         Log.i(TAG, "update(" + arg + ")");
         String qualifier = (String)arg;
         
+        if (qualifier.equals(IrcApplication.APPLICATION_QUIT_EVENT)) {
+            Message message = mHandler.obtainMessage(HANDLE_APPLICATION_QUIT_EVENT);
+            mHandler.sendMessage(message);
+        }
+        
         if (qualifier.equals(IrcApplication.HISTORY_CHANGED_EVENT)) {
-            Message message = mHandler.obtainMessage(HANDLE_HISTORY_CHANGED);
+            Message message = mHandler.obtainMessage(HANDLE_HISTORY_CHANGED_EVENT);
             mHandler.sendMessage(message);
         }
         
         if (qualifier.equals(IrcApplication.USE_CHANNEL_STATE_CHANGED_EVENT)) {
-            Message message = mHandler.obtainMessage(HANDLE_CHANNEL_STATE_CHANGED);
+            Message message = mHandler.obtainMessage(HANDLE_CHANNEL_STATE_CHANGED_EVENT);
             mHandler.sendMessage(message);
         }
     }
@@ -184,21 +192,28 @@ public class UseActivity extends Activity implements Observer {
         }
     }
     
-    private static final int HANDLE_HISTORY_CHANGED = 1;
-    private static final int HANDLE_CHANNEL_STATE_CHANGED = 2;
+    private static final int HANDLE_APPLICATION_QUIT_EVENT = 0;
+    private static final int HANDLE_HISTORY_CHANGED_EVENT = 1;
+    private static final int HANDLE_CHANNEL_STATE_CHANGED_EVENT = 2;
     
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
             switch (msg.what) {
-            case HANDLE_HISTORY_CHANGED:
+            case HANDLE_APPLICATION_QUIT_EVENT:
+	            {
+	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_APPLICATION_QUIT_EVENT");
+	                finish();
+	            }
+	            break; 
+            case HANDLE_HISTORY_CHANGED_EVENT:
                 {
-                    Log.i(TAG, "mHandler.handleMessage(): HANDLE_HISTORY_CHANGED");
+                    Log.i(TAG, "mHandler.handleMessage(): HANDLE_HISTORY_CHANGED_EVENT");
                     updateHistory();
                     break;
                 }
-            case HANDLE_CHANNEL_STATE_CHANGED:
+            case HANDLE_CHANNEL_STATE_CHANGED_EVENT:
 	            {
-	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_CHANNEL_STATE_CHANGED");
+	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_CHANNEL_STATE_CHANGED_EVENT");
 	                updateChannelState();
 	                break;
 	            }
