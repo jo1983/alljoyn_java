@@ -75,8 +75,3 @@ env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=os.environ.get('CLASSPATH
 
 # AllJoyn samples
 env.SConscript('samples/SConscript')
-
-# alljoyn-daemon config file for JUnit tests on Android
-build_dir = '#build/${OS}/${CPU}/${VARIANT}'
-if env['OS'] == 'android':
-    env.InstallAs(build_dir + '/test/alljoyn-daemon.conf', 'test_report/junit-android.conf')
