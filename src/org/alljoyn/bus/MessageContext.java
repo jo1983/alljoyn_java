@@ -59,6 +59,11 @@ public final class MessageContext {
     public String sender;
 
     /**
+     * The session ID that the sender used to send the message.
+     */
+    public int sessionId;
+
+    /**
      * The signature for this message.  An empty string if unable to find the
      * AllJoyn signature.
      */
@@ -70,14 +75,15 @@ public final class MessageContext {
     public String authMechanism;
 
     private MessageContext(boolean isUnreliable, String objectPath, String interfaceName,
-                           String memberName, String destination, String sender, String signature,
-                           String authMechanism) {
+                           String memberName, String destination, String sender, int sessionId,
+                           String signature, String authMechanism) {
         this.isUnreliable = isUnreliable;
         this.objectPath = objectPath;
         this.interfaceName = interfaceName;
         this.memberName = memberName;
         this.destination = destination;
         this.sender = sender;
+        this.sessionId = sessionId;
         this.signature = signature;
         this.authMechanism = authMechanism;
     }

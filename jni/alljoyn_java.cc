@@ -4940,13 +4940,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(J
         return NULL;
     }
 
-    jmethodID mid = env->GetMethodID(CLS_MessageContext, "<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    SessionId sessionId = msg->GetSessionId();
+
+    jmethodID mid = env->GetMethodID(CLS_MessageContext, "<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)V");
     if (!mid) {
         return NULL;
     }
     return env->NewObject(CLS_MessageContext, mid, msg->IsUnreliable(), (jstring)jobjectPath,
                           (jstring)jinterfaceName, (jstring)jmemberName, (jstring)jdestination,
-                          (jstring)jsender, (jstring)jsignature, (jstring)jauthMechanism);
+                          (jstring)jsender, sessionId, (jstring)jsignature, (jstring)jauthMechanism);
 }
 
 /*

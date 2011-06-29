@@ -36,6 +36,47 @@ import java.util.Date;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
+/**
+ * The IrcAppliation class serves as the Model (in the sense of the common
+ * user interface design pattern known as Model-View-Controller) for the IRC
+ * application. 
+ *
+ * The IrcApplication inherits from the relatively little-known Android 
+ * application framework class Application.  From the Android developers
+ * reference on class Application:
+ * 
+ *   Base class for those who need to maintain global application state.
+ *   You can provide your own implementation by specifying its name in your
+ *   AndroidManifest.xml's <application> tag, which will cause that class to
+ *   be instantiated for you when the process for your application/package is
+ *   created.
+ *   
+ * The important property of class Application is that its lifetime coincides
+ * with the lifetime of the application, not its activities.  Since we have
+ * persistent state in our connections to the outside world via our AllJoyn
+ * objects, and that state cannot be serialized, saved and restored; we need
+ * a persistent object to ensure that state is held if transient objects like
+ * Activities are destroyed and recreated by the Android application framework
+ * during its normal operation.
+ * 
+ * This object holds the global state for our IRC application, and starts the
+ * Android Service that handles the background processing relating to our
+ * AllJoyn connections.
+ * 
+ * Additionally, this class provides the Model for an MVC framework.  It 
+ * provides a relatively abstract idea of what it is the application is doing.
+ * For example, we provide methods oriented to conceptual actions (like our
+ * user has typed a message) instead of methods oriented to the implementation
+ * (like, create an AllJoyn bus object and register it).  This allows the
+ * user interface to be relatively independent of the channel implementation.
+ * 
+ * Android Activities can come and go in sometimes surprising ways during the
+ * operation of an application.  For example, when a phone is rotated from
+ * portrait to landscape orientation, the displayed Activities are deleted
+ * and recreated in the new orientation.  This class holds the persistent
+ * state that is required to correctly display Activities when they are
+ * recreated.
+ */
 public class IrcApplication extends Application implements Observable {
     private static final String TAG = "irc.IrcApplication";
     
@@ -44,7 +85,6 @@ public class IrcApplication extends Application implements Observable {
 	 * service.  This acts as sort of a combined view/controller in the 
 	 * overall architecture.
 	 */
-	@Override
     public void onCreate() {
         Log.i(TAG, "onCreate()");
         Intent intent = new Intent(this, AllJoynService.class);

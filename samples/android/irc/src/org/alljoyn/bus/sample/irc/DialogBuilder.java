@@ -16,8 +16,6 @@
 
 package org.alljoyn.bus.sample.irc;
 
-import java.util.List;
-
 import android.app.Activity;
 import android.app.Dialog;
 
@@ -33,6 +31,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import android.util.Log;
+
+import java.util.List;
 
 public class DialogBuilder {
     private static final String TAG = "irc.Dialogs";

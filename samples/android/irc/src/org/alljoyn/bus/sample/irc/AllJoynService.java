@@ -1021,7 +1021,7 @@ public class AllJoynService extends Service implements Observer {
      * AllJoyn bus object that will allow us to instantiate a signal emmiter.
      */
     class IrcService implements IrcInterface, BusObject {
-    	/*                                                                                                                          
+    	/**                                                                                                                          
          * Intentionally empty implementation of SendMessage method.  Since this
          * method is only used as a signal emitter, it will never be called
          * directly.
@@ -1047,12 +1047,32 @@ public class AllJoynService extends Service implements Observer {
      */
     @BusSignalHandler(iface = "org.alljoyn.bus.samples.irc", signal = "SendMessage")
     public void SendMessage(String string) {
+
+    	/*
+    	 * We send messages over signals.  Subscribed signals are routed to bus
+    	 * attachments that provide match rules that indicate they want to
+    	 * receive them.  This subscription is according to DBus rules, which
+    	 * don't include the concept of a session.  We have two "personalities"
+    	 * -- a "use" side and a "host" side.  They both will receive signals
+    	 * on all sessions associated with this bus attachment.  We are only
+    	 * interested in adding signals received through our "use" session, so
+    	 * we have to filter them here.  There is no session ID plumbed into
+    	 * the session handler directly, but we do have access to it through
+    	 * the context of the bus message which transported the signal.  We 
+    	 * therefore pull the session ID out of the message context and drop
+    	 * the signal if it did not come in over our mUseSessionId.
+    	 */
+    	MessageContext ctx = mBus.getMessageContext();
+    	if (ctx.sessionId != mUseSessionId) {
+            Log.i(TAG, "SendMessage(): dropped signal received on session " + ctx.sessionId);
+    		return;
+    	}
+    	
         /*
          * To keep the application simple, we didn't force users to choose a
          * nickname.  We want to identify the message source somehow, so we
          * just use the unique name of the sender's bus attachment.
          */
-    	MessageContext ctx = mBus.getMessageContext();
         String nickname = ctx.sender;
         nickname = nickname.substring(nickname.length()-10, nickname.length());
         
