@@ -145,7 +145,7 @@ using namespace ajn;
  *
  * Just to keep us on our toes, it turns out that the Java code can be written
  * in two completely different ways.  The first approach is to define a named
- * class, create one and retain a reference to it; which is passed into the 
+ * class, create one and retain a reference to it; which is passed into the
  * Java bindings:
  *
  *   class MySessionPortListener extends SessionPortListener {
@@ -162,7 +162,7 @@ using namespace ajn;
  * Notice that there is one SessionPortListener that is shared between two
  * session ports.
  *
- * The second approach is to pass an anonymous class reference directly into the 
+ * The second approach is to pass an anonymous class reference directly into the
  * Java bindings:
  *
  *   mBus.bindSessionPort(contactPortOne, sessionOptsOne, new SessionPortListener() {
@@ -181,7 +181,7 @@ using namespace ajn;
  *
  * Observe that in the first method, the Java client code is remembering the
  * callback object and so Java garbage collection will not free it; however in
- * the second method, the Java client code immediately forgets about the 
+ * the second method, the Java client code immediately forgets about the
  * callback.  This will allow the garbage collector to free the reference when
  * it decides to.  We must then prevent this by holding a (strong) reference to
  * the callback object.
@@ -191,7 +191,7 @@ using namespace ajn;
  * object.
  *
  * The picture is a little complicated to understand without an illustration, so
- * here you go.  This is the picture from the first method where there is an 
+ * here you go.  This is the picture from the first method where there is an
  * explicit Java listener class created and remembered by the client.
  *
  *   +-- Java Client (1) (5)
@@ -264,7 +264,7 @@ using namespace ajn;
  *   +-- Java Client (1)
  *   |   Strong Ref
  *   |
- *   v                        (2)                                      
+ *   v                        (2)
  *  +---------------+   Java Strong Ref    +--------------+  C++ Object Ref (3)  +----------------+
  *  | Java listener | <------------------- | C++ listener | <------------------- | Session Port M |
  *  |               | -------------------> |              | <--------+           +----------------+
@@ -277,7 +277,7 @@ using namespace ajn;
  *     and remembers it, resulting in a strong reference.
  * (2) indicates that the bindings need to keep a strong reference to the
  *     listener object in case the client forgets it somehow.
- * (3) the bindings creates a C++ listener object that corresponds to the 
+ * (3) the bindings creates a C++ listener object that corresponds to the
  *     Java listener and passes it into the first call to bindSessionPort.
  * (4) illustrates that the second call into the bindings must notice that
  *     a C++ object reference already exists in the Java listener which needs
@@ -290,16 +290,16 @@ using namespace ajn;
  * C++ listener object cannot be removed until both of the bus attachment
  * session port references (shown as (3) and (4) in the above illustration);
  * the C++ Object ref in the Java listener object must be reference counted.
- * 
+ *
  * The basic sequence of operations when dealing with listeners is:
  *
  * 1) The Java client code creates a new listener object and passes it into
- *    the bindings code through a BusAttachment call.  We always add a 
+ *    the bindings code through a BusAttachment call.  We always add a
  *    strog reference to a listener object in the bindings.
  * 2) The provided Java listener object always needs a corresponding C++
  *    object to make the plumbing connection to the AllJoyn C++ code.  We
  *    keep a pointer to the C++ object in the Java object, so if this pointer
- *    is NULL, we allocate a new C++ object and set its reference count to 
+ *    is NULL, we allocate a new C++ object and set its reference count to
  *    one.  If the pointer is not null, we are reusing the Java listener and
  *    so we increment the reference count of the underlying C++ object.
  * 3) The binding method then makes the corresponding call into the C++ version
@@ -310,7 +310,7 @@ using namespace ajn;
  *    has a pointer to its corresponding Java listener and so makes the
  *    appropriate Java callback.  This repeats until the client is done.
  * 5) The Java client calls the "un" method in the bindings -- for example,
- *    unbindSessionPort.  The client does not provide a pointer to the 
+ *    unbindSessionPort.  The client does not provide a pointer to the
  *    underlying callback, so the bindings have had to associate the session
  *    port with its Java listener.  The "un" method then has a Java listener
  *    to work with.
@@ -347,7 +347,7 @@ using namespace ajn;
  * destructor ordering) this case requires reference counting of the underlying
  * C++ bus attachment object (using AllJoyn's ManagedObj).
  *
- * Needless to say, this is not trivial to get right so be aware of the big 
+ * Needless to say, this is not trivial to get right so be aware of the big
  * picture when making changes in this area.
  */
 
@@ -2005,7 +2005,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numMembs = intf->GetMembers(NULL);
-        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member *[numMembs];
+        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member*[numMembs];
         if (!membs) {
             return ER_OUT_OF_MEMORY;
         }
@@ -2054,7 +2054,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numProps = intf->GetProperties(NULL);
-        const InterfaceDescription::Property** props = new const InterfaceDescription::Property *[numProps];
+        const InterfaceDescription::Property** props = new const InterfaceDescription::Property*[numProps];
         if (!props) {
             return ER_OUT_OF_MEMORY;
         }
@@ -2656,7 +2656,7 @@ QStatus _Bus::Connect(const char* connectArgs, jobject jkeyStoreListener, const 
 
     status = BusAttachment::Connect(connectArgs);
 
-    exit :
+exit:
     if (ER_OK != status) {
         Disconnect(connectArgs);
     }
