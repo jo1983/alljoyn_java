@@ -141,97 +141,215 @@ using namespace ajn;
  *
  * At this point, we do have objects being passed from one module (the Java
  * code) to another (the C++ code) and we have the additional complexity of
- * the memory model impedance mismatches.  This is best illustrated in the
- * following example from a Java program that is talking to the bindings:
+ * the memory model impedance mismatches.
  *
- *   mBus.registerBusListener(new BusListener() {
- *       @Override
- *       public void foundAdvertisedName(String name, short transport, String namePrefix) {
- *       }
- *   });
+ * Just to keep us on our toes, it turns out that the Java code can be written
+ * in two completely different ways.  The first approach is to define a named
+ * class, create one and retain a reference to it; which is passed into the 
+ * Java bindings:
  *
- * This snippet of code creates a new instance of an anonymous Java class and
- * passes a reference to the new object down into the bindings.  Since it is
- * Java it relies on garbage collection to manage the resulting object -- the
- * Java client code is allowed to essentially forget that the callback object
- * exists.  Down in the bindings, We can't forget about the code, though, since
- * we need that instance to exist.  Therefore, somewhere in the bindings we need
- * to hold a (strong) reference to the callback object.
- *
- * The while point of the bindings is to make a connection with a C++ object
- * which corresponds to the Java object.  In C++ one would do smething like,
- *
- *   class MyBusListener : public BusListener {
- *       void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
- *       {
+ *   class MySessionPortListener extends SessionPortListener {
+ *       public boolean acceptSesionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+ *           return true;
  *       }
  *   }
  *
- *   busListener = new MyBusListener();
- *   m_bus->RegisterBusListener(*busListener);
+ *   MySessionPortListener mySessionPortListener = new MySessionPortListener();
  *
- *   ...
+ *   mBus.bindSessionPort(contactPortOne, sessionOptsOne, mySessionPortListener);
+ *   mBus.bindSessionPort(contactPortTwo, sessionOptsTwo, mySessionPortListener);
  *
- *   delete s_busListener;
+ * Notice that there is one SessionPortListener that is shared between two
+ * session ports.
  *
- * We have to make these two worlds peacefully coexist.  So, the basic sequence
- * of operations is:
+ * The second approach is to pass an anonymous class reference directly into the 
+ * Java bindings:
  *
- * 1) The Java client code creates a new BusListener object and passes it into
- *    the bindings code through the BusAttachment's registerBusListener call.
- *    The client may or may not hold onto a reference to the object, so we
- *    must do so in the bindings if we want to support the unnamed object
- *    idiom.
- * 2) The BusAttachement binding needs to create a new C++ object to "ghost"
- *    the Java object.  The purpose of the C++ object is to receive the C++
- *    callback and to translate that callback into an appropriate call into
- *    the Java object.
- * 3) The BusAttachment binding then makes a call into the C++ version of
- *    the bus attachment and provides the C++ callback object in order to
- *    register it at the AllJoyn level.
+ *   mBus.bindSessionPort(contactPortOne, sessionOptsOne, new SessionPortListener() {
+ *       public boolean acceptSesionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+ *           return true;
+ *       }
+ *   });
+ *
+ *   mBus.bindSessionPort(contactPortTwo, sessionOptsTwo, new SessionPortListener() {
+ *       public boolean acceptSesionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+ *           return true;
+ *       }
+ *   });
+ *
+ * Notice that there are two SessionPortListener references and neither is shared.
+ *
+ * Observe that in the first method, the Java client code is remembering the
+ * callback object and so Java garbage collection will not free it; however in
+ * the second method, the Java client code immediately forgets about the 
+ * callback.  This will allow the garbage collector to free the reference when
+ * it decides to.  We must then prevent this by holding a (strong) reference to
+ * the callback object.
+ *
+ * The whole point of the bindings is to make a connection with a C++ object
+ * which the C++ bus attachment can use and which corresponds to a provided Java
+ * object.
+ *
+ * The picture is a little complicated to understand without an illustration, so
+ * here you go.  This is the picture from the first method where there is an 
+ * explicit Java listener class created and remembered by the client.
+ *
+ *   +-- Java Client (1) (5)
+ *   |   Strong Ref
+ *   |
+ *   v                      (2) (5)                                 (4)
+ *  +---------------+   Java Strong Ref    +--------------+    C++ Object Ref    +----------------+
+ *  | Java listener | <------------------- | C++ listener | <------------------- | Session Port M |
+ *  |               | -------------------> |              |                      |                |
+ *  +---------------+  C++ Object Ref (3)  +--------------+                      +----------------+
+ *   ^                         (6)
+ *   |
+ *   + Optional Map Strong Ref (7)
+ *
+ * (1) shows that the Java client program retains a strong reference to the
+ *     listener object it provides to the bindings.
+ * (2) indicates that the bindings needs to establish a strong reference
+ *     to the listener class in case the client forgets it somewhere.  We
+ *     are covering the case where the client chooses the anonymous class
+ *     approach.
+ * (3) there needs to be a C++ object created to allow the bus attachment
+ *     to make callbacks.  We keep the C++ object reference in the Java
+ *     listener object since there is a one-to-one relationship there.
+ * (4) when the call to bindSessionPort is made, the C++ object reference
+ *     is passed to the bus attachment which uses it to make its callbacks.
+ * (5) if the Java client uses the anonymous class idiom, it will forget
+ *     the strong reference in (1) but the bindings will continue to hold
+ *     a reference, so the listener object will not be garbage collected.
+ * (6) this looks like a circular reference, but there are actually two
+ *     completely different kinds of reference going on here.
+ *
+ * Item (6) deserves some further explanation.  The Java listener object holds a
+ * pointer reference to the C++ object and the C++ listener object holds a Java
+ * strong reference to the java listener object.  Because the C++ object is
+ * allocated out of the C++ heap, it exerts control over the lifetime of the
+ * Java object.  As long as the C++ object exists, the Java object must exist to
+ * keep the callback plumbing intact.  The Java reference in the C++ object also
+ * allows callbacks to be propagated from C++ to Java.
+ *
+ * The release of the C++ object cannot happen until the AllJoyn system will
+ * make no further callbacks.  This is usually as the result of an "un" command
+ * that undoes the effects of another.  In some cases the "un" command provides
+ * the Java listener reference directly.  In that case there is a Java client
+ * strong reference passed in.  We can use the associated Java listener object
+ * to find the C++ object pointer, and use the C++ object pointer to ask AllJoyn
+ * to forget it.  We can then release the Java strong reference from the C++
+ * object and then delete the C++ object.  That leaves the single Java strong
+ * reference in the client to control garbage collection of the Java object.
+ *
+ * There is another case where the Java listener object is not passed into the
+ * "un" method.  The canonical case is unbindSessionPort which just takes a
+ * session port number as a parameter.  To manage memory, we need to keep a map
+ * of session ports to Java listener objects.  This is another reference to the
+ * Java listener that is shown as (7) in the illustration above.  In this case,
+ * there may not be a Java client reference to the Java listener object present
+ * if the client used the anonymous class idiom.  In that case, the map entry
+ * takes the place of the client reference, and everything works the same as in
+ * the non-anonymous case except that the removal of the Java listener reference
+ * from the map controls the final disposition of the Java listener if the
+ * client holds no further references.
+ *
+ * In the case of multiple anonymous listeners or multiple named listeners
+ * we just see the above illustration repeated for each listener instance.
+ *
+ * The picture for multiple session ports sharing a single listener is only
+ * slightly different.  Consider a situation where a Java client creates
+ * a named session listener object and passes it to bindSessionPort twice,
+ * once for session port M and once for a differen session port N.
+ *
+ *   +-- Java Client (1)
+ *   |   Strong Ref
+ *   |
+ *   v                        (2)                                      
+ *  +---------------+   Java Strong Ref    +--------------+  C++ Object Ref (3)  +----------------+
+ *  | Java listener | <------------------- | C++ listener | <------------------- | Session Port M |
+ *  |               | -------------------> |              | <--------+           +----------------+
+ *  +---------------+    C++ Object Ref    +--------------+          |
+ *                                                                   |           +----------------+
+ *                                                                   +---------- | Session Port N |
+ *                                                           C++ Object Ref (4)  +----------------+
+ *
+ * (1) shows that the Java client creates a session port listener object
+ *     and remembers it, resulting in a strong reference.
+ * (2) indicates that the bindings need to keep a strong reference to the
+ *     listener object in case the client forgets it somehow.
+ * (3) the bindings creates a C++ listener object that corresponds to the 
+ *     Java listener and passes it into the first call to bindSessionPort.
+ * (4) illustrates that the second call into the bindings must notice that
+ *     a C++ object reference already exists in the Java listener which needs
+ *     to be reused.
+ *
+ * The next complication is what happens when an unbindSessionPort is done.
+ * If bindSessionPort makes a strong Java reference to the Java listener and
+ * allocates a C++ listener, then unbindSessionPort needs to free the C++
+ * listener and remove the strong reference to the Java listener.  Since the
+ * C++ listener object cannot be removed until both of the bus attachment
+ * session port references (shown as (3) and (4) in the above illustration);
+ * the C++ Object ref in the Java listener object must be reference counted.
+ * 
+ * The basic sequence of operations when dealing with listeners is:
+ *
+ * 1) The Java client code creates a new listener object and passes it into
+ *    the bindings code through a BusAttachment call.  We always add a 
+ *    strog reference to a listener object in the bindings.
+ * 2) The provided Java listener object always needs a corresponding C++
+ *    object to make the plumbing connection to the AllJoyn C++ code.  We
+ *    keep a pointer to the C++ object in the Java object, so if this pointer
+ *    is NULL, we allocate a new C++ object and set its reference count to 
+ *    one.  If the pointer is not null, we are reusing the Java listener and
+ *    so we increment the reference count of the underlying C++ object.
+ * 3) The binding method then makes the corresponding call into the C++ version
+ *    providing the C++ callback object in order to register it with AllJoyn.
+ *    For example, the call might be to BindSessionPort.
  * 4) When the AllJoyn C++ code needs to make a callback, it invokes the C++
  *    version of the callback object that we registered.  This C++ object
- *    arranges to translates the C++ callbacks into into the corresponding Java
- *    methods of the original listener object and makes the appropriate Java
- *    callback.
+ *    has a pointer to its corresponding Java listener and so makes the
+ *    appropriate Java callback.  This repeats until the client is done.
+ * 5) The Java client calls the "un" method in the bindings -- for example,
+ *    unbindSessionPort.  The client does not provide a pointer to the 
+ *    underlying callback, so the bindings have had to associate the session
+ *    port with its Java listener.  The "un" method then has a Java listener
+ *    to work with.
+ * 6) The "un" method of the bindings makes the corresponding call into the
+ *    AllJoyn C++ code.  AllJoyn forgets the C++ object pointer it had
+ *    remembered to use when making callbacks (on, for example, a given session
+ *    port).
+ * 7) Since AllJoyn has forgotten one reference to the C++ object, the "un"
+ *    method decrements the reference count of the C++ object saved in the
+ *    Java listener.
+ * 8) If the reference count drops to zero, AllJoyn has forgotten its last
+ *    reference to the C++ listener and the bindings can delete the C++ object
+ *    and set the corresponding pointer in the Java listener to NULL.  It can
+ *    now also release the strong (Java) reference to the Java listener object.
+ * 9) If the Java client has used the anonymous class idiom, it has no reference
+ *    to the Java listener object and it is garbage collected.  If it does have
+ *    a reference, the Java listener object stays around until there are no more
+ *    references and it is garbage collected.
  *
- * This is straightforward, and the translation mentioned in (2) is done using
- * Java reflection in a commonly used idiom.  The problem is, where did the
- *
- *   delete s_busListener
- *
- * of the C++ program go?  It got lost in the translation.  This is a general
- * problem.
- *
- * A BusAttachement must also be created in Java.  The bindings must create a
- * C++ version of the BusAttachment, and this C++ version must be alive until
- * the Java version of the obejct is garbage collected.  The binding must then
- * be notified when a Java object is gargabe collected.  This is done through
- * the finalize() method of the object which is defined to do just that.
- *
- * The JNI code must hold references to both Java objects and C++ objects.  The
- * C++ references (pointers) are explicitly memory managed.  The Java objects
- * are garbage collected and the JNI code looks for finalize() calls to know
- * when those Java objects are garbage.  The finalize() mechanism drives the
- * release of C++ resources.  To prevent unwanted garbage collection in case
- * the Java client decides to use the unnamed object idiom, references to Java
- * objects must be "strong".
- *
- * One last problem we have is that Java finalizers may be called at any time
+ * The above comments apply to many of the objects found in the bindings.
+ * Typically if there is a Java object, one will find a corresponding C++
+ * object.  Yet another problem we have is that the Java client may not have an
+ * "un" call to make in order to drive the process of releasing C++ resources.
+ * This happens, for example, when a Java bus attachment object is destroyed.
+ * In that case we rely on Java finalizers to drive the process of associated
+ * C++ object cleanup.  Unfortuantely, Java finalizers may be called at any time
  * and in any order, so we can't assume that just because finalizer Y is called,
- * finalizer X must have been previously called.  This may require reference
- * counting of the underlying C++ object (using AllJoyn's ManagedObj).
+ * finalizer X must have been previously called.  For example, if a Java bus
+ * attachment holds references to a number of Java bus objects, the Java bus
+ * objects will be released before the final reference to the bus attachment.
+ * It may be the case that the bus attachment is actually finalized BEFORE one
+ * or more of the bus objects.  Since the C++ code depends on bus objects being
+ * destroyed before the bus attachment (according to the C++ constructor and
+ * destructor ordering) this case requires reference counting of the underlying
+ * C++ bus attachment object (using AllJoyn's ManagedObj).
  *
- * The typical idiom is that a Java object that needs a C++ ghost or counterpart
- * will redefine its finalize() method to indicate that a memory management
- * event has taken place.  When the JNI binding needs to keep a reference to a
- * Java object, it does so via a jobject (strong) reference.  The Java object
- * finalize() method typically calls a destroy() method which drives the
- * explicit memory management required by C++ with a call back into the
- * bindings.
+ * Needless to say, this is not trivial to get right so be aware of the big 
+ * picture when making changes in this area.
  */
-
-// TODO: Cache IDs - not sure if the non java/lang ones are valid all the time
 
 /** The cached JVM pointer, valid across all contexts. */
 static JavaVM* jvm = NULL;
@@ -3621,7 +3739,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
     }
 
     if (status == ER_OK) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Success\n"));
+        QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Success\n"));
 
         /*
          * We have a pointer to the C++ object in the sesion port listener Java
@@ -4176,7 +4294,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
     }
 
     if (status == ER_OK) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Success\n"));
+        QCC_DbgPrintf(("BusAttachment_leaveSession(): Success\n"));
 
         /*
          * We have a pointer to the C++ object in the sesion port listener Java
@@ -4317,7 +4435,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
      */
     if (env->ExceptionCheck() == false) {
         if (status == ER_OK) {
-            QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Listener Success\n"));
+            QCC_DbgPrintf(("BusAttachment_setSessionListener(): Listener Success\n"));
 
             /*
              * We have a pointer to the C++ object in the sesion port listener
