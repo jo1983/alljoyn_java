@@ -56,7 +56,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy
  * Signature: (Ljava/lang/String;Lorg/alljoyn/bus/KeyStoreListener;Ljava/lang/String;Lorg/alljoyn/bus/BusAttachment$AuthListenerInternal;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect
-  (JNIEnv *, jobject, jstring, jobject, jstring, jobject, jstring);
+  (JNIEnv *, jobject, jstring, jobject, jstring, jobject, jstring, jboolean);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
@@ -266,7 +266,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener
  */
 JNIEXPORT jobject JNICALL 
 Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity
-  (JNIEnv *env, jobject, jstring, jobject, jstring);
+  (JNIEnv *env, jobject, jstring, jobject, jstring, jboolean);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment

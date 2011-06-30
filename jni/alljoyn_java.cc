@@ -2563,9 +2563,9 @@ class _Bus : public BusAttachment {
 
     _Bus(const char* applicationName, bool allowRemoteMessages);
     QStatus Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
-                    jobject jauthListener, const char* keyStoreFileName);
+                    jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
     void Disconnect(const char* connectArgs);
-    QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName);
+    QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
     QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces);
     void UnregisterBusObject(jobject jbusObject);
     QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
@@ -2629,7 +2629,7 @@ JBusObject* _Bus::GetBusObject(jobject jbusObject)
 }
 
 QStatus _Bus::Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
-                      jobject jauthListener, const char* keyStoreFileName)
+                      jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
 {
     JNIEnv* env = GetEnv();
     QStatus status = Start();
@@ -2649,7 +2649,7 @@ QStatus _Bus::Connect(const char* connectArgs, jobject jkeyStoreListener, const 
         RegisterKeyStoreListener(*keyStoreListener);
     }
 
-    status = EnablePeerSecurity(authMechanisms, jauthListener, keyStoreFileName);
+    status = EnablePeerSecurity(authMechanisms, jauthListener, keyStoreFileName, isShared);
     if (ER_OK != status) {
         goto exit;
     }
@@ -2714,7 +2714,7 @@ void _Bus::Disconnect(const char* connectArgs)
     keyStoreListener = NULL;
 }
 
-QStatus _Bus::EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName)
+QStatus _Bus::EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
 {
     JNIEnv* env = GetEnv();
     if (!authMechanisms || !IsStarted()) {
@@ -2727,7 +2727,7 @@ QStatus _Bus::EnablePeerSecurity(const char* authMechanisms, jobject jauthListen
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
-    QStatus status = BusAttachment::EnablePeerSecurity(authMechanisms, authListener, keyStoreFileName);
+    QStatus status = BusAttachment::EnablePeerSecurity(authMechanisms, authListener, keyStoreFileName, isShared);
     if (ER_OK != status) {
         delete authListener;
         authListener = NULL;
@@ -4673,7 +4673,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env
                                                                      jobject jkeyStoreListener,
                                                                      jstring jauthMechanisms,
                                                                      jobject jauthListener,
-                                                                     jstring jkeyStoreFileName)
+                                                                     jstring jkeyStoreFileName,
+                                                                     jboolean isShared)
 {
     JString connectArgs(jconnectArgs);
     if (env->ExceptionCheck()) {
@@ -4694,7 +4695,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env
     assert(bus);
 
     QStatus status = (*bus)->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
-                                     jauthListener, keyStoreFileName.c_str());
+                                     jauthListener, keyStoreFileName.c_str(), isShared);
     if (env->ExceptionCheck()) {
         return NULL;
     } else {
@@ -4722,7 +4723,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(
                                                                                 jobject thiz,
                                                                                 jstring jauthMechanisms,
                                                                                 jobject jauthListener,
-                                                                                jstring jkeyStoreFileName)
+                                                                                jstring jkeyStoreFileName,
+                                                                                jboolean isShared)
 {
     Bus* bus = (Bus*)GetHandle(thiz);
     if (env->ExceptionCheck()) {
@@ -4737,7 +4739,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(
     if (env->ExceptionCheck()) {
         return NULL;
     }
-    QStatus status = (*bus)->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str());
+    QStatus status = (*bus)->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str(), isShared);
     if (env->ExceptionCheck()) {
         return NULL;
     } else {

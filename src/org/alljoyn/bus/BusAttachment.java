@@ -58,7 +58,7 @@ public class BusAttachment {
      *
      * @param name    Well-known name being requested.
      * @param flags   Bitmask name flag (see DBusStd.h)
-     * 	                <ul>
+     *                  <ul>
      *                  <li>ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT</li>
      *                  <li>ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING</li>
      *                  <li>ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE</li>
@@ -602,6 +602,9 @@ public class BusAttachment {
 
     /** Default key store file name. */
     private String keyStoreFileName;
+    
+    /** Specify if the default key store is shared */
+    private boolean isShared;
 
     private Method foundAdvertisedName;
 
@@ -629,6 +632,7 @@ public class BusAttachment {
      *               from remote devices
      */
     public BusAttachment(String applicationName, RemoteMessage policy) {
+        isShared = false;
         this.allowRemoteMessages = (policy == RemoteMessage.Receive);
         busAuthListener = new AuthListenerInternal();
         try {
@@ -665,13 +669,13 @@ public class BusAttachment {
     /** Start and connect to the bus. */
     private native Status connect(String connectArgs, KeyStoreListener keyStoreListener, 
                                   String authMechanisms, AuthListenerInternal busAuthListener, 
-                                  String keyStoreFileName);
+                                  String keyStoreFileName, boolean isShared);
 
     /** Stop and disconnect from the bus. */
     private native void disconnect(String connectArgs);
 
     private native Status enablePeerSecurity(String authMechanisms,
-        AuthListenerInternal busAuthListener, String keyStoreFileName);
+        AuthListenerInternal busAuthListener, String keyStoreFileName, Boolean isShared);
 
     private native Status registerBusObject(String objPath, BusObject busObj,
                                             InterfaceDescription[] busInterfaces);
@@ -725,17 +729,17 @@ public class BusAttachment {
      * @return OK if successful
      */
     public Status connect() {
-    	/*
-    	 * os.name is one of the standard system properties will be used to 
-    	 * decide the value of org.alljoyn.bus.address.
-    	 */
-    	if ( System.getProperty("os.name").startsWith("Windows")) {
-    		address = System.getProperty("org.alljoyn.bus.address", "tcp:addr=127.0.0.1,port=9955");
-    	} else {
-    		address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
-    	}
+        /*
+         * os.name is one of the standard system properties will be used to 
+         * decide the value of org.alljoyn.bus.address.
+         */
+        if ( System.getProperty("os.name").startsWith("Windows")) {
+            address = System.getProperty("org.alljoyn.bus.address", "tcp:addr=127.0.0.1,port=9955");
+        } else {
+            address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
+        }
         if (address != null) {
-            return connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName);
+            return connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName, isShared);
         } else {
             return Status.INVALID_CONNECT_ARGS;
         }
@@ -1004,15 +1008,18 @@ public class BusAttachment {
      *                         Context.getFileStreamPath("alljoyn_keystore").getAbsolutePath()}.  Note
      *                         that the default key store implementation may be overrided with
      *                         {@link #registerKeyStoreListener(KeyStoreListener)}.
+     * @param isShared Set to true if the default keystore will be shared between multiple programs.
+     *                 all programs must have read/write permissions to the keyStoreFileName file.
      * @return OK if successful
      */
     public Status registerAuthListener(String authMechanisms, AuthListener listener, 
-                                       String keyStoreFileName) {
+                                       String keyStoreFileName, boolean isShared) {
         this.authMechanisms = authMechanisms;
         busAuthListener.setAuthListener(listener);
         this.keyStoreFileName = keyStoreFileName;
+        this.isShared = isShared;
         Status status = enablePeerSecurity(this.authMechanisms, busAuthListener, 
-                                           this.keyStoreFileName);
+                                           this.keyStoreFileName, isShared);
         if (status != Status.OK) {
             busAuthListener.setAuthListener(null);
             this.authMechanisms = null;
@@ -1020,6 +1027,23 @@ public class BusAttachment {
         return status;
     }
 
+    /**
+     * Registers a user-defined authentication listener class with a specific default key store.
+     *
+     * @param authMechanisms the authentication mechanism(s) to use for peer-to-peer authentication
+     * @param listener the authentication listener
+     * @param keyStoreFileName the name of the default key store.  Under Android, the recommended
+     *                         value of this parameter is {@code
+     *                         Context.getFileStreamPath("alljoyn_keystore").getAbsolutePath()}.  Note
+     *                         that the default key store implementation may be overrided with
+     *                         {@link #registerKeyStoreListener(KeyStoreListener)}.
+     * @return OK if successful
+     */
+    public Status registerAuthListener(String authMechanisms, AuthListener listener, 
+                                       String keyStoreFileName){
+        return registerAuthListener(authMechanisms, listener, keyStoreFileName, false);
+    }
+                                       
     /**
      * Registers a user-defined authentication listener class.  Under Android, it is recommended to
      * use {@link #registerAuthListener(String, AuthListener, String)} instead to specify the path
@@ -1030,7 +1054,7 @@ public class BusAttachment {
      * @return OK if successful
      */
     public Status registerAuthListener(String authMechanisms, AuthListener listener) {
-        return registerAuthListener(authMechanisms, listener, null);
+        return registerAuthListener(authMechanisms, listener, null, false);
     }
 
     /**
