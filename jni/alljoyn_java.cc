@@ -2656,7 +2656,7 @@ QStatus _Bus::Connect(const char* connectArgs, jobject jkeyStoreListener, const 
 
     status = BusAttachment::Connect(connectArgs);
 
-exit:
+    exit :
     if (ER_OK != status) {
         Disconnect(connectArgs);
     }
