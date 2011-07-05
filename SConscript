@@ -63,7 +63,7 @@ if env['WS'] != 'off' and not env.GetOption('clean'):
     def wsbuild(target, source, env):
         print "Evaluating whitespace compliance..."
         print "Note: enter 'scons -h' to see whitespace (WS) options"
-        return whitespace.main(env['WS'])
+        return whitespace.main([env['WS'],])
 
     env.Command('ws', Dir('$DISTDIR'), wsbuild)
 
