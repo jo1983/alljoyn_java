@@ -54,19 +54,6 @@ env.Install('$JAVA_DISTDIR/lib', libs)
 # AllJoyn Java binding tests
 env.SConscript('test/SConscript')
 
-# Whitespace policy
-if env['WS'] != 'off' and not env.GetOption('clean'):
-    import sys
-    sys.path.append('../build_core/tools/bin')
-    import whitespace
-
-    def wsbuild(target, source, env):
-        print "Evaluating whitespace compliance..."
-        print "Note: enter 'scons -h' to see whitespace (WS) options"
-        return whitespace.main([env['WS'],])
-
-    env.Command('ws', Dir('$DISTDIR'), wsbuild)
-
 # AllJoyn Java binding docs
 env['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
 env['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
