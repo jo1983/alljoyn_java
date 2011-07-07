@@ -1096,7 +1096,7 @@ class JBusListener : public BusListener {
  * @param jlistener The corresponding java object.
  */
 JBusListener::JBusListener(jobject jlistener)
-   : jbusListener(NULL)
+    : jbusListener(NULL)
 {
     QCC_DbgPrintf(("JBusListener::JBusListener()\n"));
 
@@ -1725,7 +1725,7 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
  * the corresponding Java object.  This reference is a weak reference so we
  * don't interfere with Java garbage collection.  See the member variable
  * jbusListener for this reference.  The bindings hold separate strong references
- * to prevent the listener from being garbage collected in the presence of the 
+ * to prevent the listener from being garbage collected in the presence of the
  * anonymous class idiom.
  *
  * Think of the weak reference as the counterpart to the handle pointer found in
@@ -3765,12 +3765,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      * Make the AllJoyn call.
      */
     QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
-            sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
+                   sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
 
     QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts, *listener);
 
     QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Back from BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
-            sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
+                   sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
 
     /*
      * If we get an exception down in the AllJoyn code, it's hard to know what
@@ -4038,15 +4038,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     SessionId sessionId = 0;
 
     QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %p, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
-            sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
-            sessionOpts.proximity, sessionOpts.transports));
+                   sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports));
 
     QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts);
 
     QCC_DbgPrintf(("BusAttachment_joinSession(): Back from JoinSession(%s, %d, %p, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
-            sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
-            sessionOpts.proximity, sessionOpts.transports));
- 
+                   sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports));
+
     /*
      * If we get an exception down in the AllJoyn code, it's hard to know what
      * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
@@ -4365,15 +4365,15 @@ class JJoinSessionAsyncCB : public BusAttachment::JoinSessionAsyncCB {
     jweak jonJoinSessionListener;
     jweak jcontext;
     jmethodID MID_onJoinSession;
-    Bus &bus;
+    Bus& bus;
 };
 
 JJoinSessionAsyncCB::JJoinSessionAsyncCB(
-    jweak jsessionListener, 
-    jweak jonJoinSessionListener, 
-    jweak jcontext, 
+    jweak jsessionListener,
+    jweak jonJoinSessionListener,
+    jweak jcontext,
     Bus& busAttachment)
-  : 
+    :
     jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), bus(busAttachment)
 {
     QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB()\n"));
@@ -4459,7 +4459,7 @@ void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, Ses
 {
     QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
                    QCC_StatusText(status), sessionId, opts.traffic, opts.isMultipoint,
-            opts.proximity, opts.transports, context));
+                   opts.proximity, opts.transports, context));
 
     JScopedEnv env;
     JLocalRef<jobject> jstatus;
@@ -4552,14 +4552,14 @@ exit:
                     env->DeleteGlobalRef(i->jlistener);
                 }
 
-                
+
                 /*
                  * releasing the Java callback on join session listener is
                  * effectively a "delete this" since the global reference to the
                  * Java object controls the lifetime of its corresponding C++
                  * object -- us.  We have got to do that last, so we init a
                  * local variable with the object reference before erasing the
-                 * list entry we've been working with and then delete the 
+                 * list entry we've been working with and then delete the
                  * global reference just before we leave.
                  */
                 jobject jcallback = i->jcallback;
@@ -4705,8 +4705,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
     void* context = jglobalContextRef;
 
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
-            sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
-            sessionOpts.proximity, sessionOpts.transports, callback, context));
+                   sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports, callback, context));
 
     QStatus status = (*bus)->JoinSessionAsync(sessionHost.c_str(), jsessionPort, listener, sessionOpts, callback, context);
 
