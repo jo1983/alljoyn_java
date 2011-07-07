@@ -374,6 +374,14 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    getGlobalGUIDString
+ * Signature: ()Ljava/lang/String;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getGlobalGUIDString
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    clearKeyStore
  * Signature: ()V
  */

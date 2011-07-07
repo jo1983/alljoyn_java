@@ -823,6 +823,13 @@ public class BusAttachment {
     public native String getUniqueName();
 
     /**
+     * Get the guid of the local daemon as a string
+     *
+     * @return GUID of local AllJoyn daemon as a string.
+     */
+    public native String getGlobalGUIDString();
+
+    /**
      * Registers a public method to receive a signal from all objects emitting
      * it.
      * Once registered, the method of the object will receive the signal

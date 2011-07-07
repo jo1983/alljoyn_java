@@ -5195,6 +5195,16 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEn
     return env->NewStringUTF((*bus)->GetUniqueName().c_str());
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getGlobalGUIDString(JNIEnv* env, jobject thiz)
+{
+    Bus* bus = (Bus*)GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(bus);
+    return env->NewStringUTF((*bus)->GetGlobalGUIDString().c_str());
+}
+
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* env,
                                                                         jobject thiz)
 {
