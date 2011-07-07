@@ -24,6 +24,36 @@ package org.alljoyn.bus;
 public class BusListener {
 
     /**
+     * Destroy native resources held by objects of this class.
+     */
+    public BusListener() {
+        create();
+    }
+
+    /**
+     * Destroy native resources held by objects of this class.
+     */
+    protected void finalize() throws Throwable {
+        try {
+            destroy();
+        } finally {
+            super.finalize();
+        }
+    }
+
+    /**
+     * Create any native resources held by objects of this class.  Specifically,
+     * we allocate a C++ counterpart of this listener object.
+     */
+    private native void create();
+
+    /**
+     * Release any native resources held by objects of this class.
+     * Specifically, we may delete a C++ counterpart of this listener object.
+     */
+    private native void destroy();
+
+    /**
      * Called by the bus when an external bus is discovered that is advertising
      * a well-known name that this attachment has registered interest in via a
      * call to findAdvertisedName

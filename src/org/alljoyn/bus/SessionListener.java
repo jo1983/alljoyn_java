@@ -24,6 +24,36 @@ package org.alljoyn.bus;
 public class SessionListener {
 
     /**
+     * Create native resources held by objects of this class.
+     */
+    public SessionListener() {
+        create();
+    }
+
+    /**
+     * Destroy native resources held by objects of this class.
+     */
+    protected void finalize() throws Throwable {
+        try {
+            destroy();
+        } finally {
+            super.finalize();
+        }
+    }
+
+    /**
+     * Create any native resources held by objects of this class.  Specifically,
+     * we allocate a C++ counterpart of this listener object.
+     */
+    private native void create();
+
+    /**
+     * Release any native resources held by objects of this class.
+     * Specifically, we may delete a C++ counterpart of this listener object.
+     */
+    private native void destroy();
+
+    /**
      * Called by the bus when a session becomes disconnected.
      *
      * @param sessionId     Id of session that was lost.

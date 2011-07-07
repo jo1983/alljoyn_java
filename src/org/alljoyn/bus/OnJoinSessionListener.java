@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2011, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -17,17 +17,16 @@
 package org.alljoyn.bus;
 
 /**
- * A SessionPortListener is responsible for handling session port related callbacks
- * from the AllJoyn system. It is expected that an AllJoyn session creator will
- * specialize this class in order to handle callbacks required for accepting session
- * joiners.
+ * An OnJoinSessionListener is responsible for receiving completion indcations
+ * from asynchronous join operations.  It is expected that an AllJoyn session
+ * user will specialize this class in order to handle the callback.
  */
-public class SessionPortListener {
+public class OnJoinSessionListener {
 
     /**
      * Create native resources held by objects of this class.
      */
-    public SessionPortListener() {
+    public OnJoinSessionListener() {
         create();
     }
 
@@ -55,28 +54,21 @@ public class SessionPortListener {
     private native void destroy();
 
     /**
-     * Accept or reject an incoming JoinSession request. The session does not
-     * exist until this after this function returns.
+     * Called when {@link #joinSession(String, short, SessionOpts, SessionListener,
+     * OnJoinSessionListener)} completes.
      *
-     * @param sessionPort    Session port that was joined.
-     * @param joiner         Unique name of potential joiner.
-     * @param opts           Session options requested by the joiner.
-     *
-     * @return Return true if JoinSession request is accepted. false if rejected.
+     * @param status <ul><li>OK if the session was joined.</li>
+     *                   <li>BUS_NOT_CONNECTED if a connection has not been made with a local
+     *                       bus</li>
+     *                   <li>other error status codes indicating a failure.</li></ul>
+     * @param sessionId Set to the unique identifier for session.
+     * @param opts      Set to the actual session options of the joined session.
+     * @param context   User-defined context object.  Users can provide anything they want.
      */
-    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts opts) {return false;}
+    void onJoinSession(Status status, int sessionId, SessionOpts opts, Object context) {
+    }
 
-    /**
-     * Called by the bus when a session has been successfully joined. The
-     * session is fully up when this method is called.
-     *
-     * @param sessionPort    Session port that was joined.
-     * @param id             Id of session.
-     * @param joiner         Unique name of the joiner.
-     */
-    public void sessionJoined(short sessionPort, int id, String joiner) {}
-
-    /**
+    /*
      * The opaque pointer to the underlying C++ object which is actually tied
      * to the AllJoyn code.
      */

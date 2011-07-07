@@ -18,6 +18,7 @@ package org.alljoyn.bus;
 
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.OnJoinSessionListener;
 import org.alljoyn.bus.AuthListener.AuthRequest;
 import org.alljoyn.bus.AuthListener.CertificateRequest;
 import org.alljoyn.bus.AuthListener.Credentials;
@@ -302,24 +303,6 @@ public class BusAttachment {
                                      SessionListener listener);
 
     /**
-     * Interface definition for a callback to be invoked when a join session request completes.
-     */
-    public static interface OnJoinSessionListener {
-        /**
-         * Called when {@link #joinSession(String, short, SessionOpts, SessionListener,
-         * OnJoinSessionListener)} completes.
-         *
-         * @param status <ul><li>OK if the session was joined.</li>
-         *                   <li>BUS_NOT_CONNECTED if a connection has not been made with a local
-         *                       bus</li>
-         *                   <li>other error status codes indicating a failure.</li></ul>
-         * @param sessionId     Set to the unique identifier for session.
-         * @param opts          Set to the actual session options of the joined session.
-         */
-        void onJoinSession(Status status, int sessionId, SessionOpts opts);
-    };
-
-    /*
      * The JNI loader can't resolve the overloaded joinSession if both the sync and async versions
      * are native.  This is the workaround.
      */
