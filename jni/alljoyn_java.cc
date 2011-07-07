@@ -3219,7 +3219,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
      * Get the C++ object that must be there backing the Java object
      */
     JBusListener* listener = GetNativeListener<JBusListener>(env, jlistener);
-    assert(listener && "BusAttachment.registerBusListener(): No C++ listener in java listener");
+    assert(listener);
 
     /*
      * Make the call into AllJoyn.
@@ -3253,7 +3253,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
      * Get the C++ object that must be there backing the Java object
      */
     JBusListener* listener = GetNativeListener<JBusListener>(env, jlistener);
-    assert(listener && "BusAttachment.registerBusListener(): No C++ listener in java listener");
+    assert(listener);
 
     /*
      * Make the call into AllJoyn.
@@ -3277,8 +3277,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_create(JNIEnv* env, jobject thiz)
 {
-    void* v = GetHandle(thiz);
-    assert(v == NULL);
+    assert(GetHandle(thiz) == NULL);
 
     QCC_DbgPrintf(("BusListener_create(): Call new\n"));
     JBusListener* jbl = new JBusListener(thiz);
@@ -3759,7 +3758,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionPortListener* listener = GetNativeListener<JSessionPortListener>(env, jlistener);
-    assert(listener && "BusAttachment.bindSessionPort(): No C++ listener in java listener");
+    assert(listener);
 
     /*
      * Make the AllJoyn call.
@@ -3906,8 +3905,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_create(JNIEnv* env, jobject thiz)
 {
-    void* v = GetHandle(thiz);
-    assert(v == NULL);
+    assert(GetHandle(thiz) == NULL);
 
     JSessionPortListener* obj = new JSessionPortListener(thiz);
     if (obj == NULL) {
@@ -4030,7 +4028,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionListener* listener = GetNativeListener<JSessionListener>(env, jlistener);
-    assert(listener && "BusAttachment.bindSessionPort(): No C++ listener in java listener");
+    assert(listener);
 
     /*
      * Make the AllJoyn call.
@@ -4253,7 +4251,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionListener* listener = GetNativeListener<JSessionListener>(env, jlistener);
-    assert(listener && "BusAttachment.bindSessionPort(): No C++ listener in java listener");
+    assert(listener);
 
     /*
      * Make the AllJoyn call.
@@ -4323,8 +4321,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_create(JNIEnv* env, jobject thiz)
 {
-    void* v = GetHandle(thiz);
-    assert(v == NULL);
+    assert(GetHandle(thiz) == NULL);
 
     JSessionListener* obj = new JSessionListener(thiz);
     if (obj == NULL) {
@@ -4687,13 +4684,13 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionListener* listener = GetNativeListener<JSessionListener>(env, jsessionListener);
-    assert(listener && "BusAttachment.joinSessionAsync(): No C++ listener in Java listener");
+    assert(listener);
 
     /*
      * Get the C++ object that must be there backing the Java callback object
      */
     JJoinSessionAsyncCB* callback = GetNativeListener<JJoinSessionAsyncCB>(env, jonJoinSessionListener);
-    assert(callback && "BusAttachment.bindSessionPort(): No C++ callabck in Java callback");
+    assert(callback);
 
     /*
      * There is no C++ object backing the Java context object.  This is just an
