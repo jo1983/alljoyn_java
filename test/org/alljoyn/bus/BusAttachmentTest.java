@@ -951,14 +951,17 @@ public class BusAttachmentTest extends TestCase {
          * The actual test begins here.
          */
         onJoined = false;
+        Integer context = new Integer(0xacceeded);
         assertEquals(Status.OK, otherBus.joinSession(name, (short) 42, new SessionOpts(), 
-            new JoinSessionSessionListener(), new BusAttachment.OnJoinSessionListener() {
-                public void onJoinSession(Status status, int sessionId, SessionOpts opts) {
+            new SessionListener(), new OnJoinSessionListener() {
+                public void onJoinSession(Status status, int sessionId, SessionOpts opts, Object context) {
                     assertEquals(Status.OK, status);
+                    int i = ((Integer)context).intValue();
+                    assertEquals(0xacceeded, i);
                     onJoined = true;
                     stopWait();
                 }
-            }));
+            }, context));
         this.wait(4 * 1000);
         assertEquals(true, onJoined);
     }

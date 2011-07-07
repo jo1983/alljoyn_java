@@ -310,7 +310,8 @@ public class BusAttachment {
                                            short sessionPort,
                                            SessionOpts opts,
                                            SessionListener listener,
-                                           OnJoinSessionListener onJoinSession);
+                                           OnJoinSessionListener onJoinSession,
+                                           Object context);
 
     /**
      * Asynchronous version of {@link #joinSession(String, short, Mutable.IntegerValue, SessionOpts,
@@ -334,8 +335,9 @@ public class BusAttachment {
                               short sessionPort,
                               SessionOpts opts,
                               SessionListener listener,
-                              OnJoinSessionListener onJoinSession) {
-        return joinSessionAsync(sessionHost, sessionPort, opts, listener, onJoinSession);
+                              OnJoinSessionListener onJoinSession,
+                              Object context) {
+        return joinSessionAsync(sessionHost, sessionPort, opts, listener, onJoinSession, context);
     }
 
     /**
