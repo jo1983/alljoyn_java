@@ -3048,7 +3048,7 @@ void _Bus::UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
  * extra indirection is required to access it.  When you think you are getting
  * a pointer to a class Bus from a Java object,
  *
- *   Bus *bus = (Bus *)GetHandle(thiz);
+ *   Bus* bus = (Bus*)GetHandle(thiz);
  *
  * You are really getting a managed object, not a pointer to a bus.  You have
  * to use operator * to get a pointer to the _Bus even though it looks like you
@@ -3279,10 +3279,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_create(JNIEnv* env, jobj
 {
     assert(GetHandle(thiz) == NULL);
 
-    QCC_DbgPrintf(("BusListener_create(): Call new\n"));
     JBusListener* jbl = new JBusListener(thiz);
-    QCC_DbgPrintf(("BusListener_create(): Back from new\n"));
-
     if (jbl == NULL) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
@@ -3907,15 +3904,15 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_create(JNIEnv* e
 {
     assert(GetHandle(thiz) == NULL);
 
-    JSessionPortListener* obj = new JSessionPortListener(thiz);
-    if (obj == NULL) {
+    JSessionPortListener* jspl = new JSessionPortListener(thiz);
+    if (jspl == NULL) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
     }
 
-    SetHandle(thiz, obj);
+    SetHandle(thiz, jspl);
     if (env->ExceptionCheck()) {
-        delete obj;
+        delete jspl;
         return;
     }
 }
@@ -4323,15 +4320,15 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_create(JNIEnv* env, 
 {
     assert(GetHandle(thiz) == NULL);
 
-    JSessionListener* obj = new JSessionListener(thiz);
-    if (obj == NULL) {
+    JSessionListener* jsl = new JSessionListener(thiz);
+    if (jsl == NULL) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
     }
 
-    SetHandle(thiz, obj);
+    SetHandle(thiz, jsl);
     if (env->ExceptionCheck()) {
-        delete obj;
+        delete jsl;
         return;
     }
 }
@@ -4350,11 +4347,12 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env,
     return;
 }
 
-class JJoinSessionAsyncCB : public BusAttachment::JoinSessionAsyncCB {
+class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
   public:
-    JJoinSessionAsyncCB(jweak jsessionListener, jweak jonJoinSessionListener, jobject jcontext, Bus& bus);
-    ~JJoinSessionAsyncCB();
+    JOnJoinSessionListener(jobject jonJoinSessionListener);
+    ~JOnJoinSessionListener();
 
+    void Setup(jobject jsessionListener, jobject jcontext, Bus* bus);
     void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
 
   private:
@@ -4362,19 +4360,57 @@ class JJoinSessionAsyncCB : public BusAttachment::JoinSessionAsyncCB {
     jweak jonJoinSessionListener;
     jweak jcontext;
     jmethodID MID_onJoinSession;
-    Bus& bus;
+    Bus* bus;
 };
 
-JJoinSessionAsyncCB::JJoinSessionAsyncCB(
-    jweak jsessionListener,
-    jweak jonJoinSessionListener,
-    jweak jcontext,
-    Bus& busAttachment)
-    :
-    jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), bus(busAttachment)
+JOnJoinSessionListener::JOnJoinSessionListener(jobject jonJoinSessionListener)
+    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), bus(NULL)
 {
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB()\n"));
+    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener()\n"));
 
+    JNIEnv* env = GetEnv();
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Taking weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
+    this->jonJoinSessionListener = env->NewWeakGlobalRef(jonJoinSessionListener);
+    if (!this->jonJoinSessionListener) {
+        return;
+    }
+
+    JLocalRef<jclass> clazz = env->GetObjectClass(jonJoinSessionListener);
+
+    MID_onJoinSession = env->GetMethodID(clazz, "onJoinSession", "(Lorg/alljoyn/bus/Status;ILorg/alljoyn/bus/SessionOpts;Ljava/lang/Object;)V");
+    if (!MID_onJoinSession) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Can't find onJoinSession() in OnJoinSessionListener\n"));
+    }
+}
+
+JOnJoinSessionListener::~JOnJoinSessionListener()
+{
+    QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener()\n"));
+
+    JNIEnv* env = GetEnv();
+
+    if (jsessionListener) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
+        env->DeleteWeakGlobalRef(jsessionListener);
+        jsessionListener = NULL;
+    }
+
+    if (jonJoinSessionListener) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
+        env->DeleteWeakGlobalRef(jonJoinSessionListener);
+        jonJoinSessionListener = NULL;
+    }
+
+    if (jcontext) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to context Object %p\n", jcontext));
+        env->DeleteWeakGlobalRef(jcontext);
+        jcontext = NULL;
+    }
+}
+
+void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, Bus* bus)
+{
     /*
      * When an async join operation is started, we are provided three Java
      * object references: a session listener object, a callback listener object
@@ -4401,60 +4437,28 @@ JJoinSessionAsyncCB::JJoinSessionAsyncCB(
      * more we can do here.
      */
     JNIEnv* env = GetEnv();
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB(): Taking weak global reference to SessionListener %p\n", jsessionListener));
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to SessionListener %p\n", jsessionListener));
     this->jsessionListener = env->NewWeakGlobalRef(jsessionListener);
     if (!this->jsessionListener) {
         return;
     }
 
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB(): Taking weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-    this->jonJoinSessionListener = env->NewWeakGlobalRef(jonJoinSessionListener);
-    if (!this->jonJoinSessionListener) {
-        return;
-    }
-
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB(): Taking weak global reference to context Object %p\n", jcontext));
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to context Object %p\n", jcontext));
     this->jcontext = env->NewWeakGlobalRef(jcontext);
     if (!this->jcontext) {
         return;
     }
 
-    JLocalRef<jclass> clazz = env->GetObjectClass(jonJoinSessionListener);
-
-    MID_onJoinSession = env->GetMethodID(clazz, "onJoinSession", "(Lorg/alljoyn/bus/Status;ILorg/alljoyn/bus/SessionOpts;Ljava/lang/Object)V");
-    if (!MID_onJoinSession) {
-        QCC_DbgPrintf(("JJoinSessionAsyncCB::JJoinSessionAsyncCB(): Can't find onJoinSession() in jonJoinSessionListener\n"));
-    }
+    /*
+     * We need to be able to get back at the bus attachment in the callback to
+     * release and/or reassign resources.
+     */
+    this->bus = bus;
 }
 
-JJoinSessionAsyncCB::~JJoinSessionAsyncCB()
+void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
 {
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::~JJoinSessionAsyncCB()\n"));
-
-    JNIEnv* env = GetEnv();
-
-    if (jsessionListener) {
-        QCC_DbgPrintf(("JJoinSessionAsyncCB::~JJoinSessionAsyncCB(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
-        env->DeleteWeakGlobalRef(jsessionListener);
-        jsessionListener = NULL;
-    }
-
-    if (jonJoinSessionListener) {
-        QCC_DbgPrintf(("JJoinSessionAsyncCB::~JJoinSessionAsyncCB(): Releasing weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-        env->DeleteWeakGlobalRef(jonJoinSessionListener);
-        jonJoinSessionListener = NULL;
-    }
-
-    if (jcontext) {
-        QCC_DbgPrintf(("JJoinSessionAsyncCB::~JJoinSessionAsyncCB(): Releasing weak global reference to context Object %p\n", jcontext));
-        env->DeleteWeakGlobalRef(jcontext);
-        jcontext = NULL;
-    }
-}
-
-void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
-{
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
                    QCC_StatusText(status), sessionId, opts.traffic, opts.isMultipoint,
                    opts.proximity, opts.transports, context));
 
@@ -4464,13 +4468,14 @@ void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, Ses
     jmethodID mid;
     JLocalRef<jobject> jopts;
     jfieldID fid;
+    jobject jo;
 
     /*
      * Translate the C++ formal parameters into their JNI counterparts.
      */
     jstatus = JStatus(status);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
         goto exit;
     }
 
@@ -4478,18 +4483,18 @@ void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, Ses
 
     mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
     if (!mid) {
-        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Can't find SessionOpts constructor\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Can't find SessionOpts constructor\n"));
         goto exit;
     }
 
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Create new SessionOpts\n"));
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Create new SessionOpts\n"));
     jopts = env->NewObject(CLS_SessionOpts, mid);
     if (!jopts) {
-        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Cannot create SessionOpts\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Cannot create SessionOpts\n"));
         goto exit;
     }
 
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Load SessionOpts\n"));
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Load SessionOpts\n"));
     fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
     env->SetByteField(jopts, fid, opts.traffic);
 
@@ -4502,22 +4507,32 @@ void JJoinSessionAsyncCB::JoinSessionCB(QStatus status, SessionId sessionId, Ses
     fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
     env->SetShortField(jopts, fid, opts.transports);
 
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Call out to listener object and method\n"));
-    env->CallVoidMethod(jonJoinSessionListener, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)context);
+    /*
+     * The weak global reference jonJoinSessionListener cannot be directly used.
+     * We have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jo = env->NewLocalRef(jonJoinSessionListener);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Exception\n"));
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jo, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)context);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
         goto exit;
     }
 
 exit:
-    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Release Resources\n"));
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release Resources\n"));
 
     /*
      * We have our Java resources stashed away in a list stored in the bus
      * attachment.  We need to match our object "signature" with those "pended"
      * objects and come to a resolution about their lifetimes.
      */
-    for (list<PendingAsyncJoin>::iterator i = bus->pendingAsyncJoins.begin(); i != bus->pendingAsyncJoins.end(); ++i) {
+    for (list<PendingAsyncJoin>::iterator i = (*bus)->pendingAsyncJoins.begin(); i != (*bus)->pendingAsyncJoins.end(); ++i) {
         if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
             if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
                 /*
@@ -4537,15 +4552,15 @@ exit:
                  * call failed, we are done with the session listener as well.
                  */
                 if (i->jcontext) {
-                    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Release strong global reference to context Object %p\n", i->jcontext));
+                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to context Object %p\n", i->jcontext));
                     env->DeleteGlobalRef(i->jcontext);
                     jcontext = NULL;
                 }
 
                 if (status == ER_OK) {
-                    bus->sessionListenerMap[sessionId] = i->jlistener;
+                    (*bus)->sessionListenerMap[sessionId] = i->jlistener;
                 } else {
-                    QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
+                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
                     env->DeleteGlobalRef(i->jlistener);
                 }
 
@@ -4569,15 +4584,15 @@ exit:
                  * Tell the bus to forget about the Java object references since
                  * we have dealt with them all.
                  */
-                bus->pendingAsyncJoins.erase(i);
+                (*bus)->pendingAsyncJoins.erase(i);
 
-                QCC_DbgPrintf(("JJoinSessionAsyncCB::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
+                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
                 env->DeleteGlobalRef(jcallback);
                 return;
             }
         }
     }
-    QCC_LogError(ER_FAIL, ("JJoinSessionAsyncCB::JoinSessionCB(): Leaking Java objects\n"));
+    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env,
@@ -4689,7 +4704,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
     /*
      * Get the C++ object that must be there backing the Java callback object
      */
-    JJoinSessionAsyncCB* callback = GetNativeListener<JJoinSessionAsyncCB>(env, jonJoinSessionListener);
+    JOnJoinSessionListener* callback = GetNativeListener<JOnJoinSessionListener>(env, jonJoinSessionListener);
     assert(callback);
 
     /*
@@ -4700,6 +4715,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * reference nack to the user when the callback fires.
      */
     void* context = jglobalContextRef;
+
+    /*
+     * We have three objects now that are closely associated.  We have an
+     * OnJoinSessionListener that will be waiting for the async join to complete.
+     * We have a SessionListener that we need to hold a strong reference to if
+     * the join is successful, and we have a user context object we need to
+     * provide back to the user when the async call is finished.  We tie them
+     * all together as weak references in the C++ listener object corresponding
+     * to the OnJoinSessionListener.
+     *
+     * Note: If a user makes an asynchronous call using one combination of the
+     * Java objects OnJoinSessionListener, SessionListener and context; and she
+     * makes a subsequent call with the first join still outstanding and with
+     * the same OnJoinSessionListener but a different SessionListener or
+     * context, the async callbacks will both come out with the second flavors
+     * of the objects.  The original objects will be temporarily leaked.  This
+     * is proabbly expected behavior, but we note it just in case.
+     */
+    callback->Setup(jsessionListener, jcontext, bus);
 
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
                    sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
@@ -4737,7 +4771,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * objects will never be used and our saved global references are not
      * required -- we can just forget about them.
      *
-     * Pick up the async join code path in JJoinSessionAsyncCB::JoinSessionCB
+     * Pick up the async join code path in JOnJoinSessionListener::JoinSessionCB
      */
     if (status == ER_OK) {
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Success\n"));
@@ -4755,6 +4789,37 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
         }
     }
     return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_create(JNIEnv* env, jobject thiz)
+{
+    assert(GetHandle(thiz) == NULL);
+
+    JOnJoinSessionListener* jojsl = new JOnJoinSessionListener(thiz);
+    if (jojsl == NULL) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, jojsl);
+    if (env->ExceptionCheck()) {
+        delete jojsl;
+        return;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_destroy(JNIEnv* env, jobject thiz)
+{
+    void* v = GetHandle(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    assert(v);
+    delete reinterpret_cast<JOnJoinSessionListener*>(v);
+
+    SetHandle(thiz, NULL);
+    return;
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv* env, jobject thiz,

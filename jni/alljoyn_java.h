@@ -208,10 +208,26 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    joinSessionAsync
- * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/SessionOpts;Lorg/alljoyn/bus/SessionListener;Lorg/alljoyn/bus/BusAttachment/OnJoinSessionListener;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;SLorg/alljoyn/bus/SessionOpts;Lorg/alljoyn/bus/SessionListener;Lorg/alljoyn/bus/BusAttachment/OnJoinSessionListener;Ljava/lang/Object;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync
-  (JNIEnv *, jobject, jstring, jshort, jobject, jobject, jobject);
+(JNIEnv *, jobject, jstring, jshort, jobject, jobject, jobject, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_OnJoinSessionListener
+ * Method:    create
+ * Signature: (Lorg/alljoyn/bus/OnJoinSessionListener;)V;
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_create
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_OnJoinSessionListener
+ * Method:    destroy
+ * Signature: (Lorg/alljoyn/bus/OnJoinSessionListener;)V;
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_destroy
+  (JNIEnv *, jobject);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
