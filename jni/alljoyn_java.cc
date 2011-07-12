@@ -940,7 +940,17 @@ JKeyStoreListener::~JKeyStoreListener()
 QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
 {
     JScopedEnv env;
-    JLocalRef<jbyteArray> jarray = (jbyteArray)env->CallObjectMethod(jkeyStoreListener, MID_getKeys);
+    /*
+     * The weak global reference jkeyStoreListener cannot be directly used.  We
+     * have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jkeyStoreListener);
+    if (!jo) {
+        return ER_FAIL;
+    }
+
+    JLocalRef<jbyteArray> jarray = (jbyteArray)env->CallObjectMethod(jo, MID_getKeys);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
@@ -958,16 +968,7 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
      * Get the password from the Java listener and load the keys.  Some care
      * here is taken to ensure that we erase any in-memory copies of the
      * password as soon as possible after to minimize attack exposure.
-     *
-     * The weak global reference jkeyStoreListener cannot be directly used.  We
-     * have to get a "hard" reference to it and then use that.  If you try to
-     * use a weak reference directly you will crash and burn.
      */
-    jobject jo = env->NewLocalRef(jkeyStoreListener);
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-
     JLocalRef<jcharArray> jpasswordChar = (jcharArray)env->CallObjectMethod(jo, MID_getPassword);
     if (env->ExceptionCheck() || !jpasswordChar) {
         return ER_FAIL;
@@ -1022,7 +1023,7 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
      * use a weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jkeyStoreListener);
-    if (env->ExceptionCheck()) {
+    if (!jo) {
         return ER_FAIL;
     }
 
@@ -1196,8 +1197,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jbusListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+    if (!jo) {
         return;
     }
 
@@ -1255,8 +1255,7 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jbusListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+    if (!jo) {
         return;
     }
 
@@ -1316,8 +1315,7 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jbusListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+    if (!jo) {
         return;
     }
 
@@ -1350,8 +1348,7 @@ void JBusListener::BusStopping(void)
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jbusListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Exception\n"));
+    if (!jo) {
         return;
     }
 
@@ -1479,8 +1476,7 @@ void JSessionListener::SessionLost(SessionId sessionId)
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jsessionListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::SessionLost(): Exception\n"));
+    if (!jo) {
         return;
     }
 
@@ -1647,8 +1643,7 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jsessionPortListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
+    if (!jo) {
         return false;
     }
 
@@ -1697,8 +1692,7 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
      * directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jsessionPortListener);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception\n"));
+    if (!jo) {
         return;
     }
 
@@ -1865,7 +1859,7 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
      * weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jauthListener);
-    if (env->ExceptionCheck()) {
+    if (!jo) {
         return false;
     }
 
@@ -2005,7 +1999,7 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
      * weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jauthListener);
-    if (env->ExceptionCheck()) {
+    if (!jo) {
         return false;
     }
 
@@ -2043,7 +2037,7 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
      * weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jauthListener);
-    if (env->ExceptionCheck()) {
+    if (!jo) {
         return;
     }
 
@@ -2080,7 +2074,7 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
      * weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jauthListener);
-    if (env->ExceptionCheck()) {
+    if (!jo) {
         return;
     }
 
@@ -2674,7 +2668,16 @@ JSignalHandler::~JSignalHandler()
 bool JSignalHandler::IsSameObject(jobject jobj, jobject jmeth)
 {
     JNIEnv* env = GetEnv();
-    return env->IsSameObject(jsignalHandler, jobj) && env->CallBooleanMethod(jmethod, MID_Object_equals, jmeth);
+    /*
+     * The weak global reference jsignalHandler cannot be directly used.  We
+     * have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jsignalHandler);
+    if (!jo) {
+        return false;
+    }
+    return env->IsSameObject(jo, jobj) && env->CallBooleanMethod(jmethod, MID_Object_equals, jmeth);
 }
 
 QStatus JSignalHandler::Register(BusAttachment& bus, const char* ifaceName, const char* signalName,
@@ -2740,7 +2743,17 @@ void JSignalHandler::SignalHandler(const InterfaceDescription::Member* member,
     if (!mid) {
         return;
     }
-    env->CallObjectMethod(jmethod, mid, jsignalHandler, (jobjectArray)jargs);
+
+    /*
+     * The weak global reference jsignalHandler cannot be directly used.  We
+     * have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jsignalHandler);
+    if (!jo) {
+        return;
+    }
+    env->CallObjectMethod(jmethod, mid, jo, (jobjectArray)jargs);
 }
 
 /**
@@ -4513,7 +4526,7 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
      * use a weak reference directly you will crash and burn.
      */
     jo = env->NewLocalRef(jonJoinSessionListener);
-    if (env->ExceptionCheck()) {
+    if (!jo) {
         goto exit;
     }
 

@@ -1640,6 +1640,15 @@ public class MarshalTest extends TestCase {
         v = new Variant(new Variant(new String("thirteen")), "v");
         assertEquals(v.getObject(Variant.class), proxy.Variant(v).getObject(Variant.class));
 
+    }
+
+    public void testAnnotatedDictionaryTypes() throws Exception {
+        AnnotatedTypesInterface proxy = remoteObj.getInterface(AnnotatedTypesInterface.class);
+
+        TreeMap<String, String> ae = new TreeMap<String, String>();
+        ae.put("fourteen", "fifteen");
+        ae.put("sixteen", "seventeen");
+
         /* Dictionary types */
         TreeMap<Short, Map<String, String>> aenaess = new TreeMap<Short, Map<String, String>>();
         aenaess.put((short)2, ae);
@@ -2294,22 +2303,21 @@ public class MarshalTest extends TestCase {
         proxy.setDictionarySS(aess);
     }
 
-    // TODO Android has a problem with the anonymous inner classes here so this test doesn't pass
+    private class AessTypeReference extends VariantTypeReference<Map<String, String>> {};
+
     public void testVariantTypeReference() throws Exception {
-        if (!isAndroid) // Android device always fails this test
-        {
         TreeMap<String, String> ae = new TreeMap<String, String>();
 
         AnnotatedTypesInterface annotated = remoteObj.getInterface(AnnotatedTypesInterface.class);
         Variant v = new Variant(ae, "a{ss}");
-        assertEquals(v.getObject(new VariantTypeReference<Map<String,String>>() {}),
-                     annotated.Variant(v).getObject(new VariantTypeReference<Map<String, String>>() {}));
+        AessTypeReference aessTypeReference = new AessTypeReference();
+        assertEquals(v.getObject(aessTypeReference),
+                     annotated.Variant(v).getObject(aessTypeReference));
 
         InferredTypesInterface inferred = remoteObj.getInterface(InferredTypesInterface.class);
         v = new Variant(ae, "a{ss}");
-        assertEquals(v.getObject(new VariantTypeReference<Map<String, String>>() {}),
-                     inferred.Variant(v).getObject(new VariantTypeReference<Map<String, String>>() {}));
-        }
+        assertEquals(v.getObject(aessTypeReference),
+                     inferred.Variant(v).getObject(aessTypeReference));
     }
 
     public void testEnums() throws Exception {
