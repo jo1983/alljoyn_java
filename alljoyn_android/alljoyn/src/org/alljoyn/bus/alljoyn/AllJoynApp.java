@@ -17,9 +17,15 @@
 package org.alljoyn.bus.alljoyn;
 
 import android.app.Application;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -42,10 +48,44 @@ public class AllJoynApp extends Application {
     
     ComponentName mRunningService = null;
     
-    public void doit() {
+    public boolean running() {
+    	return mThread.isAlive();
+    }
+    
+    public void checkin() {
+        Log.i(TAG, "checkin()");
+        if (mThread.isAlive() == false) {
+        	doit();
+        }
+    }
+    
+    private void doit() {
+        Log.i(TAG, "doit()");
+        
         Log.i(TAG, "doit(): Starting thread.");
         mThread.start();
+        
+        CharSequence title = "AllJoyn";
+        CharSequence message = "AllJoyn system started on this device";
+        Intent intent = new Intent(this, AllJoynActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
+        Notification notification = new Notification(R.drawable.icon, null, System.currentTimeMillis());
+        notification.setLatestEventInfo(this, title, message, pendingIntent);
+        notification.flags |= Notification.DEFAULT_SOUND | Notification.FLAG_ONGOING_EVENT | Notification.FLAG_NO_CLEAR;
+
+        String ns = Context.NOTIFICATION_SERVICE;
+        NotificationManager notificationManager = (NotificationManager)getSystemService(ns);
+        notificationManager.notify(NOTIFICATION_ID, notification);
     }
+    
+    private void undoit() {
+        Log.i(TAG, "undoit()");
+        String ns = Context.NOTIFICATION_SERVICE;
+        NotificationManager notificationManager = (NotificationManager)getSystemService(ns);
+        notificationManager.cancel(NOTIFICATION_ID);
+    }
+    
+    private static final int NOTIFICATION_ID = 0xdefaced;
     
     @Override
     public void onLowMemory() {
@@ -77,6 +117,7 @@ public class AllJoynApp extends Application {
             Log.i(TAG, "mThread.run(): calling runDaemon()");
             runDaemon(argv.toArray(), "");
             Log.i(TAG, "mThread.run(): returned from runDaemon().  Self-immolating.");
+            undoit();
             System.exit(0);
         }
     };

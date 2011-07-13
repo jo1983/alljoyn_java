@@ -34,10 +34,13 @@ public class AllJoynActivity extends Activity {
 
     public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "onCreate()");
-        showDialog(DIALOG_DEBUG);
+
     	super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         mApp = (AllJoynApp)getApplication();
+        if (mApp.running() == false) {
+        	showDialog(DIALOG_DEBUG);
+        }
     }
     
 	public void onDestroy() {
@@ -49,15 +52,15 @@ public class AllJoynActivity extends Activity {
         switch (id) {
         case DIALOG_DEBUG:
             return new AlertDialog.Builder(this)
-            .setTitle("Run the thread?")
+            .setTitle("check in?")
             .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int whichButton) {
-                	mApp.doit();
+                	mApp.checkin();
                 }
             })
             .setNegativeButton("OK", new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int whichButton) {
-                	mApp.doit();
+                	mApp.checkin();
                 }
             }).create();
         }
