@@ -54,8 +54,8 @@ public class OnJoinSessionListener {
     private native void destroy();
 
     /**
-     * Called when {@link #joinSession(String, short, SessionOpts, SessionListener,
-     * OnJoinSessionListener)} completes.
+     * Notification callback that happens when a response to an asynchronous
+     * joinSession request is ready.
      *
      * @param status <ul><li>OK if the session was joined.</li>
      *                   <li>BUS_NOT_CONNECTED if a connection has not been made with a local

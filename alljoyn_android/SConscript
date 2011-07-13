@@ -21,6 +21,7 @@ env.Install('$JAVA_DISTDIR/alljoyn_android/alljoyn', [ 'alljoyn/AndroidManifest.
                                                        'alljoyn/default.properties', 
                                                        'alljoyn/.project', 
                                                        'alljoyn/res',
+                                                       'alljoyn/jni',
                                                        'alljoyn/src'])
 env.Install('$JAVA_DISTDIR/alljoyn_android/alljoyn/libs', '$JARDIR/alljoyn.jar')
 env.Install('alljoyn/libs', '$JARDIR/alljoyn.jar')
