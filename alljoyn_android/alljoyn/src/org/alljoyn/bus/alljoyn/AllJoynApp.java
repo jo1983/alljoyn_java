@@ -17,10 +17,14 @@
 package org.alljoyn.bus.alljoyn;
 
 import android.app.Application;
+import android.content.ComponentName;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.util.Log;
 
 import java.util.ArrayList;
+
+import org.alljoyn.bus.alljoyn.AllJoynService;
 
 public class AllJoynApp extends Application {
     private static final String TAG = "alljoyn.AllJoynApp";
@@ -29,8 +33,14 @@ public class AllJoynApp extends Application {
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "onCreate()");
-
-    }
+        Intent intent = new Intent(this, AllJoynService.class);
+        mRunningService = startService(intent);
+        if (mRunningService == null) {
+            Log.i(TAG, "onCreate(): failed to startService()");
+        }
+	}
+    
+    ComponentName mRunningService = null;
     
     public void doit() {
         Log.i(TAG, "doit(): Starting thread.");

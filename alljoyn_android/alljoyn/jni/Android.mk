@@ -20,8 +20,8 @@ LOCAL_PATH := $(call my-dir)
 # look for this library in the top level build directory (not in the subdir
 # alljoyn_core/build.  To build the JNI library here, do "ndk-build -B V=1".
 #
-#BUS_LIB_DIR := ../../../build/android/arm/$(APP_OPTIM)/dist/lib/
-BUS_LIB_DIR := ../../../lib/
+BUS_LIB_DIR := ../../../build/android/arm/$(APP_OPTIM)/dist/lib/
+#BUS_LIB_DIR := ../../../lib/
 
 
 include $(CLEAR_VARS)
