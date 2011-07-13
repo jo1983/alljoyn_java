@@ -65,7 +65,7 @@ public class OnJoinSessionListener {
      * @param opts      Set to the actual session options of the joined session.
      * @param context   User-defined context object.  Users can provide anything they want.
      */
-    void onJoinSession(Status status, int sessionId, SessionOpts opts, Object context) {
+    public void onJoinSession(Status status, int sessionId, SessionOpts opts, Object context) {
     }
 
     /*
