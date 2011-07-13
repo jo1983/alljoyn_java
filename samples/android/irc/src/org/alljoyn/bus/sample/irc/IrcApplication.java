@@ -19,6 +19,7 @@ package org.alljoyn.bus.sample.irc;
 import org.alljoyn.bus.sample.irc.AllJoynService;
 import org.alljoyn.bus.sample.irc.Observable;
 import org.alljoyn.bus.sample.irc.Observer;
+import org.alljoyn.bus.sample.irc.AllJoynService.UseChannelState;
 
 import android.app.Application;
 
@@ -415,7 +416,9 @@ public class IrcApplication extends Application implements Observable {
 	 */
 	public synchronized void newLocalUserMessage(String message) {
 		addInboundItem("Me", message);
-		addOutboundItem(message);
+		if (useGetChannelState() == AllJoynService.UseChannelState.JOINED) {
+			addOutboundItem(message);
+		}
 	}
 	
 	/**
