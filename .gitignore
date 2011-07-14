@@ -3,6 +3,7 @@ build
 inc
 *~
 bin
+obj
 gen
 libs
 .settings

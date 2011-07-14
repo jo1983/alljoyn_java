@@ -17,12 +17,10 @@
 package org.alljoyn.bus.alljoyn;
 
 import android.app.Application;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 
+import android.content.SharedPreferences; 
 import android.content.ComponentName;
-import android.content.Context;
+
 import android.content.Intent;
 import android.content.res.Configuration;
 
@@ -39,6 +37,20 @@ public class AllJoynApp extends Application {
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "onCreate()");
+        
+        /*
+         * Update the shared preferences for this app.
+         */
+        updatePrefs();
+
+        /*
+         * Start a service to represent AllJoyn to the Android system.  We
+         * aren't interested in getting involved with Service lifecycle since
+         * our goal is really to reproduce a system daemon; so we just spin
+         * up the daemon when the application is run.  We use the Android 
+         * Service to convince the application framework not to kill us.  In
+         * particular we set the service priority to foreground.
+         */
         Intent intent = new Intent(this, AllJoynService.class);
         mRunningService = startService(intent);
         if (mRunningService == null) {
@@ -48,6 +60,79 @@ public class AllJoynApp extends Application {
     
     ComponentName mRunningService = null;
     
+    private void updatePrefs() {
+        Log.i(TAG, "updatePrefs()");
+        
+        SharedPreferences sharedPreferences = getSharedPreferences("AllJoynPreferences", MODE_PRIVATE);
+
+        /*
+         * When calling into the daemon, use this as the program name
+         */
+        mName = sharedPreferences.getString("name", "alljoyn-daemon"); 
+        Log.i(TAG, "updatePrefs(): name = " + mName);
+        
+        /*
+         * When calling into the daemon use the --session flag if true
+         */
+        mSession = sharedPreferences.getBoolean("session", false);
+        Log.i(TAG, "updatePrefs(): session = " + mSession);
+
+        /*
+         * When calling into the daemon use the --system flag if true
+         */
+        mSystem = sharedPreferences.getBoolean("system", false);
+        Log.i(TAG, "updatePrefs(): system = " + mSystem);
+        
+        /*
+         * When calling into the daemon use the --internal flag if true
+         */
+        mInternal = sharedPreferences.getBoolean("internal", true);
+        Log.i(TAG, "updatePrefs(): internal = " + mInternal);
+
+        /*
+         * If not --internal, use this configuration
+         */
+        mConfig = sharedPreferences.getString("config", 
+            "<busconfig>" + 
+            "  <type>alljoyn</type>" + 
+            "  <listen>unix:abstract=alljoyn</listen>" + 
+            "  <listen>tcp:addr=0.0.0.0,port=9955</listen>" +
+            "  <policy context=\"default\">" +
+            "    <allow send_interface=\"*\"/>" +
+            "    <allow receive_interface=\"*\"/>" +
+            "    <allow own=\"*\"/>" +
+            "    <allow user=\"*\"/>" +
+            "    <allow send_requested_reply=\"true\"/>" +
+            "    <allow receive_requested_reply=\"true\"/>" +
+            "  </policy>" +
+            "  <limit name=\"auth_timeout\">32768</limit>" +
+            "  <limit name=\"max_incomplete_connections_tcp\">16</limit>" +
+            "  <limit name=\"max_completed_connections_tcp\">64</limit>" +
+            "  <alljoyn module=\"ipns\">" +
+            "    <property interfaces=\"*\"/>" +
+            "  </alljoyn>" +
+            "</busconfig>");
+        Log.i(TAG, "updatePrefs(): config = " + mConfig);
+        
+        /*
+         * When calling into the daemon use the --no-bt flag if true
+         */
+        mNoBT = sharedPreferences.getBoolean("no-bt", true);
+        Log.i(TAG, "updatePrefs(): no-bt = " + mNoBT);
+        
+        /*
+         * When calling into the daemon use the --no-tcp flag if true
+         */
+        mNoTCP = sharedPreferences.getBoolean("no-tcp", false);
+        Log.i(TAG, "updatePrefs(): no-tcp = " + mNoTCP);
+        
+        /*
+         * When calling into the daemon, use this verbosity level
+         */
+        mVerbosity = sharedPreferences.getString("verbosity", "7"); 
+        Log.i(TAG, "updatePrefs(): verbosity = " + mVerbosity);
+    }
+      
     public boolean running() {
     	return mThread.isAlive();
     }
@@ -64,28 +149,11 @@ public class AllJoynApp extends Application {
         
         Log.i(TAG, "doit(): Starting thread.");
         mThread.start();
-        
-        CharSequence title = "AllJoyn";
-        CharSequence message = "AllJoyn system started on this device";
-        Intent intent = new Intent(this, AllJoynActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
-        Notification notification = new Notification(R.drawable.icon, null, System.currentTimeMillis());
-        notification.setLatestEventInfo(this, title, message, pendingIntent);
-        notification.flags |= Notification.DEFAULT_SOUND | Notification.FLAG_ONGOING_EVENT | Notification.FLAG_NO_CLEAR;
-
-        String ns = Context.NOTIFICATION_SERVICE;
-        NotificationManager notificationManager = (NotificationManager)getSystemService(ns);
-        notificationManager.notify(NOTIFICATION_ID, notification);
     }
     
     private void undoit() {
         Log.i(TAG, "undoit()");
-        String ns = Context.NOTIFICATION_SERVICE;
-        NotificationManager notificationManager = (NotificationManager)getSystemService(ns);
-        notificationManager.cancel(NOTIFICATION_ID);
     }
-    
-    private static final int NOTIFICATION_ID = 0xdefaced;
     
     @Override
     public void onLowMemory() {
@@ -102,20 +170,51 @@ public class AllJoynApp extends Application {
     	super.onConfigurationChanged(newConfig);
     }
 
-    private static native int runDaemon(Object[] argv, String config);
+    private static native int runDaemon(Object[] argv, Object[] envNames, Object[] envValues, String config);
+    
+    private boolean mSession = false;
+    private boolean mSystem = false;
+    private boolean mInternal = true;
+    private String mConfig = null;
+    private boolean mNoBT = true;
+    private boolean mNoTCP = false;
+    private String mVerbosity = "7";
+    private String mName = "alljoyn-daemon";
 
     private Thread mThread = new Thread() {
         public void run()
         {
             Log.i(TAG, "mThread.run()");
             ArrayList<String> argv = new ArrayList<String>();
-            argv.add("alljoyn-daemon-service");  // argv[0] is the name (choose one, but must be there).                                
-            argv.add("--internal");              // argv[1] use the internal daemon configuration.                                      
-            argv.add("--verbosity=7");           // argv[2] set daemon verbosity
-            argv.add("--nofork");                // argv[3] don't fork another process, we rely on running "here"
-            argv.add("--no-bt");                 // argv[4] don't even try to run bluetooth
-            Log.i(TAG, "mThread.run(): calling runDaemon()");
-            runDaemon(argv.toArray(), "");
+            argv.add(mName);
+            argv.add("--nofork");
+            argv.add("--verbosity=" + mVerbosity);
+                       
+            if (mSystem) {
+            	argv.add("--system");
+            }
+            
+            if (mSession) {
+            	argv.add("--session");
+            }
+            
+            if (mInternal) {
+            	argv.add("--internal");
+            }
+            
+            if (mNoBT) {
+                argv.add("--no-bt");            	
+            }
+            
+            if (mNoTCP) {
+                argv.add("--no-tcp");            	
+            }
+
+            ArrayList<String> envNames = new ArrayList<String>();
+            ArrayList<String> envValues = new ArrayList<String>();
+            envNames.add("ER_DEBUG_ALL"); envValues.add("7");
+            Log.i(TAG, "mThread.run(): calling runDaemon()"); 
+            runDaemon(argv.toArray(), envNames.toArray(), envValues.toArray(), mConfig);
             Log.i(TAG, "mThread.run(): returned from runDaemon().  Self-immolating.");
             undoit();
             System.exit(0);

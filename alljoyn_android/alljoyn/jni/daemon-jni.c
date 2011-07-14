@@ -26,7 +26,7 @@
 // replaced by a function called DaemonMain.  Calling DaemonMain() here
 // essentially runs the AllJoyn daemon like it had been run on the command line.
 //
-extern int DaemonMain(int argc, char** argv, char* config);
+extern int DaemonMain(int argc, char** argv, int envc, char **envname, char **envval, char* serviceConfig);
 
 void do_log(const char* format, ...)
 {
@@ -39,42 +39,54 @@ void do_log(const char* format, ...)
     return;
 }
 
-
-void Java_org_alljoyn_bus_alljoyn_AllJoynApp_runDaemon(JNIEnv* env, jobject thiz, jobjectArray jargv, jstring jconfig)
+void Java_org_alljoyn_bus_alljoyn_AllJoynApp_runDaemon(JNIEnv* env, jobject thiz, jobjectArray jargv, jobjectArray jenvNames, jobjectArray jenvValues, jstring jconfig)
 {
     int i;
     jsize argc;
+    jsize envc;
 
     do_log("runDaemon()\n");
 
     argc = (*env)->GetArrayLength(env, jargv);
     do_log("runDaemon(): argc = %d\n", argc);
-
-    int nBytes = argc * sizeof(char*);
-    do_log("runDaemon(): nBytes = %d\n", nBytes);
-
-    do_log("runDaemon(): malloc(%d)\n", nBytes);
-    char const** argv  = (char const**)malloc(nBytes);
+    char const** argv  = (char const**)malloc(argc * sizeof(char*));
 
     for (i = 0; i < argc; ++i) {
-        do_log("runDaemon(): copy out string %d\n", i);
         jstring jstr = (*env)->GetObjectArrayElement(env, jargv, i);
-        do_log("runDaemon(): set pointer in argv[%d]\n", i);
         argv[i] = (*env)->GetStringUTFChars(env, jstr, 0);
         do_log("runDaemon(): argv[%d] = %s\n", i, argv[i]);
+    }
+
+    envc = (*env)->GetArrayLength(env, jenvNames);
+    if (envc != (*env)->GetArrayLength(env, jenvValues)) {
+        do_log("runDaemon(): envc mismatch\n");
+    }
+
+    do_log("runDaemon(): envc = %d\n", envc);
+
+    char const** envNames  = (char const**)malloc(envc * sizeof(char*));
+    char const** envValues  = (char const**)malloc(envc * sizeof(char*));
+
+    for (i = 0; i < envc; ++i) {
+        jstring jstr = (*env)->GetObjectArrayElement(env, jenvNames, i);
+        envNames[i] = (*env)->GetStringUTFChars(env, jstr, 0);
+
+        jstr = (*env)->GetObjectArrayElement(env, jenvValues, i);
+        envValues[i] = (*env)->GetStringUTFChars(env, jstr, 0);
+
+        do_log("runDaemon(): env[%d]: %s = %s\n", i, envNames[i], envValues[i]);
     }
 
     char const* config = (*env)->GetStringUTFChars(env, jconfig, 0);
     do_log("runDaemon(): config = %s\n", config);
 
     //
-    // Run the alljoyn-daemon providing the array of environment strings as the
-    // (shell) environment for the daemon.
+    // Run the alljoyn-daemon we have built as a library.
     //
     do_log("runDaemon(): calling DaemonMain()\n");
-    int rc = DaemonMain(argc, (char**)argv, (char*)config);
-
-    (*env)->ReleaseStringUTFChars(env, jconfig, config);
+    int rc = DaemonMain(argc, (char**)argv, envc, (char**)envNames, (char **)envValues, (char*)config);
 
     free(argv);
+    free(envNames);
+    free(envValues);
 }
