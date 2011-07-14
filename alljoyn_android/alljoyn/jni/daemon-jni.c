@@ -26,7 +26,7 @@
 // replaced by a function called DaemonMain.  Calling DaemonMain() here
 // essentially runs the AllJoyn daemon like it had been run on the command line.
 //
-extern int DaemonMain(int argc, char** argv, int envc, char **envname, char **envval, char* serviceConfig);
+extern int DaemonMain(int argc, char** argv, int envc, char** envname, char** envval, char* serviceConfig);
 
 void do_log(const char* format, ...)
 {
@@ -84,7 +84,7 @@ void Java_org_alljoyn_bus_alljoyn_AllJoynApp_runDaemon(JNIEnv* env, jobject thiz
     // Run the alljoyn-daemon we have built as a library.
     //
     do_log("runDaemon(): calling DaemonMain()\n");
-    int rc = DaemonMain(argc, (char**)argv, envc, (char**)envNames, (char **)envValues, (char*)config);
+    int rc = DaemonMain(argc, (char**)argv, envc, (char**)envNames, (char**)envValues, (char*)config);
 
     free(argv);
     free(envNames);
