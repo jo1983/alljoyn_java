@@ -2186,7 +2186,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numMembs = intf->GetMembers(NULL);
-        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member*[numMembs];
+        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member *[numMembs];
         if (!membs) {
             return ER_OUT_OF_MEMORY;
         }
@@ -2235,7 +2235,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numProps = intf->GetProperties(NULL);
-        const InterfaceDescription::Property** props = new const InterfaceDescription::Property*[numProps];
+        const InterfaceDescription::Property** props = new const InterfaceDescription::Property *[numProps];
         if (!props) {
             return ER_OUT_OF_MEMORY;
         }
