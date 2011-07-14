@@ -60,6 +60,11 @@ public class AllJoynApp extends Application {
     
     ComponentName mRunningService = null;
     
+    public void exit() {
+        Log.i(TAG, "exit()");
+        System.exit(0);
+    }
+    
     private void updatePrefs() {
         Log.i(TAG, "updatePrefs()");
         
@@ -137,24 +142,19 @@ public class AllJoynApp extends Application {
     	return mThread.isAlive();
     }
     
-    public void checkin() {
-        Log.i(TAG, "checkin()");
-        if (mThread.isAlive() == false) {
-        	doit();
-        }
+    public void ensureRunning() {
+    	if (running() == false) {
+    		startAllJoynDaemonThread();
+    	}
     }
     
-    private void doit() {
-        Log.i(TAG, "doit()");
+    public void startAllJoynDaemonThread() {
+        Log.i(TAG, "startAllJoynDaemonThread()");
         
-        Log.i(TAG, "doit(): Starting thread.");
+        Log.i(TAG, "startAllJoynDaemonThread(): Spinning up daemon thread.");
         mThread.start();
     }
-    
-    private void undoit() {
-        Log.i(TAG, "undoit()");
-    }
-    
+     
     @Override
     public void onLowMemory() {
     	super.onLowMemory();
@@ -216,8 +216,7 @@ public class AllJoynApp extends Application {
             Log.i(TAG, "mThread.run(): calling runDaemon()"); 
             runDaemon(argv.toArray(), envNames.toArray(), envValues.toArray(), mConfig);
             Log.i(TAG, "mThread.run(): returned from runDaemon().  Self-immolating.");
-            undoit();
-            System.exit(0);
+            exit();
         }
     };
       

@@ -17,29 +17,40 @@
 package org.alljoyn.bus.alljoyn;
 
 import org.alljoyn.bus.alljoyn.AllJoynApp;
+import org.alljoyn.bus.alljoyn.DialogBuilder;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.DialogInterface;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 
 public class AllJoynActivity extends Activity {
     private static final String TAG = "alljoyn.AllJoynActivity";
-    
-
-    private static final int DIALOG_DEBUG = 0xdebac1e;
 
     public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "onCreate()");
-
     	super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
+        
+        mExitButton = (Button)findViewById(R.id.mainExit);
+        mExitButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                showDialog(DIALOG_EXIT_ID);
+        	}
+        });
+        
         mApp = (AllJoynApp)getApplication();
+        
         if (mApp.running() == false) {
-        	showDialog(DIALOG_DEBUG);
+            boolean waitForDebuggerToSettle = true;
+            if (waitForDebuggerToSettle) {
+            	showDialog(DIALOG_DEBUG_ID);
+            } else {
+            	mApp.ensureRunning();
+            }
         }
     }
     
@@ -48,24 +59,27 @@ public class AllJoynActivity extends Activity {
     	super.onDestroy();
  	}
 	
+    public static final int DIALOG_EXIT_ID = 0;
+    private static final int DIALOG_DEBUG_ID = 1;
+
     protected Dialog onCreateDialog(int id) {
-        switch (id) {
-        case DIALOG_DEBUG:
-            return new AlertDialog.Builder(this)
-            .setTitle("check in?")
-            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int whichButton) {
-                	mApp.checkin();
-                }
-            })
-            .setNegativeButton("OK", new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int whichButton) {
-                	mApp.checkin();
-                }
-            }).create();
+    	Log.i(TAG, "onCreateDialog()");
+        switch(id) {
+        case DIALOG_EXIT_ID:
+	        { 
+	        	DialogBuilder builder = new DialogBuilder();
+	        	return builder.createMainExitDialog(this, mApp);
+	        }        	
+        case DIALOG_DEBUG_ID:
+            {
+	        	DialogBuilder builder = new DialogBuilder();
+	        	return builder.createDebugSettleDialog(this, mApp);
+            }
         }
+        assert(false);
         return null;
     }
-    
+	   
     private AllJoynApp mApp;
+    private Button mExitButton;
 }
