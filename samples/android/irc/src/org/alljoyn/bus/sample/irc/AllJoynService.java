@@ -15,8 +15,8 @@
  */
 package org.alljoyn.bus.sample.irc;
 
-import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.sample.irc.IrcApplication;
+import org.alljoyn.bus.sample.irc.TabWidget;
 import org.alljoyn.bus.sample.irc.Observable;
 import org.alljoyn.bus.sample.irc.Observer;
 import org.alljoyn.bus.sample.irc.IrcInterface;
@@ -32,6 +32,7 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusObject;
 import org.alljoyn.bus.SignalEmitter;
 import org.alljoyn.bus.Status;
+import org.alljoyn.bus.annotation.BusSignalHandler;
 
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -39,6 +40,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.app.Service;
 
 import android.content.Intent;
@@ -71,6 +74,17 @@ public class AllJoynService extends Service implements Observer {
         mIrcApplication = (IrcApplication)getApplication();
         mIrcApplication.addObserver(this);
         
+        CharSequence title = "AllJoyn";
+        CharSequence message = "IRC Channel Hosting Service.";
+        Intent intent = new Intent(this, TabWidget.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
+        Notification notification = new Notification(R.drawable.icon, null, System.currentTimeMillis());
+        notification.setLatestEventInfo(this, title, message, pendingIntent);
+        notification.flags |= Notification.DEFAULT_SOUND | Notification.FLAG_ONGOING_EVENT | Notification.FLAG_NO_CLEAR;
+
+        Log.i(TAG, "onCreate(): startForeground()");
+        startForeground(NOTIFICATION_ID, notification);
+        
         /*
          * We have an AllJoyn handler thread running at this time, so take
          * advantage of the fact to get connected to the bus and start finding
@@ -80,6 +94,8 @@ public class AllJoynService extends Service implements Observer {
         mBackgroundHandler.connect();
         mBackgroundHandler.startDiscovery();
  	}
+	
+    private static final int NOTIFICATION_ID = 0xdefaced;
 	
 	/**
 	 * Our onDestroy() is called by the Android appliation framework when it
