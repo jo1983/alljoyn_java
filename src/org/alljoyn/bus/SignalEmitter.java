@@ -75,7 +75,7 @@ public class SignalEmitter {
     }
     
     /**
-     * construct a SignalEmitter used for broadcasting to a session
+     * Construct a SignalEmitter used for broadcasting to a session
      * 
      * @param source the source object of any signals sent from this emitter
      * @param sessionId A unique SessionId for this AllJoyn session instance
