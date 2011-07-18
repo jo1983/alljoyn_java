@@ -118,6 +118,7 @@ public class UseActivity extends Activity implements Observer {
     
     public static final int DIALOG_JOIN_ID = 0;
     public static final int DIALOG_LEAVE_ID = 1;
+    public static final int DIALOG_ALLJOYN_ERROR_ID = 2;
 
     protected Dialog onCreateDialog(int id) {
     	Log.i(TAG, "onCreateDialog()");
@@ -135,6 +136,12 @@ public class UseActivity extends Activity implements Observer {
 	        	result = builder.createUseLeaveDialog(this, mChatApplication);
 	        }
 	        break;
+        case DIALOG_ALLJOYN_ERROR_ID:
+	        { 
+	        	DialogBuilder builder = new DialogBuilder();
+	        	result = builder.createAllJoynErrorDialog(this, mChatApplication);
+	        }
+	        break;	        
         }
         return result;
     }
@@ -155,6 +162,11 @@ public class UseActivity extends Activity implements Observer {
         
         if (qualifier.equals(ChatApplication.USE_CHANNEL_STATE_CHANGED_EVENT)) {
             Message message = mHandler.obtainMessage(HANDLE_CHANNEL_STATE_CHANGED_EVENT);
+            mHandler.sendMessage(message);
+        }
+        
+        if (qualifier.equals(ChatApplication.ALLJOYN_ERROR_EVENT)) {
+            Message message = mHandler.obtainMessage(HANDLE_ALLJOYN_ERROR_EVENT);
             mHandler.sendMessage(message);
         }
     }
@@ -192,9 +204,21 @@ public class UseActivity extends Activity implements Observer {
         }
     }
     
+    /**
+     * An AllJoyn error has happened.  Since this activity pops up first we
+     * handle the general errors.  We also handle our own errors.
+     */
+    private void alljoynError() {
+    	if (mChatApplication.getErrorModule() == ChatApplication.Module.GENERAL ||
+    		mChatApplication.getErrorModule() == ChatApplication.Module.USE) {
+    		showDialog(DIALOG_ALLJOYN_ERROR_ID);
+    	}
+    }
+    
     private static final int HANDLE_APPLICATION_QUIT_EVENT = 0;
     private static final int HANDLE_HISTORY_CHANGED_EVENT = 1;
     private static final int HANDLE_CHANNEL_STATE_CHANGED_EVENT = 2;
+    private static final int HANDLE_ALLJOYN_ERROR_EVENT = 3;
     
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
@@ -215,6 +239,12 @@ public class UseActivity extends Activity implements Observer {
 	            {
 	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_CHANNEL_STATE_CHANGED_EVENT");
 	                updateChannelState();
+	                break;
+	            }
+            case HANDLE_ALLJOYN_ERROR_EVENT:
+	            {
+	                Log.i(TAG, "mHandler.handleMessage(): HANDLE_ALLJOYN_ERROR_EVENT");
+	                alljoynError();
 	                break;
 	            }
             default:

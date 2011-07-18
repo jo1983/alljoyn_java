@@ -701,29 +701,19 @@ public class AllJoynService extends Service implements Observer {
          */
         Status status = mBus.registerBusObject(mChatService, OBJECT_PATH);
         if (Status.OK != status) {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
+    		mChatApplication.alljoynError(ChatApplication.Module.HOST, "Unable to register the chat bus object: (" + status + ")");
         	return;
         }
     	
     	status = mBus.connect();
     	if (status != Status.OK) {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
-        	// TODO This crashes !?
-    		// mBus.unregisterBusListener(mBusListener);
+    		mChatApplication.alljoynError(ChatApplication.Module.GENERAL, "Unable to connect to the bus: (" + status + ")");
         	return;
     	}
     	
         status = mBus.registerSignalHandlers(this);
     	if (status != Status.OK) {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
-        	// TODO This crashes !?
-    		// mBus.unregisterBusListener(mBusListener);
+    		mChatApplication.alljoynError(ChatApplication.Module.GENERAL, "Unable to register signal handlers: (" + status + ")");
         	return;
     	}
         
@@ -761,9 +751,7 @@ public class AllJoynService extends Service implements Observer {
         	mBusAttachmentState = BusAttachmentState.DISCOVERING;
         	return;
     	} else {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
+    		mChatApplication.alljoynError(ChatApplication.Module.USE, "Unable to start finding advertised names: (" + status + ")");
         	return;
     	}
     }
@@ -803,12 +791,7 @@ public class AllJoynService extends Service implements Observer {
           	mHostChannelState = HostChannelState.NAMED;
           	mChatApplication.hostSetChannelState(mHostChannelState);
         } else {
-        	/*
-        	 * TODO 
-        	 * For some reason, the name request could not be satisfied.  Most
-        	 * likely this is because someone else has the name on the bus.
-        	 * We need to communicate this back to the user.
-        	 */
+    		mChatApplication.alljoynError(ChatApplication.Module.USE, "Unable to acquire well-known name: (" + status + ")");
         }
     }
     
@@ -880,9 +863,7 @@ public class AllJoynService extends Service implements Observer {
         	mHostChannelState = HostChannelState.BOUND;
           	mChatApplication.hostSetChannelState(mHostChannelState);
         } else {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
+    		mChatApplication.alljoynError(ChatApplication.Module.HOST, "Unable to bind session contact port: (" + status + ")");
         	return;
         }
     }
@@ -921,9 +902,7 @@ public class AllJoynService extends Service implements Observer {
         	mHostChannelState = HostChannelState.ADVERTISED;
           	mChatApplication.hostSetChannelState(mHostChannelState);
         } else {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
+    		mChatApplication.alljoynError(ChatApplication.Module.HOST, "Unable to advertise well-known name: (" + status + ")");
         	return;
         }
     }
@@ -943,9 +922,7 @@ public class AllJoynService extends Service implements Observer {
         Status status = mBus.cancelAdvertiseName(wellKnownName, SessionOpts.TRANSPORT_ANY);
         
         if (status != Status.OK) {
-        	/*
-        	 * TODO need to tell the user about this error in some way.
-        	 */
+    		mChatApplication.alljoynError(ChatApplication.Module.HOST, "Unable to cancel advertisement of well-known name: (" + status + ")");
         	return;
         }
         
@@ -982,10 +959,7 @@ public class AllJoynService extends Service implements Observer {
             @Override
             public void sessionLost(int sessionId) {
                 Log.i(TAG, "BusListener.sessionLost(" + sessionId + ")");
-                /*
-                 * TODO Should notify the user that this has happened in a
-                 * more obvious way
-                 */
+        		mChatApplication.alljoynError(ChatApplication.Module.USE, "The chat session has been lost");
              	mUseChannelState = UseChannelState.IDLE;
               	mChatApplication.useSetChannelState(mUseChannelState);
             }
@@ -995,9 +969,7 @@ public class AllJoynService extends Service implements Observer {
             Log.i(TAG, "doJoinSession(): use sessionId is " + mUseSessionId);
         	mUseSessionId = sessionId.value;
         } else {
-            /*
-             * TODO Should notify the user that an error has happened.
-             */
+    		mChatApplication.alljoynError(ChatApplication.Module.USE, "Unable to join chat session: (" + status + ")");
         	return;
         }
         
@@ -1046,9 +1018,7 @@ public class AllJoynService extends Service implements Observer {
 			try {
 				mChatInterface.Chat(message);
 			} catch (BusException ex) {
-	            /*
-	             * TODO Should notify the user that this has happened.
-	             */
+	    		mChatApplication.alljoynError(ChatApplication.Module.USE, "Bus exception while sending message: (" + ex + ")");
 			}
     	}
     }

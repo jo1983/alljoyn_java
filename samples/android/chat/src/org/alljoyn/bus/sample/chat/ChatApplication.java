@@ -136,8 +136,66 @@ public class ChatApplication extends Application implements Observable {
     }
 	
     public static final String APPLICATION_QUIT_EVENT = "APPLICATION_QUIT_EVENT";
+		
+	/**
+	 * This is the method that AllJoyn Service calls to tell us that an error
+	 * has happened.  We are provided a module, which corresponds to the high-
+	 * level "hunk" of code where the error happened, and a descriptive string
+	 * that we do not interpret.
+	 * 
+	 * We expect the user interface code to sort out the best activity to tell
+	 * the user about the error (by calling getErrorModule) and then to call in
+	 * to get the string. 
+	 */
+	public synchronized void alljoynError(Module m, String s) {
+		mModule = m;
+		mErrorString = s;
+		notifyObservers(ALLJOYN_ERROR_EVENT);
+	}
+	
+	/**
+	 * Return the high-level module that caught the last AllJoyn error.
+	 */
+	public Module getErrorModule() {
+		return mModule;
+	}
 
 	/**
+	 * The high-level module that caught the last AllJoyn error.
+	 */
+	private Module mModule = Module.NONE;
+		
+	/**
+	 * Enumeration of the high-level moudules in the system.  There is one
+	 * value per module.
+	 */
+	public static enum Module {
+		NONE,
+		GENERAL,
+		USE,
+		HOST
+	}
+		
+	/**
+	 * Return the error string stored when the last AllJoyn error happened.
+	 */
+	public String getErrorString() {
+		return mErrorString;
+	}
+
+	/**
+	 * The string representing the last AllJoyn error that happened in the 
+	 * AllJoyn Service.
+	 */
+	private String mErrorString = "ER_OK";
+
+	/**
+	 * The object we use in notifications to indicate that an AllJoyn error has
+	 * happened.
+	 */
+	public static final String ALLJOYN_ERROR_EVENT = "ALLJOYN_ERROR_EVENT";
+	
+    /**
 	 * Called from the AllJoyn Service when it gets a FoundAdvertisedName.  We
 	 * know by construction that the advertised name will correspond to an chat
 	 * channel.  Note that the channel here is the complete well-known name of

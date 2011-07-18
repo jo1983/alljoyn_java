@@ -117,6 +117,7 @@ public class HostActivity extends Activity implements Observer {
     static final int DIALOG_SET_NAME_ID = 0;
     static final int DIALOG_START_ID = 1;
     static final int DIALOG_STOP_ID = 2;
+    public static final int DIALOG_ALLJOYN_ERROR_ID = 3;
 
     protected Dialog onCreateDialog(int id) {
         Log.i(TAG, "onCreateDialog()");
@@ -138,7 +139,14 @@ public class HostActivity extends Activity implements Observer {
 	        { 
 	        	DialogBuilder builder = new DialogBuilder();
 	        	result = builder.createHostStopDialog(this, mChatApplication);
-	        } 
+	        }
+	        break;
+	    case DIALOG_ALLJOYN_ERROR_ID:
+	        { 
+	        	DialogBuilder builder = new DialogBuilder();
+	        	result = builder.createAllJoynErrorDialog(this, mChatApplication);
+	        }
+	        break;	      
         }
         return result;
     }
@@ -154,6 +162,11 @@ public class HostActivity extends Activity implements Observer {
         
         if (qualifier.equals(ChatApplication.HOST_CHANNEL_STATE_CHANGED_EVENT)) {
             Message message = mHandler.obtainMessage(HANDLE_CHANNEL_STATE_CHANGED_EVENT);
+            mHandler.sendMessage(message);
+        }
+        
+        if (qualifier.equals(ChatApplication.ALLJOYN_ERROR_EVENT)) {
+            Message message = mHandler.obtainMessage(HANDLE_ALLJOYN_ERROR_EVENT);
             mHandler.sendMessage(message);
         }
     }
@@ -210,8 +223,16 @@ public class HostActivity extends Activity implements Observer {
     private Button mStopButton;
     private Button mQuitButton;
     
+    private void alljoynError() {
+    	if (mChatApplication.getErrorModule() == ChatApplication.Module.GENERAL ||
+    		mChatApplication.getErrorModule() == ChatApplication.Module.USE) {
+    		showDialog(DIALOG_ALLJOYN_ERROR_ID);
+    	}
+    }
+    
     private static final int HANDLE_APPLICATION_QUIT_EVENT = 0;
     private static final int HANDLE_CHANNEL_STATE_CHANGED_EVENT = 1;
+    private static final int HANDLE_ALLJOYN_ERROR_EVENT = 2;
     
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
@@ -228,6 +249,12 @@ public class HostActivity extends Activity implements Observer {
 	                updateChannelState();
 	            }
                 break;
+            case HANDLE_ALLJOYN_ERROR_EVENT:
+            {
+                Log.i(TAG, "mHandler.handleMessage(): HANDLE_ALLJOYN_ERROR_EVENT");
+                alljoynError();
+            }
+            break;                
             default:
                 break;
             }

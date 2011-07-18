@@ -199,4 +199,23 @@ public class DialogBuilder {
     	
     	return dialog;
     }
+    
+    public Dialog createAllJoynErrorDialog(Activity activity, final ChatApplication application) {
+       	Log.i(TAG, "createAllJoynErrorDialog()");
+    	final Dialog dialog = new Dialog(activity);
+    	dialog.requestWindowFeature(dialog.getWindow().FEATURE_NO_TITLE);
+    	dialog.setContentView(R.layout.alljoynerrordialog);
+    	
+    	TextView errorText = (TextView)dialog.findViewById(R.id.errorDescription);
+        errorText.setText(application.getErrorString());
+	        	       	
+    	Button yes = (Button)dialog.findViewById(R.id.errorOk);
+    	yes.setOnClickListener(new View.OnClickListener() {
+    		public void onClick(View view) {
+    			dialog.cancel();
+    		}
+    	});
+    	
+    	return dialog;
+    }
 }
