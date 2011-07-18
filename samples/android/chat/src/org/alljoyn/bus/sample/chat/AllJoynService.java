@@ -625,9 +625,9 @@ public class AllJoynService extends Service implements Observer {
     private static final String NAME_PREFIX = "org.alljoyn.bus.samples.chat";
     
 	/**
-	 * The well-known session port used as the contact port for the chat service
+	 * The well-known session port used as the contact port for the chat service.
 	 */
-    private static final short CONTACT_PORT = 42;
+    private static final short CONTACT_PORT = 27;
     
     /**
      * The object path used to identify the service "location" in the bus
