@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    
-    <string name="app_name">AllJoyn Chat Java</string>
-
-
-<string name="enter_message_hint">Enter message</string>
-<string name="advertise_dialog_title">Name to be advertised</string>
+    <string name="app_name">AllJoyn Chat Sample for Android</string>
 </resources>
