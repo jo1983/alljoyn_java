@@ -63,5 +63,3 @@ env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=os.environ.get('CLASSPATH
 # AllJoyn samples
 env.SConscript('samples/SConscript')
 
-# AllJoyn Android System
-env.SConscript('alljoyn_android/SConscript')
