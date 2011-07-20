@@ -352,6 +352,34 @@ public class PropertiesService extends Activity {
                     finish();
                     return;
                 }
+
+                /*
+                 * Create a new session listening on the contact port of the chat service.
+                 */
+                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
+                
+                SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+                sessionOpts.isMultipoint = false;
+                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+                status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+                    @Override
+                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                        if (sessionPort == CONTACT_PORT) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                });
+                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)",
+                                         contactPort.value, sessionOpts.toString()), status);
+                if (status != Status.OK) {
+                    finish();
+                    return;
+                }
                 
                 /*
                  * request a well-known name from the bus
@@ -377,34 +405,6 @@ public class PropertiesService extends Activity {
                     	finish();
                     	return;
                     }
-                }
-                
-                /*
-                 * Create a new session listening on the contact port of the chat service.
-                 */
-                Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
-                
-                SessionOpts sessionOpts = new SessionOpts();
-                sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-                sessionOpts.isMultipoint = false;
-                sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
-
-                status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
-                	@Override
-                	public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                		if (sessionPort == CONTACT_PORT) {
-                			return true;
-                        } else {
-                        	return false;
-                        }
-                    }
-                });
-                logStatus(String.format("BusAttachment.bindSessionPort(%d, %s)",
-                                         contactPort.value, sessionOpts.toString()), status);
-                if (status != Status.OK) {
-                    finish();
-                    return;
                 }
                 
                 break;
