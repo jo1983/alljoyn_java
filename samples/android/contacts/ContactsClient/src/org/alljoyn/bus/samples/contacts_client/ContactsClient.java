@@ -20,16 +20,17 @@
 package org.alljoyn.bus.samples.contacts_client;
 
 import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.BusListener;
-import org.alljoyn.bus.SessionListener;
-import org.alljoyn.bus.Mutable;
-import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.BusException;
+import org.alljoyn.bus.BusListener;
+import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
+import org.alljoyn.bus.SessionListener;
+import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
@@ -65,6 +66,8 @@ public class ContactsClient extends Activity {
     private static final int MESSAGE_DISPLAY_ALL_CONTACTS = 1;
     private static final int MESSAGE_DISPLAY_CONTACT = 2;
     private static final int MESSAGE_POST_TOAST = 3;
+    private static final int MESSAGE_START_PROGRESS_DIALOG = 4;
+    private static final int MESSAGE_STOP_PROGRESS_DIALOG = 5;
 
     private static final String TAG = "ContactsClient";
     
@@ -80,6 +83,7 @@ public class ContactsClient extends Activity {
     int mSingleUserId;
 
     BusHandler mBusHandler;
+    private ProgressDialog mDialog;
     
     private Handler mHandler = new Handler() {
         @Override
@@ -107,6 +111,16 @@ public class ContactsClient extends Activity {
             case MESSAGE_POST_TOAST:
                 Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
                 break;
+            case MESSAGE_START_PROGRESS_DIALOG:
+                mDialog = ProgressDialog.show(ContactsClient.this, 
+                                              "", 
+                                              "Finding Contacts Service.\nPlease wait...", 
+                                              true,
+                                              true);
+                break;
+            case MESSAGE_STOP_PROGRESS_DIALOG:
+                mDialog.dismiss();
+                break;                
             default:
                 break;
             }
@@ -134,6 +148,7 @@ public class ContactsClient extends Activity {
         busThread.start();
         mBusHandler = new BusHandler(busThread.getLooper());
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
     }
     
     @Override
@@ -383,6 +398,7 @@ public class ContactsClient extends Activity {
                    	mAddressBookInterface = mProxyObj.getInterface(AddressBookInterface.class);
                 	mSessionId = sessionId.value;
                 	mIsConnected = true;
+                	mHandler.sendEmptyMessage(MESSAGE_STOP_PROGRESS_DIALOG);
                 }
                 break;
             }

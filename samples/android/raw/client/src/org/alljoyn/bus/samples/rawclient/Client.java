@@ -16,15 +16,22 @@
 
 package org.alljoyn.bus.samples.rawclient;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
+
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusListener;
-import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
+import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -42,14 +49,6 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-
-import java.io.OutputStream;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
-import java.io.IOException;
-
 public class Client extends Activity {
     /* Load the native alljoyn_java library. */
     static {
@@ -59,6 +58,8 @@ public class Client extends Activity {
     private static final int MESSAGE_PING = 1;
     private static final int MESSAGE_PING_REPLY = 2;
     private static final int MESSAGE_POST_TOAST = 3;
+    private static final int MESSAGE_START_PROGRESS_DIALOG = 4;
+    private static final int MESSAGE_STOP_PROGRESS_DIALOG = 5;   
 
     private static final String TAG = "RawClient";
 
@@ -66,6 +67,7 @@ public class Client extends Activity {
     private ArrayAdapter<String> mListViewArrayAdapter;
     private ListView mListView;
     private Menu menu;
+    private ProgressDialog mDialog;
     
     /* Handler used to make calls to AllJoyn methods. See onCreate(). */
     private BusHandler mBusHandler;
@@ -86,6 +88,16 @@ public class Client extends Activity {
                 case MESSAGE_POST_TOAST:
                 	Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
                 	break;
+                case MESSAGE_START_PROGRESS_DIALOG:
+                    mDialog = ProgressDialog.show(Client.this, 
+                                                  "", 
+                                                  "Finding Security Service.\nPlease wait...", 
+                                                  true,
+                                                  true);
+                    break;
+                case MESSAGE_STOP_PROGRESS_DIALOG:
+                    mDialog.dismiss();
+                    break;                	
                 default:
                     break;
                 }
@@ -126,6 +138,7 @@ public class Client extends Activity {
 
         /* Connect to an AllJoyn object. */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
     }
     
     @Override
@@ -324,6 +337,7 @@ public class Client extends Activity {
                 	
                 mMsgSessionId = sessionId.value;
                 mIsConnected = true;
+                mHandler.sendEmptyMessage(MESSAGE_STOP_PROGRESS_DIALOG);
                 break;
             }
             

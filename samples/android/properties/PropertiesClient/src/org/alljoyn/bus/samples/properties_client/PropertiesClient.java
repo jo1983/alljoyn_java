@@ -29,6 +29,7 @@ import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -40,12 +41,12 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.AdapterView.OnItemSelectedListener;
 
 /*
  * Properties Client sample code.
@@ -62,6 +63,8 @@ public class PropertiesClient extends Activity {
     private static final int MESSAGE_UPDATE_BACKGROUND_COLOR = 1;
     private static final int MESSAGE_UPDATE_TEXT_SIZE = 2;
     private static final int MESSAGE_POST_TOAST = 3;
+    private static final int MESSAGE_START_PROGRESS_DIALOG = 4;
+    private static final int MESSAGE_STOP_PROGRESS_DIALOG = 5;
     
     // Values used to as default text sizes. tiny/small/medium/regular/large/x-large
     private static final int TEXT_TINY = 8;
@@ -84,6 +87,7 @@ public class PropertiesClient extends Activity {
     Menu menu;
     
     private BusHandler mBusHandler;
+    private ProgressDialog mDialog;
 
     private Handler mHandler = new Handler() {
         @Override
@@ -99,6 +103,16 @@ public class PropertiesClient extends Activity {
                 break;
             case MESSAGE_POST_TOAST:
                 Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
+                break;
+            case MESSAGE_START_PROGRESS_DIALOG:
+                mDialog = ProgressDialog.show(PropertiesClient.this, 
+                                              "", 
+                                              "Finding Properties Service.\nPlease wait...", 
+                                              true,
+                                              true);
+                break;
+            case MESSAGE_STOP_PROGRESS_DIALOG:
+                mDialog.dismiss();
                 break;
             default:
                 break;
@@ -147,6 +161,7 @@ public class PropertiesClient extends Activity {
 
         /* Connect to an AllJoyn object. */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
     }
     
     @Override
@@ -395,6 +410,7 @@ public class PropertiesClient extends Activity {
                 	mPropertiesInterface = mProxyObj.getInterface(PropertiesInterface.class);
                 	mSessionId = sessionId.value;
                 	mIsConnected = true;
+                	mHandler.sendEmptyMessage(MESSAGE_STOP_PROGRESS_DIALOG);
                 }
                 break;
             }

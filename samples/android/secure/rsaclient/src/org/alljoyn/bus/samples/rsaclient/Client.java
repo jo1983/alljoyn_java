@@ -25,15 +25,16 @@ import org.alljoyn.bus.AuthListener;
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
-import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
+import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -66,6 +67,8 @@ public class Client extends Activity {
     private static final int MESSAGE_GET_CREDENTIALS = 3;
     private static final int MESSAGE_AUTH_COMPLETE = 4;
     private static final int MESSAGE_POST_TOAST = 5;
+    private static final int MESSAGE_START_PROGRESS_DIALOG = 6;
+    private static final int MESSAGE_STOP_PROGRESS_DIALOG = 7;
 
     private static final String TAG = "SecureRsaClient";
 
@@ -76,6 +79,7 @@ public class Client extends Activity {
     private int mCredentialsDialog;
     private CountDownLatch mLatch;
     private String mPassword;
+    private ProgressDialog mDialog;
     
     private Handler mHandler = new Handler() {
         @Override
@@ -105,6 +109,16 @@ public class Client extends Activity {
             case MESSAGE_POST_TOAST:
             	Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
             	break;
+            case MESSAGE_START_PROGRESS_DIALOG:
+                mDialog = ProgressDialog.show(Client.this, 
+                                              "", 
+                                              "Finding Security Service.\nPlease wait...", 
+                                              true,
+                                              true);
+                break;
+            case MESSAGE_STOP_PROGRESS_DIALOG:
+                mDialog.dismiss();
+                break;            	
             default:
                 break;
             }
@@ -144,6 +158,7 @@ public class Client extends Activity {
 
         mAuthListener = new RsaKeyXListener();
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
     }
     
     @Override
@@ -418,6 +433,7 @@ public class Client extends Activity {
                 	
                 	mSessionId = sessionId.value;
                 	mIsConnected = true;
+                	mHandler.sendEmptyMessage(MESSAGE_STOP_PROGRESS_DIALOG);
                 }
                 break;
             }
