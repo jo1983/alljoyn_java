@@ -450,12 +450,14 @@ public class Client extends Activity {
             }
             
             case PING: {
-                try {
-                    sendUiMessage(MESSAGE_PING, msg.obj);
-                    String reply = mSecureInterface.Ping((String) msg.obj);
-                    sendUiMessage(MESSAGE_PING_REPLY, reply);
-                } catch (BusException ex) {
-                    logException("SecureInterface.Ping()", ex);
+                if (mSecureInterface != null) {
+                    try {
+                        sendUiMessage(MESSAGE_PING, msg.obj);
+                        String reply = mSecureInterface.Ping((String) msg.obj);
+                        sendUiMessage(MESSAGE_PING_REPLY, reply);
+                    } catch (BusException ex) {
+                        logException("SecureInterface.Ping()", ex);
+                    }
                 }
                 break;
             }
