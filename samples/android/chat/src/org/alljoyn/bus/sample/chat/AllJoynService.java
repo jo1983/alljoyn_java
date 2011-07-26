@@ -649,7 +649,13 @@ public class AllJoynService extends Service implements Observer {
 		 * well-known name prefix we will only find names that we know to
 		 * be interesting.  When we find a remote application that is
 		 * hosting a channel, we add its channel name it to the list of
-		 * available channels selectable by the user.  
+		 * available channels selectable by the user.
+         *
+         * In the class documentation for the BusListener note that it is a
+         * requirement for this method to be multithread safe.  This is
+         * accomplished by the use of a monitor on the ChatApplication as
+         * exemplified by the synchronized attribute of the addFoundChannel
+         * method there.
 		 */
 		public void foundAdvertisedName(String name, short transport, String namePrefix) {
             Log.i(TAG, "mBusListener.foundAdvertisedName(" + name + ")");
@@ -663,6 +669,12 @@ public class AllJoynService extends Service implements Observer {
 		 * When we lose a remote application that is hosting a channel, we
 		 * remote its name from the list of available channels selectable
 		 * by the user.  
+         *
+         * In the class documentation for the BusListener note that it is a
+         * requirement for this method to be multithread safe.  This is
+         * accomplished by the use of a monitor on the ChatApplication as
+         * exemplified by the synchronized attribute of the removeFoundChannel
+         * method there.
 		 */
 		public void lostAdvertisedName(String name, short transport, String namePrefix) {
             Log.i(TAG, "mBusListener.lostAdvertisedName(" + name + ")");
@@ -843,9 +855,19 @@ public class AllJoynService extends Service implements Observer {
         SessionOpts sessionOpts = new SessionOpts(SessionOpts.TRAFFIC_MESSAGES, true, SessionOpts.PROXIMITY_ANY, SessionOpts.TRANSPORT_ANY);
         
         Status status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+            /**
+             * This method is called when a client tries to join the session
+             * we have bound.  It asks us if we want to accept the client into
+             * our session.
+             *
+             * In the class documentation for the SessionPortListener note that
+             * it is a requirement for this method to be multithread safe.
+             * Since we never access any shared state, this requirement is met.
+             */
         	public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
                 Log.i(TAG, "SessionPortListener.acceptSessionJoiner(" + sessionPort + ", " + joiner + ", " + sessionOpts.toString() + ")");
-        		/*
+        	
+                /*
         		 * Accept anyone who can get our contact port correct.
         		 */
         		if (sessionPort == CONTACT_PORT) {
@@ -854,6 +876,17 @@ public class AllJoynService extends Service implements Observer {
         		return false;
             }
             
+            /**
+             * If we return true in acceptSessionJoiner, we admit a new client
+             * into our session.  The session does not really exist until a 
+             * client joins, at which time the session is created and a session
+             * ID is assigned.  This method communicates to us that this event
+             * has happened, and provides the new session ID for us to use.
+             *
+             * In the class documentation for the SessionPortListener note that
+             * it is a requirement for this method to be multithread safe.
+             * Since we never access any shared state, this requirement is met.
+             */
             public void sessionJoined(short sessionPort, int id, String joiner) {
                 Log.i(TAG, "SessionPortListener.sessionJoined(" + sessionPort + ", " + id + ", " + joiner + ")");
             }             
@@ -956,7 +989,17 @@ public class AllJoynService extends Service implements Observer {
         Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
         
         Status status = mBus.joinSession(wellKnownName, contactPort, sessionId, sessionOpts, new SessionListener() {
-            @Override
+            /**
+             * This method is called when the last remote participant in the 
+             * chat session leaves for some reason and we no longer have anyone
+             * to chat with.
+             *
+             * In the class documentation for the BusListener note that it is a
+             * requirement for this method to be multithread safe.  This is
+             * accomplished by the use of a monitor on the ChatApplication as
+             * exemplified by the synchronized attribute of the removeFoundChannel
+             * method there.
+             */
             public void sessionLost(int sessionId) {
                 Log.i(TAG, "BusListener.sessionLost(" + sessionId + ")");
         		mChatApplication.alljoynError(ChatApplication.Module.USE, "The chat session has been lost");

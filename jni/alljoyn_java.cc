@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <map>
 #include <list>
+#include <algorithm>
 #include <qcc/Debug.h>
 #include <qcc/Log.h>
 #include <qcc/ManagedObj.h>
@@ -393,6 +394,355 @@ using namespace ajn;
  * glance, we don't use C++ smart pointers when it seems like we could really
  * benefit from them; and we do use smart pointers in a strange way when it
  * seems like we don't have to.  Hopefully it does make some sense now.
+ *
+ * Bus objects sidebar
+ * -------------------
+ *
+ * As you may have gathered from the memory management sidbar, Bus Objects are
+ * well, just different.  They are different in order to support a simple
+ * programming model for simple services, and because Java does not support
+ * multiple inheritance.  This leads to some fairly significant complexity, and
+ * the underlying reason is not intuitively obvious, so we spend some time
+ * discussing them here.
+ *
+ * In a larger application, one typically thinks of a model that holds the state
+ * of the application and a number of what are essentially Views and Controllers
+ * of an MVC application to talk to the network.  For example one might consider
+ * a high level architecture that looks something like,
+ *
+ *   +-----------+    +-----------+    +-----------+
+ *   | Graphical |    |  Android  |    |  AllJoyn  |
+ *   |   User    |    |   Binder  |    |    Bus    |
+ *   | Interface |    | Interface |    | Interface |
+ *   +-----------+    +-----------+    +-----------+
+ *         |                |                |
+ *   +---------------------------------------------+
+ *   |              Application Model              |
+ *   +---------------------------------------------+
+ *
+ * The "AllJoyn Bus Interface" would be implemented as a class, and it would
+ * basically be a single-threaded (applications with GUIs are almost universally
+ * single threaded) thing talking to associate AllJoyn objects, one of which
+ * would be a BusObject that implements some service.  It might look something
+ * like the following illustration.
+ *
+ *                                           |  (From Application Model)
+ *                                           v
+ *                                +-----------------------+
+ *                                | AllJoyn Bus Interface |
+ *                                +-----------------------+
+ *                                    |    |   |    |
+ *            +-----------------------+    |   |    +--------------------------+
+ *            |                   +--------+   +---------+                     |
+ *            |                   |                      |                     |
+ *   +----------------+    +--------------+    +--------------------+    +------------+
+ *   | Bus Attachment |    | Bus Listener |    | SessionPortListeer |    | Bus Object |
+ *   +----------------+    +--------------+    +--------------------+    |            | <----> Network
+ *                                                                       | Interface  |
+ *                                                                       |  Methods   |
+ *                                                                       +------------+
+ *                                                                             |
+ *                                                     (To Application Model)  v
+ *                                                     (via Getters/Setters)
+ *
+ * Notice that in this case, the AllJoyn Bus Interface HASA Bus Object in the
+ * object oriented programming sense.  The important observation to make is that the
+ * service interfaces are duplicated in the Bus Object and Application Model.  This
+ * is an artifact of the centralized Model (in the Model-View-Controller sense).
+ *
+ * On the other hand, in a very simple service, it makes sense to include the
+ * Model in the Bus Object.  One might want to construct an entirely self-
+ * contained AllJoyn-only object, which might look something like the following
+ * illustration.
+ *
+ *                      +-----------------------+
+ *                      |    Simple Service     |
+ *                      |                       |
+ *                      | OS Service Interface  |
+ *                      | AllJoyn Bus Interface |
+ *                      |                       |
+ *                      |      Bus Object       |
+ *                      |  Interface Methods    | <----> Network
+ *                      +-----------------------+
+ *                             |    |    |
+ *              +--------------+    |    +------------------+
+ *              |                   |                       |
+ *     +----------------+    +--------------+    +--------------------+
+ *     | Bus Attachment |    | Bus Listener |    | SessionPortListeer |
+ *     +----------------+    +--------------+    +--------------------+
+ *
+ * Notice that in this case, the simple service wants to inherit from a concrete
+ * platform-dependent service class (for example the Android Service class) so
+ * it ISA (in the object-oriented architecture sense) OS Service Interface and
+ * it ISA Bus Object.
+ *
+ * Since Java does not support multiple inheritance, the only way to accomplish
+ * this is to make either the Bus Object or the OS Service definition a Java
+ * "interface".  Since we are unlikely to convince every OS manufacturer to
+ * accomodate us, this means that BusObject needs to be an interface.
+ *
+ * What this means to us here is that we cannot enforce that clients put a
+ * "handle" in implementations.  This means that we must tread Bus Objects
+ * differently than objects which we have control over.
+ *
+ * Another complication is the ability to register bus objects with more than
+ * one Bus Attachment.  For example, one might want to provide a simple core
+ * service over multiple bus attachments in a program.  This makes Bus Objects
+ * further different from the other objects in the system since there is no
+ * one-to-one relationship with a Bus Attachment.  Signal Emitters are also
+ * associated with a Java Object that implements given interfaces, but not
+ * with anything else.  Since there is no state in the Bus Object, we need
+ * to provide enough external scaffolding to make the connection to the
+ * C++ Object that backs up the Java Bus Object.
+ *
+ * This all results in a rather intricate object relationship which deserves an
+ * illustration of its own.
+ *
+ *              +--- Bindings Strong Reference (4) (6) (7)
+ *              |
+ *              +--- Bindings Strong Reference (3) (8)
+ *              |
+ *              |              (1)                                               (2) (8)
+ *      +-------------+   Java Weak Ref  +--------------+  C++ Object Ref  +----------------+
+ *      | Java Object | <--------------- |  C++ Object  | <--------------- |    AllJoyn     |
+ *      |             |                  |              |                  | Bus Attachment |
+ *      |   Extends   |                  |  Implements  |                  +----------------+
+ *      |  Bus Object |                  |  Bus Object  |
+ *      |  Implements |                  | Methods from |  C++ Object Ref  +----------------+
+ *      |  Interface  |                  |   C++ class  | <--------------- |    AllJoyn     |
+ *      |  Interface  |                  +--------------+                  | Bus Attachment |
+ *      |     ...     |                         ^                          +----------------+
+ *      +-------------+                         |                              (4) (6) (7)
+ *             ^                                |
+ *             |                                |
+ *     +----------------+                       |
+ *     | Signal Emitter | (5)                   |
+ *     +----------------+                       |
+ *             |                                |
+ *             v                                |
+ *     [Java Object, Ref Count, C++ Object] ----+ (6) (7) (8)
+ *     [Java Object, Ref Count, C++ Object]
+ *             ^
+ *             |
+ *             +------------------------------------------------------------------+
+ *                                                                                |
+ *     +---------------------+     +--------------------+                         |
+ *     | Java Bus Attachment | --> | C++ Bus Attachment | --> [Java Bus Object] --+ (9)
+ *     +---------------------+     +--------------------+     [Java Bus Object]
+
+ * (1) As usual, there is a one-to-one relationship between the provided Java
+ *     object and the associated C++ object, but the relationship is one-way
+ *     since there is no bindings state in the Java Object.  The Java reference
+ *     in the C++ object is used to plumb the calls from AllJoyn through to the
+ *     Java interface implementations.
+ *
+ * (2) When the bindings RegisterBusObject method is called, a reference to
+ *     the C++ method is given to AllJoyn.  Since the Java Object has no
+ *     concrete state, the C++ object cannot be created when the Java object
+ *     is created, but must be created on-demand in the RegisterBusObject
+ *     method.
+ *
+ * (3) Since there is no guarantee that the Java client will not forget its
+ *     reference to the Java Bus Object, the bindings must hold one.
+ *
+ * (4) If RegisterBusObject is called multiple times, a new strong reference
+ *     is taken for each call.  Usually this is done on multiple Bus Attachments
+ *     resulting in a new C++ object reference from the bus attachment back to
+ *     the C++ object.
+ *
+ * (5) Signal Emitters have a reference to the Java Bus Object with which they
+ *     are associated.  In order to actually emit signals, the C++ object
+ *     associated with the Java Bus Object must be looked up.  This is done
+ *     by looking up the Java Object reference in a global map.
+ *
+ * (6) If a Bus Object is registered with multiple Bus Attachments, as mentioned
+ *     above, an additional JNI strong global reference is taken to the Java
+ *     bus object for each registration event.  This results in Alljoyn taking
+ *     an additional C++ object reference to the C++ object that backs the Java
+ *     object.
+ *
+ * (7) In the normal case, we use the Java garbage collector to reference count
+ *     our Java objects, and override the finalize() method of the target object
+ *     to drive the free of the underlying C++ object.  Since we have no ability
+ *     to affect the finalize() method, we can no longer rely on the Java GC and
+ *     have to provide our own reference count.  The reference count is
+ *     interpreted as the number of times that registerBusObject has been called
+ *     and therefore the number of references that the various AllJoyn Bus
+ *     Attachments have to the underlying C++ object.
+ *
+ * (8) Whenever a Java Bus Object is registered with a Bus Attachment, one JNI
+ *     strong global reference is taken to the object.  This ensures that the
+ *     Java object is not released while the bindings are using it.  When a Bus
+ *     Object is registered for the first time, there will be no entry in the
+ *     global Bus Object to C++ Object map.  In this case,a new C++ Object is
+ *     created and associated with the Java Object via the map.  If the same
+ *     object is registered more than once, the reference count in the map entry
+ *     is incremented.  When a Bus Object is unregistered, One JNI reference
+ *     to the object is already released.  The mapping between Java object and
+ *     C++ object is determined from the global object map and the reference
+ *     count there is decremented.  If the reference count goes to zero, the
+ *     C++ object is freed and the map entry removed.
+ *
+ * (9) Whenever a Bus Attachent is destroyed, we want to be able to remove all
+ *     of the bindings references to Java Bus Objects and delete any C++ objects
+ *     that are no longer necessary.  Because there are no references to the
+ *     associated Bus Attachment in any Java Bus Object or C++ Bus Object (recall
+ *     that they can be associated with multiple Bus Attachments) we must have
+ *     a list of Java Bus Objects in each Bus Attachment for cleanup purposes.
+
+ * To summarize, this is quite a bit of complexity for this particular case,
+ * but it supports a required API feature, which is that the BusObject be an
+ * interface.
+ *
+ * Multithread safety sidebar
+ * --------------------------
+ *
+ * Threading models, like memory management models come in different flavors.
+ * Just as in the memory management situation described above, the bindings are
+ * the place where the Java threading model and the Posix threading models meet.
+ * We say Posix threading model since there really is no C++ or C threading
+ * model, and AllJoyn for Linux-based systems uses Posix threads wrapped by an
+ * OS abstraction layer.
+ *
+ * We assume that AllJoyn is multithread safe since it advertises itself that
+ * way.  We assume that multiple threads of execution may come at us from the
+ * AllJoyn side since there are multiple ways to get notifications.  In practice
+ * notifications may be serialized since they are coming from one endpoint
+ * receive thread, but we don't rely on that since it is a behavior that can
+ * eisly be changed.
+ *
+ * We assume that Java is capable of multithreading and will most likely be
+ * running hardware threads.  This means that multiple threads of execution may
+ * come at us from the Java side as well.  The big picture is illustrated below
+ * showing three areas of responsibility.
+ *
+ *  {Client Responsibility}     {Bindings Responsibility}      {AllJoyn Responsibility}
+ *           (1)                           (3)                          (2)
+ *
+ *              +--------+     +---------+     +---------+     +---------+
+ *   Thread --> |        | --> |         | --> |         | --> |         |
+ *   Thread --> | Client | --> | Binding | --> | Binding | --> | AllJoyn |
+ *              |  Java  | <-- |  Java   | <-- |   C++   | <-- |   C++   | <-- Thread
+ *              |        | <-- |         | <-- |         | <-- |         | <-- Thread
+ *              +--------+     +---------+     +---------+     +---------+
+ *
+ * (1) The client is responsibile, at a minimum, of understanding that
+ *     notifications will come in on at least one separate thread and may come
+ *     in over any number of threads.  The client may spin up any number of
+ *     threads and it is its own responsibility for deciding how to manage them
+ *     and its own multithreading issues.  This is pointed out numerous times
+ *     in the bindings documentation.
+ *
+ * (2) AllJoyn is responsible for being able to deal with any number of threads
+ *     accessing its objects.  In turn, it can send notifications up to the
+ *     bindings on any number of threads.  We do not concern ourselves about
+ *     how AllJoyn does this, only that it claims to be multithread safe; we
+ *     just believe it.
+ *
+ * (3) The bindings must be able to pass commands from the Java client through
+ *     to AllJoyn over any number of threads and be able to pass notifications
+ *     back into the client over any number of threads.  We must be able to
+ *     guarantee multithread safety in this environment.
+ *
+ * There is a lot of terminology thrown around which seems to mean different
+ * things on different systems, but what we need is the ability to serialize
+ * access to objects.  Java likes to use the concept of Monitors and Posix
+ * likes to use binary semaphores or mutual exclusion objects which it calls
+ * Mutexes.  At a low level, they're really the same thing.
+ *
+ * If looking in from a Java perspective, one typically thinks of a group of
+ * methods in a given object that are automatically associated with a Monitor
+ * by using the synchronize keyword.  Only one method is allowed to proceed
+ * through the Monitor and begin execution at any given time.  The Java JNI
+ * provides access to Monitors via the MonitorEnter(obj) and MonitorExit(obj)
+ * functions which take Java Objects as parameters.  The MonitorEnter function
+ * allows exactly one thread to pass and blocks the "gate" until that one
+ * thread calls MonitorExit.  During the time the "gate" is closed, other
+ * threads are suspended and will not execute.
+ *
+ * If looking in from a Posix perspective, one typically thinks of a mutual
+ * exclusion object that one uses to serialize access to a number of related
+ * functions.  The most common idiom is to place a mutex object into an object
+ * as a member variable.  In the AllJoyn OS abstraction layer the Mutex object
+ * has methods lock() and unlock().  The lock method allows exactly one thread
+ * to pass and blocks the "gate" until that one thread calls unlock.  During
+ * the time the "gate" is closed, other threads are suspended and will not
+ * execute.
+ *
+ * The Java Virtual Machine specifies what thread-related functions must be
+ * implemented by a specific Java Runtime.  It is possible that a given Java
+ * Runtime can handle all thread-related functions itself.  Sun called these
+ * runtimes "green thread" runtimes.  Typically, however, on machines that
+ * support native threads, the Java runtime also uses native threads, although
+ * this may be configurable.
+ *
+ * The question immediately arises whether or not Java native threads are
+ * compatible with the pthreads that AllJoyn uses.  In the case of Android, each
+ * Dalvik thread explicitly maps directly to a native pthread.  This is usually
+ * the case with Sun JVMs, but the Solaris JDK is a notable exception.  We will
+ * assume here that there are no horrible side effects from using JNI critical
+ * sections in code executing under pthreads or vice versa; and that mutual
+ * exclusion actually happens when we ask for it.
+ *
+ * The first choice we have is to use Posix or Java implementation of mutual
+ * exclusion since they are functionally equivalent.  We want to keep the
+ * multithread aware code as limited in scope as possible.  That is, we don't
+ * want to sprinkle synchronized keywords through the Java objects of the
+ * bindings since these can be removed without necessarily auditing the JNI
+ * code.  In addition, new methods can be added and objects specialized; and
+ * unless one is keeping multithreading in mind, it is easy to add that method
+ * without the synchronized keyword.  Since synchronized methods compose a
+ * monitor on the entire object, the exclusion is on a per-method basis.  We
+ * don't want to exclude access, for example, to the bus attachment while a
+ * remote method is being called.  This implies a finer granularity than
+ * per-method.
+ *
+ * So we choose the Posix version of mutual exclusion for two reasons: first, we
+ * want to keep the scope of the multithread problem contained to one place, and
+ * that place is C++, we should use the "natural" method for C++ which is
+ * pthreads.  Second, since we want a finer granularity than per-method (we want
+ * to protect shared resources rather than just arbitrarily serialize access to
+ * an entire object) we should use the mechanism oriented to that approach,
+ * which is the pthreads mutex as encapsulated by the AllJoyn OS abstraction
+ * layer.
+ *
+ * The JNI code's purpose for living is to make connections between Java and
+ * C++.  To do this, it generally creates C++ objects and ties them to the
+ * Java objects as described in the memory management section.  The C++ objects
+ * constitute the plumbing between the Java system and the AllJoyn system and
+ * serve as the ideal place to centralize the bindings multi-thread safe code.
+ *
+ * Referring back to the illustration above, there are a lot of implications
+ * for the bindings.  The bindings are split roughly in half -- into a set of
+ * Java classes and corresponding C++ classes found in this file.  The
+ * illustration implies that the Java code found in src/org/alljoyn/bus should
+ * be multithread safe (Safe or MT-Safe in the jargon of Linux libraries) and
+ * we should be multithread safe here.
+ *
+ * What this means to us is that there must be zero intances of unprotected
+ * read-modify-write patterns in those objects if they are going to rely on the
+ * C++ code here for their thread safety.  This includes uses of arrays, lists
+ * and collections in general since they read-modify-write the data structures
+ * that access the collections.
+ *
+ * Listener objects are the Java and C++ objects called from AllJoyn on one of
+ * its threads.  All of our C++ listener objects are expected to be MT-Safe
+ * between construction and destruction.  We have control of that here.  A
+ * similar situation should exist in the Java objects, but we lose control of
+ * them at the client.  We expect that clients of the bindings will understand
+ * that they must be MT-Safe.  We don't try to come up with some one size fits
+ * all solution; we expect the users to understand that they may have multiple
+ * threads running around in parts of their code.
+ *
+ * Another important question is whether or not all of the env->function() JNI
+ * calls are thread safe.  The answer is that it is implementation dependent and
+ * so we can make no such assumption.  There is certainly one env pointer
+ * per-thread, and all JNI functions are accessed through the env pointer, but
+ * there is no requirement that a given JNI implementation take a lock on an
+ * object while manipulating it.  Local references are stashed in thread local
+ * storage, are accessible only by the current thread and so are not of concern,
+ * but we do have to serialize accesses to global shared objects whenever
+ * appropriate.
  */
 
 /** The cached JVM pointer, valid across all contexts. */
@@ -479,11 +829,13 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         return JNI_ERR;
     } else {
         jclass clazz;
+
         clazz = env->FindClass("java/lang/Object");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_Object = (jclass)env->NewGlobalRef(clazz);
+
         MID_Object_equals = env->GetMethodID(CLS_Object, "equals", "(Ljava/lang/Object;)Z");
         if (!MID_Object_equals) {
             return JNI_ERR;
@@ -504,71 +856,77 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         if (!MID_BusException_log) {
             return JNI_ERR;
         }
+
         clazz = env->FindClass("org/alljoyn/bus/ErrorReplyBusException");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_ErrorReplyBusException = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/IntrospectionListener");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_IntrospectionListener = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/BusObjectListener");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_BusObjectListener = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/MsgArg");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_MsgArg = (jclass)env->NewGlobalRef(clazz);
-        MID_MsgArg_marshal = env->GetStaticMethodID(CLS_MsgArg, "marshal",
-                                                    "(JLjava/lang/String;Ljava/lang/Object;)V");
+        MID_MsgArg_marshal = env->GetStaticMethodID(CLS_MsgArg, "marshal", "(JLjava/lang/String;Ljava/lang/Object;)V");
         if (!MID_MsgArg_marshal) {
             return JNI_ERR;
         }
-        MID_MsgArg_marshal_array = env->GetStaticMethodID(CLS_MsgArg, "marshal",
-                                                          "(JLjava/lang/String;[Ljava/lang/Object;)V");
+        MID_MsgArg_marshal_array = env->GetStaticMethodID(CLS_MsgArg, "marshal", "(JLjava/lang/String;[Ljava/lang/Object;)V");
         if (!MID_MsgArg_marshal_array) {
             return JNI_ERR;
         }
-        MID_MsgArg_unmarshal = env->GetStaticMethodID(CLS_MsgArg, "unmarshal",
-                                                      "(JLjava/lang/reflect/Type;)Ljava/lang/Object;");
+        MID_MsgArg_unmarshal = env->GetStaticMethodID(CLS_MsgArg, "unmarshal", "(JLjava/lang/reflect/Type;)Ljava/lang/Object;");
         if (!MID_MsgArg_unmarshal) {
             return JNI_ERR;
         }
-        MID_MsgArg_unmarshal_array = env->GetStaticMethodID(CLS_MsgArg, "unmarshal",
-                                                            "(Ljava/lang/reflect/Method;J)[Ljava/lang/Object;");
+        MID_MsgArg_unmarshal_array = env->GetStaticMethodID(CLS_MsgArg, "unmarshal", "(Ljava/lang/reflect/Method;J)[Ljava/lang/Object;");
         if (!MID_MsgArg_unmarshal_array) {
             return JNI_ERR;
         }
+
         clazz = env->FindClass("org/alljoyn/bus/MessageContext");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_MessageContext = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/Signature");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_Signature = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/Status");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_Status = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/Variant");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_Variant = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/BusAttachment");
         if (!clazz) {
             return JNI_ERR;
         }
         CLS_BusAttachment = (jclass)env->NewGlobalRef(clazz);
+
         clazz = env->FindClass("org/alljoyn/bus/SessionOpts");
         if (!clazz) {
             return JNI_ERR;
@@ -590,7 +948,9 @@ class JLocalRef {
     ~JLocalRef() { if (jobj) GetEnv()->DeleteLocalRef(jobj); }
     JLocalRef& operator=(T obj)
     {
-        if (jobj) GetEnv()->DeleteLocalRef(jobj);
+        if (jobj) {
+            GetEnv()->DeleteLocalRef(jobj);
+        }
         jobj = obj;
         return *this;
     }
@@ -726,10 +1086,9 @@ static void ThrowErrorReplyBusException(const char* name, const char* message)
  *
  * @return The handle value as a pointer.  NULL is a valid value, so
  *         exceptions must be checked for explicitly by the caller.
- *
- * TODO Why isn't this templated to return the proper type?
  */
-static void* GetHandle(jobject jobj)
+template <typename T>
+static T GetHandle(jobject jobj)
 {
     JNIEnv* env = GetEnv();
     if (!jobj) {
@@ -742,7 +1101,8 @@ static void* GetHandle(jobject jobj)
     if (fid) {
         handle = (void*)env->GetLongField(jobj, fid);
     }
-    return handle;
+
+    return reinterpret_cast<T>(handle);
 }
 
 /**
@@ -776,9 +1136,9 @@ static void SetHandle(jobject jobj, void* handle)
  * Given a Java listener object, return its corresponding C++ object.
  */
 template <typename T>
-T* GetNativeListener(JNIEnv* env, jobject jlistener)
+T GetNativeListener(JNIEnv* env, jobject jlistener)
 {
-    return reinterpret_cast<T*>(GetHandle(jlistener));
+    return GetHandle<T>(jlistener);
 }
 
 /**
@@ -801,238 +1161,159 @@ static jobject JStatus(QStatus status)
     return env->CallStaticObjectMethod(CLS_Status, mid, status);
 }
 
-class MessageContext {
+class JBusObject;
+class JSignalHandler;
+class JKeyStoreListener;
+class JAuthListener;
+class PendingAsyncJoin;
+
+/**
+ * The C++ class that backs the Java BusAttachment class and provides the
+ * plumbing connection from AllJoyn out to Java-land.
+ */
+class JBusAttachment : public BusAttachment {
   public:
-    static Message GetMessage();
-    MessageContext(const Message& msg);
-    ~MessageContext();
-  private:
-    static map<Thread*, Message> messages;
-    Mutex lock;
+    JBusAttachment(const char* applicationName, bool allowRemoteMessages);
+    QStatus Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
+                    jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
+    void Disconnect(const char* connectArgs);
+    QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
+    QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces);
+    void UnregisterBusObject(jobject jbusObject);
+    QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
+                                  jobject jsignalHandler, jobject jmethod, const char* srcPath);
+    void UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod);
+
+    /**
+     * A mutex to serialize access to bus attachment critical sections.  It
+     * doesn't seem worthwhile to have any finer granularity than this.  Note
+     * that this member is public since we trust that the native binding we
+     * wrote will use it correctly.
+     */
+    Mutex baCommonLock;
+
+    /**
+     * A vector of all of the C++ "halves" of the signal handler objects
+     * associated with this bus attachment.  Note that this member is public
+     * since we trust that the native binding we wrote will usse it correctly.
+     */
+    vector<pair<jobject, JSignalHandler*> > signalHandlers;
+
+    /*
+     * The single (optionsl) KeyStoreListener associated with this bus
+     * attachment.  The KeyStoreListener and AuthListener work together to deal
+     * with security exchanges over secure interfaces.  Note that this member is
+     * public since we trust that the native binding we wrote will usse it
+     * correctly.  When keyStoreListener is set, there must be a corresponding
+     * strong reference to the associated Java Object set in
+     * jkeyStoreListenerRef.
+     */
+    JKeyStoreListener* keyStoreListener;
+
+    /**
+     * A JNI strong global reference to The single (optional) Java KeyStoreListener
+     * that has been associated with this bus attachment.  When jkeystoreListenerRef is
+     * set, there must be a corresponding object pointer to an associated
+     * C++ backing object set in keyStoreListener.
+     */
+    jobject jkeyStoreListenerRef;
+
+    /**
+     * The single (optional) C++ backing class for a provided AuthListener that
+     * has been associated with this bus attachment.  The KeyStoreListener and
+     * AuthListener work together to deal with security exchanges over secure
+     * interfaces.  Note that this member is public since we trust that the
+     * native binding we wrote will use it correctly.  When authListener is
+     * set, there must be a corresponding strong reference to the associated
+     * Java Object set in jauthListenerRef.
+     */
+    JAuthListener* authListener;
+
+    /**
+     * A JNI strong global reference to The single (optional) Java AuthListener
+     * that has been associated with this bus attachment.  When jauthListenerRef is
+     * set, there must be a corresponding object pointer to an associated
+     * C++ backing object set in authListener.
+     */
+    jobject jauthListenerRef;
+
+    /**
+     * A dedicated mutex to serialize access to the authListener,
+     * authListenerRef, keyStoreListener and keyStoreListenerRef.  This is
+     * required since we can't hold the common lock during callouts to Alljoyn
+     * that may result in callins.  This describes the authentication process.
+     * In order to prevent users from calling in right in the middle of an
+     * authentication session and changing the authentication listeners out
+     * from under us, we dedicate a lock that must be taken in order to make
+     * a change.  This lock is held during the authentication process and during
+     * the change process.
+     */
+    Mutex baAuthenticationChangeLock;
+
+    /**
+     * A list of strong references to Java bus listener objects.
+     *
+     * If clients use the unnamed parameter / unnamed class idiom to provide bus
+     * listeners to registerBusListener, they can forget that the listeners
+     * exist after the register call and never explicitly call unregister.
+     *
+     * Since we need these Java objects around, we need to hold a strong
+     * reference to them to keep them from being garbage collected.
+     *
+     * Note that this member is public since we trust that the native binding we
+     * wrote will usse it correctly.
+     */
+    list<jobject> busListeners;
+
+    /**
+     * A list of strong references to Java Bus Objects we use to indicate that
+     * we have a part ownership in a given object.  Used during destruction.
+     *
+     */
+    list<jobject> busObjects;
+
+    /**
+     * A map from session ports to their associated Java session port listeners.
+     *
+     * This mapping must be on a per-bus attachment basis since the scope of the
+     * uniqueness of a session port is per-bus attachment
+     *
+     * Note that this member is public since we trust that the native binding we
+     * wrote will usse it correctly.
+     */
+    map<SessionPort, jobject> sessionPortListenerMap;
+
+    /**
+     * A map from sessions to their associated Java session listeners.
+     *
+     * This mapping must be on a per-bus attachment basis since the uniqueness of a
+     * session is per-bus attachment.
+     *
+     * Note that this member is public since we trust that the native binding we
+     * wrote will usse it correctly.
+     */
+    map<SessionId, jobject> sessionListenerMap;
+
+    /**
+     * A List of pending asynchronous join operation informations.  We store
+     * Java object references here while AllJoyn mulls over what it can do about
+     * the operation. Note that this member is public since we trust that the
+     * native binding we wrote will usse it correctly.
+     */
+    list<PendingAsyncJoin> pendingAsyncJoins;
 };
 
-map<Thread*, Message> MessageContext::messages;
-
-Message MessageContext::GetMessage()
-{
-    map<Thread*, Message>::iterator it = messages.find(Thread::GetThread());
-    assert(messages.end() != it);
-    return it->second;
-}
-
-MessageContext::MessageContext(const Message& msg)
-{
-    lock.Lock();
-    messages.insert(pair<Thread*, Message>(Thread::GetThread(), msg));
-    lock.Unlock();
-}
-
-MessageContext::~MessageContext()
-{
-    lock.Lock();
-    map<Thread*, Message>::iterator it = messages.find(Thread::GetThread());
-    messages.erase(it);
-    lock.Unlock();
-}
-
-/**
- * The C++ class that imlements the KeyStoreListener functionality.
- *
- * The standard idiom here is that whenever we have a C++ object in the AllJoyn
- * API, it has a corresponding Java object.  If the objects serve as callback
- * handlers, the C++ object needs to call into the Java object as a result of
- * an invocation by the AllJoyn code.
- *
- * As mentioned in the memory management sidebar (at the start of this file) we
- * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a weak reference so we
- * don't interfere with Java garbage collection.
- *
- * Think of the weak reference as the counterpart to the handle pointer found in
- * the Java objects that need to call into C++.  Java objects use the handle to
- * get at the C++ objects, and C++ objects use a weak object reference to get at
- * the Java objects.
- *
- * This object translates C++ callbacks from the KeyStoreListener to its Java
- * counterpart.  Because of this, the constructor performs reflection on the
- * provided Java object to determine the methods that need to be called.  When
- * The callback from C++ is executed, we make corresponding Java calls using
- * the weak reference to the java object and the reflection information we
- * discovered in the constructor.
+/*
+ * The Java garbage collector may queue and call finalizers in any order, so we
+ * have to ensure that an underlying BusAttachment stays around until all of its
+ * attached ProxyBusObjects are deleted. The easiest way to do this is to
+ * reference count the underlying C++ BusAttachment.  This way, the C++ object
+ * is kept around until the last of the ProxyBusObjects or the BusAttachemnt is
+ * destroyed.  The last one to go triggers the delete of the actual
+ * BusAttachment.  The AllJoyn version of a reference counted smart pointer is
+ * the ManagedObj.
  */
-class JKeyStoreListener : public KeyStoreListener {
-  public:
-    JKeyStoreListener(jobject jlistener);
-    ~JKeyStoreListener();
-    QStatus LoadRequest(KeyStore& keyStore);
-    QStatus StoreRequest(KeyStore& keyStore);
-  private:
-    jweak jkeyStoreListener;
-    jmethodID MID_getKeys;
-    jmethodID MID_getPassword;
-    jmethodID MID_putKeys;
-    jmethodID MID_encode;
-};
-
-/**
- * Construct a JKeyStoreListener C++ object by arranging the correspondence
- * between the C++ object being constructed and the provided Java object.
- *
- * Since the purpose of the KeyStoreListener is to allow a client to recieve
- * callbacks from the AllJoyn system, we need to connect the C++ methods to
- * the java methods.  We do that using Java reflection.  In the constructor
- * we do the expensive work of finding the Java method IDs (MID_xxx below)
- * which will be invoked when the callbacks happen.
- *
- * We also save the required weak reference to the provided Java object (see
- * the sidebar on memory management at the start of this file).
- *
- * @param jlistener The corresponding java object.
- */
-JKeyStoreListener::JKeyStoreListener(jobject jlistener)
-    : jkeyStoreListener(NULL)
-{
-    JNIEnv* env = GetEnv();
-    jkeyStoreListener = env->NewWeakGlobalRef(jlistener);
-    if (!jkeyStoreListener) {
-        return;
-    }
-    JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
-    MID_getKeys = env->GetMethodID(clazz, "getKeys", "()[B");
-    if (!MID_getKeys) {
-        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find getKeys() in jListener\n"));
-        return;
-    }
-    MID_getPassword = env->GetMethodID(clazz, "getPassword", "()[C");
-    if (!MID_getPassword) {
-        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find getPassword() in jListener\n"));
-        return;
-    }
-    MID_putKeys = env->GetMethodID(clazz, "putKeys", "([B)V");
-    if (!MID_putKeys) {
-        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find putKeys() in jListener\n"));
-        return;
-    }
-    MID_encode = env->GetStaticMethodID(CLS_BusAttachment, "encode", "([C)[B");
-    if (!MID_encode) {
-        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find endode() in jListener\n"));
-        return;
-    }
-}
-
-/**
- * Destroy a JKeyStoreListener C++ object.
- *
- * We remove the weak reference to the associated Java object when the C++
- * object goes away.
- */
-JKeyStoreListener::~JKeyStoreListener()
-{
-    if (jkeyStoreListener) {
-        GetEnv()->DeleteWeakGlobalRef(jkeyStoreListener);
-        jkeyStoreListener = NULL;
-    }
-}
-
-/**
- * Handle the C++ LoadRequest callback from the AllJoyn system.
- */
-QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
-{
-    JScopedEnv env;
-    /*
-     * The weak global reference jkeyStoreListener cannot be directly used.  We
-     * have to get a "hard" reference to it and then use that.  If you try to
-     * use a weak reference directly you will crash and burn.
-     */
-    jobject jo = env->NewLocalRef(jkeyStoreListener);
-    if (!jo) {
-        return ER_FAIL;
-    }
-
-    JLocalRef<jbyteArray> jarray = (jbyteArray)env->CallObjectMethod(jo, MID_getKeys);
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-    String source;
-    if (jarray) {
-        jsize len = env->GetArrayLength(jarray);
-        jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
-        if (!jelements) {
-            return ER_FAIL;
-        }
-        source = String((const char*)jelements, len);
-        env->ReleaseByteArrayElements(jarray, jelements, JNI_ABORT);
-    }
-    /*
-     * Get the password from the Java listener and load the keys.  Some care
-     * here is taken to ensure that we erase any in-memory copies of the
-     * password as soon as possible after to minimize attack exposure.
-     */
-    JLocalRef<jcharArray> jpasswordChar = (jcharArray)env->CallObjectMethod(jo, MID_getPassword);
-    if (env->ExceptionCheck() || !jpasswordChar) {
-        return ER_FAIL;
-    }
-    JLocalRef<jbyteArray> jpassword = (jbyteArray)env->CallStaticObjectMethod(CLS_BusAttachment, MID_encode,
-                                                                              (jcharArray)jpasswordChar);
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-    jchar* passwordChar = env->GetCharArrayElements(jpasswordChar, NULL);
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-    memset(passwordChar, 0, env->GetArrayLength(jpasswordChar) * sizeof(jchar));
-    env->ReleaseCharArrayElements(jpasswordChar, passwordChar, 0);
-    if (!jpassword) {
-        return ER_FAIL;
-    }
-    jbyte* password = env->GetByteArrayElements(jpassword, NULL);
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-    QStatus status = PutKeys(keyStore, source, String((const char*)password, env->GetArrayLength(jpassword)));
-    memset(password, 0, env->GetArrayLength(jpassword) * sizeof(jbyte));
-    env->ReleaseByteArrayElements(jpassword, password, 0);
-    return status;
-}
-
-/**
- * Handle the C++ LoadRequest callback from the AllJoyn system.
- */
-QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
-{
-    String sink;
-    QStatus status = GetKeys(keyStore, sink);
-    if (ER_OK != status) {
-        return status;
-    }
-    JScopedEnv env;
-    JLocalRef<jbyteArray> jarray = env->NewByteArray(sink.size());
-    if (!jarray) {
-        return ER_FAIL;
-    }
-    env->SetByteArrayRegion(jarray, 0, sink.size(), (jbyte*)sink.data());
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-
-    /*
-     * The weak global reference jkeyStoreListener cannot be directly used.  We
-     * have to get a "hard" reference to it and then use that.  If you try to
-     * use a weak reference directly you will crash and burn.
-     */
-    jobject jo = env->NewLocalRef(jkeyStoreListener);
-    if (!jo) {
-        return ER_FAIL;
-    }
-
-    env->CallVoidMethod(jo, MID_putKeys, (jbyteArray)jarray);
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-    return ER_OK;
-}
+typedef ManagedObj<JBusAttachment> JBusAttachmentPtr;
 
 /**
  * The C++ class that implements the BusListener functionality.
@@ -1060,6 +1341,9 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
  * The callback from C++ is executed, we make corresponding Java calls using the
  * reference to the java object and the reflection information we discovered in
  * the constructor.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
  */
 class JBusListener : public BusListener {
   public:
@@ -1082,6 +1366,849 @@ class JBusListener : public BusListener {
 };
 
 /**
+ * The C++ class that implements the SessionListener functionality.
+ *
+ * The standard idiom here is that whenever we have a C++ object in the AllJoyn
+ * API, it has a corresponding Java object.  If the objects serve as callback
+ * handlers, the C++ object needs to call into the Java object as a result of
+ * an invocation by the AllJoyn code.
+ *
+ * As mentioned in the memory management sidebar (at the start of this file) we
+ * have an idiom in which the C++ object is allocated and holds a reference to
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.
+ *
+ * Think of the object reference here as the counterpart to the handle pointer
+ * found in the Java objects that need to call into C++.  Java objects use the
+ * handle to get at the C++ objects, and C++ objects use a weak reference to
+ * get at the Java objects.
+ *
+ * This object translates C++ callbacks from the SessionListener to its Java
+ * counterpart.  Because of this, the constructor performs reflection on the
+ * provided Java object to determine the methods that need to be called.  When
+ * The callback from C++ is executed, we make corresponding Java calls using the
+ * reference to the java object and the reflection information we discovered in
+ * the constructor.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ */
+class JSessionListener : public SessionListener {
+  public:
+    JSessionListener(jobject jsessionListener);
+    ~JSessionListener();
+
+    void SessionLost(SessionId sessionId);
+
+  private:
+    jweak jsessionListener;
+    jmethodID MID_sessionLost;
+};
+
+/**
+ * The C++ class that imlements the SessionPortListener functionality.
+ *
+ * The standard idiom here is that whenever we have a C++ object in the AllJoyn
+ * API, it has a corresponding Java object.  If the objects serve as callback
+ * handlers, the C++ object needs to call into the Java object as a result of
+ * an invocation by the AllJoyn code.
+ *
+ * As mentioned in the memory management sidebar (at the start of this file) we
+ * have an idiom in which the C++ object is allocated and holds a reference to
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.
+ *
+ * Think of the object reference here as the counterpart to the handle pointer
+ * found in the Java objects that need to call into C++.  Java objects use the
+ * handle to get at the C++ objects, and C++ objects use a weak reference to
+ * get at the Java objects.
+ *
+ * This object translates C++ callbacks from the SessionPortListener to its Java
+ * counterpart.  Because of this, the constructor performs reflection on the
+ * provided Java object to determine the methods that need to be called.  When
+ * The callback from C++ is executed, we make corresponding Java calls using the
+ * reference to the java object and the reflection information we discovered in
+ * the constructor.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ */
+class JSessionPortListener : public SessionPortListener {
+  public:
+    JSessionPortListener(jobject jsessionPortListener);
+    ~JSessionPortListener();
+
+    bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
+    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner);
+
+  private:
+    jweak jsessionPortListener;
+    jmethodID MID_acceptSessionJoiner;
+    jmethodID MID_sessionJoined;
+};
+
+/**
+ * The C++ class that imlements the KeyStoreListener functionality.
+ *
+ * For historical reasons, the KeyStoreListener follows a different pattern than
+ * most of the listeners found in the bindings. Typically there is a one-to-one
+ * correspondence between the methods of the C++ listener objects and the Java
+ * listener objects.  That is not the case here.
+ *
+ * The C++ object has two methods, LoadRequest and StoreRequest, which take a
+ * reference to a C++ KeyStore object.  The Java bindings break these requests
+ * out into more primitive operations.  The upside is that this approach is
+ * thought to correspond more closely to the "Java Way."  The downsides are that
+ * Java clients work differently than other clients, and by breaking the operations
+ * up into more primitive calls, we have created possible consistency problems.
+ *
+ * A LoadRequest callback to the C++ object is implemented as the following call
+ * sequence:
+ *
+ * - Call into the Java client KeyStoreListener.getKeys() to get the keys from
+ *   a local KeyStore, typically a filesystem operation.
+ * - Call into the Java client KeyStoreListener.getPassword() to get the
+ *   password used to encrypt the keys.  This is remembered somehow, probably
+ *   needing a filesystem operation to recall.
+ * - Call into the Bindings' BusAttachment.encode() to encode the keys byte
+ *   array as UTF-8 characters.  This is a quick local operation.
+ * - Call into the C++ KeyStoreListener::PutKeys() to give the encoded keys
+ *   and password back to AllJoyn which passes them on to the authentication
+ *   engine.
+ *
+ * The KeyStore and KeyStoreListener are responsible for ensuring the
+ * consistency of the information, in what might be a farily complicated
+ * way.  Here in the bindings we don't attempt this, but trust that what we
+ * get will make sense.
+ *
+ * A StoreRequest callback to the C++ object is implemented as one call into
+ * the client Java object, but the keys are provided as a byte array instead
+ * of as a reference to a key store object, and the method name called is
+ * changed from the C++ version.
+ *
+ * - Call into C++ KeyStoreListener::GetKeys to get the newly updated keys
+ *   from AllJoyn.
+ * - Call into the Java client KeyStoreListener.putKeys() to save the keys
+ *   into the local KeyStore, probably using a filesystem operation.
+ *
+ * The standard idiom here is that whenever we have a C++ object in the AllJoyn
+ * API, it has a corresponding Java object.  If the objects serve as callback
+ * handlers, the C++ object needs to call into the Java object as a result of
+ * an invocation by the AllJoyn code.
+ *
+ * As mentioned in the memory management sidebar (at the start of this file) we
+ * have an idiom in which the C++ object is allocated and holds a reference to
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.
+ *
+ * Think of the weak reference as the counterpart to the handle pointer found in
+ * the Java objects that need to call into C++.  Java objects use the handle to
+ * get at the C++ objects, and C++ objects use a weak object reference to get at
+ * the Java objects.
+ *
+ * This object translates C++ callbacks from the KeyStoreListener to its Java
+ * counterpart.  Because of this, the constructor performs reflection on the
+ * provided Java object to determine the methods that need to be called.  When
+ * The callback from C++ is executed, we make corresponding Java calls using
+ * the weak reference to the java object and the reflection information we
+ * discovered in the constructor.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ */
+class JKeyStoreListener : public KeyStoreListener {
+  public:
+    JKeyStoreListener(jobject jlistener);
+    ~JKeyStoreListener();
+    QStatus LoadRequest(KeyStore& keyStore);
+    QStatus StoreRequest(KeyStore& keyStore);
+  private:
+    jweak jkeyStoreListener;
+    jmethodID MID_getKeys;
+    jmethodID MID_getPassword;
+    jmethodID MID_putKeys;
+    jmethodID MID_encode;
+};
+
+/**
+ * The C++ class that imlements the AuthListener functionality.
+ *
+ * The standard idiom here is that whenever we have a C++ object in the AllJoyn
+ * API, it has a corresponding Java object.  If the objects serve as callback
+ * handlers, the C++ object needs to call into the Java object as a result of
+ * an invocation by the AllJoyn code.
+ *
+ * As mentioned in the memory management sidebar (at the start of this file) we
+ * have an idiom in which the C++ object is allocated and holds a reference to
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.  See the member variable
+ * jbusListener for this reference.  The bindings hold separate strong references
+ * to prevent the listener from being garbage collected in the presence of the
+ * anonymous class idiom.
+ *
+ * Think of the weak reference as the counterpart to the handle pointer found in
+ * the Java objects that need to call into C++.  Java objects use the handle to
+ * get at the C++ objects, and C++ objects use a weak object reference to get at
+ * the Java objects.
+ *
+ * This object translates C++ callbacks from the AuthListener to its Java
+ * counterpart.  Because of this, the constructor performs reflection on the
+ * provided Java object to determine the methods that need to be called.  When
+ * The callback from C++ is executed, we make corresponding Java calls using the
+ * weak reference to the java object and the reflection information we
+ * discovered in the constructor.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ */
+class JAuthListener : public AuthListener {
+  public:
+    JAuthListener(jobject jlistener);
+    ~JAuthListener();
+    bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
+                            const char* userName, uint16_t credMask, Credentials& credentials);
+    bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials);
+    void SecurityViolation(QStatus status, const Message& msg);
+    void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
+  private:
+    jweak jauthListener;
+    jmethodID MID_requestCredentials;
+    jmethodID MID_verifyCredentials;
+    jmethodID MID_securityViolation;
+    jmethodID MID_authenticationComplete;
+};
+
+/**
+ * A class to hold the Java object references required for an asynchronous
+ * join operation while AllJoyn mulls over what it can do about the
+ * operation.
+ */
+class PendingAsyncJoin {
+  public:
+    PendingAsyncJoin(jobject jlistener, jobject jcallback, jobject jcontext) {
+        this->jlistener = jlistener;
+        this->jcallback = jcallback;
+        this->jcontext = jcontext;
+    }
+    jobject jlistener;
+    jobject jcallback;
+    jobject jcontext;
+};
+
+/**
+ * The C++ class that imlements the OnJoinSessionListener functionality.
+ *
+ * The standard idiom here is that whenever we have a C++ object in the AllJoyn
+ * API, it has a corresponding Java object.  If the objects serve as callback
+ * handlers, the C++ object needs to call into the Java object as a result of
+ * an invocation by the AllJoyn code.
+ *
+ * As mentioned in the memory management sidebar (at the start of this file) we
+ * have an idiom in which the C++ object is allocated and holds a reference to
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.  See the member variable
+ * jbusListener for this reference.  The bindings hold separate strong references
+ * to prevent the listener from being garbage collected in the presence of the
+ * anonymous class idiom.
+ *
+ * Think of the weak reference as the counterpart to the handle pointer found in
+ * the Java objects that need to call into C++.  Java objects use the handle to
+ * get at the C++ objects, and C++ objects use a weak object reference to get at
+ * the Java objects.
+ *
+ * This object translates C++ callbacks from the OnJoinSessionListener to its
+ * Java counterpart.  Because of this, the constructor performs reflection on
+ * the provided Java object to determine the methods that need to be called.
+ * When The callback from C++ is executed, we make corresponding Java calls
+ * using the weak reference to the java object and the reflection information we
+ * discovered in the constructor.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ */
+class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
+  public:
+    JOnJoinSessionListener(jobject jonJoinSessionListener);
+    ~JOnJoinSessionListener();
+
+    void Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr busPtr);
+    void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
+
+  private:
+    jweak jsessionListener;
+    jweak jonJoinSessionListener;
+    jweak jcontext;
+    jmethodID MID_onJoinSession;
+    JBusAttachmentPtr busPtr;
+};
+
+/**
+ * The C++ class that imlements the BusObject functionality.
+ *
+ * As mentioned in the Bus Object sidebar (at the start of this file) we
+ * have a situation in which the C++ object is allocated and holds a reference to
+ * the corresponding Java object.  This reference is a weak reference so we
+ * don't interfere with Java garbage collection.  See the member variable
+ * jbusObj for this reference.  The bindings hold separate strong references
+ * to prevent the Java Bus Object from being garbage collected in case the client
+ * forgets it (perhaps intentionally in the presence of the anonymous class idiom).
+ *
+ * This object translates C++ callbacks from the BusObject to its Java
+ * counterpart.  This is a somewhat more dynamic situation than most of the
+ * other C++ backing objects, so required reflection on the provided Java Object
+ * is made in the callbacks themselves.  Once the required method has been
+ * determined, we make corresponding Java calls using the weak reference into
+ * the java object.
+ *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ */
+class JBusObject : public BusObject {
+  public:
+    JBusObject(JBusAttachmentPtr jbap, const char* path, jobject jobj);
+    ~JBusObject();
+    QStatus AddInterfaces(jobjectArray jbusInterfaces);
+    void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
+    QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
+    QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
+    QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
+                   const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags);
+    QStatus Get(const char* ifcName, const char* propName, MsgArg& val);
+    QStatus Set(const char* ifcName, const char* propName, MsgArg& val);
+    String GenerateIntrospection(bool deep = false, size_t indent = 0) const;
+    void ObjectRegistered();
+    void ObjectUnregistered();
+  private:
+    struct Property {
+        String signature;
+        jobject jget;
+        jobject jset;
+    };
+    typedef map<String, jobject> JMethod;
+    typedef map<String, Property> JProperty;
+    Mutex mapLock;
+    jobject jbusObj;
+    jmethodID MID_generateIntrospection;
+    jmethodID MID_registered;
+    jmethodID MID_unregistered;
+    JMethod methods;
+    JProperty properties;
+};
+
+/**
+ * A map of Java Objects to JBusObjects.
+ *
+ * When we register a bus object, we are registering a plain old Java Object
+ * that the client is claiming can act as a BusObject and has whatever it
+ * takes to deal with the claimed interfaces.
+ *
+ * In order to make implementing bus objects easier (see the sidebar on Bus
+ * Objects at the start of the file), what the client does is implement an
+ * empty interface called BusObject (a Java marker interface).
+ *
+ * Since we have no super-powers to let us influence what goes into the
+ * object that implements the empty interface, we have to provide some
+ * scaffolding outside of the object to allow us to locate the C++ object
+ * associated with the Java object and to reference count that C++ object.
+ *
+ * This is a different use case than a smart pointer, so instead of (mis)
+ * using the ManagedObj in another strange way, we just provide a reference
+ * count here.
+ */
+map<jobject, pair<uint32_t, JBusObject*> > gBusObjectMap;
+Mutex gBusObjectMapLock;
+
+/**
+ * This function takes a Java Bus Object and a newly created C++ backing
+ * object and creates an entry in a global structure to establish the
+ * relationship between the two.
+ *
+ * Whevever a Java Bus Listener is registered with a Bus Attachment, a
+ * corresponding C++ object must be created to form the plumbing between
+ * the AllJoyn system and the Java client.  Since a Java Bus Object may be
+ * registered multiple times with multiple bus attachments, the C++ object
+ * must be reference counted.  This function sets that reference count to
+ * one, indicating a newly established relationship.
+ *
+ * This function transfers ownership of a JBusObject* from the caller to the
+ * underlying map.  The caller must not free a provided JBusObject* unless
+ * responsibility is explicitly transferred back by a non-zero return from
+ * the function DecRefBackingObject.
+ *
+ * Since a reference to a Java Object is stored in the underlying map, we
+ * insist that the caller must have taken a strong global reference to that
+ * Java object prior to calling this function.
+ *
+ * Whenever a registerBusObject call is made, we expect the caller to check
+ * to see if a relationship between the provided Java Bus Object and a C++
+ * backing object exists, and if not create a backing object and call this
+ * function to establish the relationship.
+ *
+ * Note that the lock on the underlying map is not taken in this and other
+ * associated functions.  This is because, in most cases, atomicity must be
+ * ensured across several calls that access the underlying map.  Therefore it is
+ * the responsibility of the calling code to acquire the lock (i.e. call
+ * gBusObjectMapLock.Lock) before calling any of the functions which access the
+ * gBusObjectMap.
+ */
+void NewRefBackingObject(jobject javaObject, JBusObject* cppObject)
+{
+    QCC_DbgPrintf(("NewRefBackingObject()\n"));
+
+    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
+    if (i != gBusObjectMap.end()) {
+        QCC_LogError(ER_FAIL, ("NewRefBackingObject(): Mapping already established.\n"));
+        return;
+    }
+    gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(1, cppObject);
+}
+
+/**
+ * This function takes a Java Bus Object and increments the reference count to a
+ * C++ backing object that must already exist.
+ *
+ * Whevever a Java Bus Listener is registered with a Bus Attachment, a
+ * corresponding C++ object must be created to form the plumbing between the
+ * AllJoyn system and the Java client.  Since a Java Bus Object may be
+ * registered multiple times with multiple bus attachments, the C++ object must
+ * be reference counted.  This function increments that reference count
+ * indicating the given Java Object is referred to indirectly through an AllJoyn
+ * Bus Attachment.
+ *
+ * Since a reference to a Java Object is stored in the underlying map, we insist
+ * that the caller must have taken another strong global reference to the
+ * provided Java object prior to calling this function.  That is, when
+ * registering an Java Object with a Bus Attachment the caller is expected to
+ * take a new reference to the Java object using a JNI call, and then take a new
+ * reference to the C++ object by making this call.
+ *
+ * Whenever a registerBusObject call is made, we expect the caller to check
+ * to see if a relationship between the provided Java Bus Object and a C++
+ * backing object exists, and if so call this function to increment the reference
+ * count on the C++ object.
+ *
+ * Note that the lock on the underlying map is not taken in this and other
+ * associated functions.  This is because, in most cases, atomicity must be
+ * ensured across several calls that access the underlying map.  Therefore it is
+ * the responsibility of the calling code to acquire the lock (i.e. call
+ * gBusObjectMapLock.Lock) before calling any of the functions which access the
+ * gBusObjectMap.
+ */
+void IncRefBackingObject(jobject javaObject)
+{
+    QCC_DbgPrintf(("IncRefBackingObject()\n"));
+
+    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
+    if (i == gBusObjectMap.end()) {
+        QCC_LogError(ER_FAIL, ("NewBackingObject(): No mapping exists for Java Bus Object.\n"));
+        return;
+    }
+    uint32_t refCount = i->second.first + 1;
+    JBusObject* cppObject = i->second.second;
+    gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(refCount, cppObject);
+}
+
+/**
+ * This function takes a Java Bus Object and decrements the reference count to a
+ * C++ backing object that must already exist.
+ *
+ * Whevever a Java Bus Listener is registered with a Bus Attachment, a
+ * corresponding C++ object must be created to form the plumbing between the
+ * AllJoyn system and the Java client.  Since a Java Bus Object may be
+ * registered multiple times with multiple bus attachments, the C++ object must
+ * be reference counted.  This function decrements that reference count
+ * indicating the given Java Object is no longer referred to indirectly through
+ * an AllJoyn Bus Attachment.
+ *
+ * This function transfers ownership of a JBusObject* to the caller if the
+ * reference count is decremented to zero.  That is, if NULL is returned, there
+ * is no change of responsibility, but if a non-zero pointer to a JBusObject*
+ * is returned, the caller is expected to do whatever it takes to tear down the
+ * object and free it.
+ *
+ * Since a reference to a Java Object is stored in the underlying map, we
+ * previously insisted that the caller must have taken a strong global reference
+ * to that Java object prior to calling this function.
+ *
+ * Whenever an unregisterBusObject call is made, we expect the caller to release
+ * the Java global reference to the Java Bus Object and decrement the reference
+ * count to the corresponding C++ object by calling this function.  If we return
+ * a non-zero pointer, the caller must delete the JBusObject returned.
+ *
+ * Note that the lock on the underlying map is not taken in this and other
+ * associated functions.  This is because, in most cases, atomicity must be
+ * ensured across several calls that access the underlying map.  Therefore it is
+ * the responsibility of the calling code to acquire the lock (i.e. call
+ * gBusObjectMapLock.Lock) before calling any of the functions which access the
+ * gBusObjectMap.
+ */
+JBusObject* DecRefBackingObject(jobject javaObject)
+{
+    QCC_DbgPrintf(("DecRefBackingObject()\n"));
+
+    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
+    if (i == gBusObjectMap.end()) {
+        QCC_LogError(ER_FAIL, ("NewBackingObject(): No mapping exists for Java Bus Object.\n"));
+        return NULL;
+    }
+    uint32_t refCount = i->second.first - 1;
+    JBusObject* cppObject = i->second.second;
+
+    if (refCount) {
+        gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(refCount, cppObject);
+        cppObject = NULL;
+    } else {
+        gBusObjectMap.erase(i);
+    }
+
+    return cppObject;
+}
+
+/**
+ * Given a Java object that someone is claiming has been registered as a bus
+ * object with a bus attachment; return the corresponding C++ object that
+ * hooks it to the AllJoyn system.
+ *
+ * Note that the lock on the underlying map is not taken in this and other
+ * associated functions.  This is because, in most cases, atomicity must be
+ * ensured across several calls that access the underlying map.  Therefore it is
+ * the responsibility of the calling code to acquire the lock (i.e. call
+ * gBusObjectMapLock.Lock) before calling any of the functions which access the
+ * gBusObjectMap.
+ */
+JBusObject* GetBackingObject(jobject jbusObject)
+{
+    QCC_DbgPrintf(("GetBackingObject()\n"));
+
+    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(jbusObject);
+    if (i == gBusObjectMap.end()) {
+        return NULL;
+    }
+    JBusObject* jbo = i->second.second;
+    return jbo;
+}
+
+/**
+ * The C++ backing class corresponding to a Java ProxyBusObject.
+ */
+class JProxyBusObject : public ProxyBusObject {
+  public:
+    JProxyBusObject(JBusAttachmentPtr p, const char* endpoint, const char* path, SessionId sessionId);
+    JBusAttachmentPtr busPtr;
+};
+
+class JSignalHandler : public MessageReceiver {
+  public:
+    JSignalHandler(jobject jobj, jobject jmethod);
+    ~JSignalHandler();
+    bool IsSameObject(jobject jobj, jobject jmethod);
+    QStatus Register(BusAttachment& bus, const char* ifaceName, const char* signalName, const char* srcPath);
+    void Unregister(BusAttachment& bus);
+    void SignalHandler(const InterfaceDescription::Member* member, const char* sourcePath, Message& msg);
+  private:
+    jweak jsignalHandler;
+    jobject jmethod;
+    const InterfaceDescription::Member* member;
+    String source;
+    String rule;
+};
+
+/**
+ * A MessageContext is an object that provides access to underlying AllJoyn
+ * Message information without having to plumb the Message out into the Java
+ * clients.  This results in cleaner client code since they only have to deal
+ * with the signatures they expect in the 99% case.  It does mean we have to do
+ * some gyrations here to keep the Message info straight, and we do have some
+ * additional API with respect to the C++ version.
+ *
+ * TODO:
+ * Message map is a global.  Why?
+ */
+class MessageContext {
+  public:
+    static Message GetMessage();
+    MessageContext(const Message& msg);
+    ~MessageContext();
+};
+
+map<Thread*, Message> gMessageMap;
+Mutex gMessageMapLock;
+
+Message MessageContext::GetMessage()
+{
+    gMessageMapLock.Lock();
+    map<Thread*, Message>::iterator it = gMessageMap.find(Thread::GetThread());
+    assert(gMessageMap.end() != it);
+    Message m = it->second;
+    gMessageMapLock.Unlock();
+    return m;
+}
+
+MessageContext::MessageContext(const Message& msg)
+{
+    gMessageMapLock.Lock();
+    gMessageMap.insert(pair<Thread*, Message>(Thread::GetThread(), msg));
+    gMessageMapLock.Unlock();
+}
+
+MessageContext::~MessageContext()
+{
+    gMessageMapLock.Lock();
+    map<Thread*, Message>::iterator it = gMessageMap.find(Thread::GetThread());
+    gMessageMap.erase(it);
+    gMessageMapLock.Unlock();
+}
+
+/**
+ * Construct a JKeyStoreListener C++ object by arranging the correspondence
+ * between the C++ object being constructed and the provided Java object.
+ *
+ * Since the purpose of the KeyStoreListener is to allow a client to recieve
+ * callbacks from the AllJoyn system, we need to connect the C++ methods to
+ * the java methods.  We do that using Java reflection.  In the constructor
+ * we do the expensive work of finding the Java method IDs (MID_xxx below)
+ * which will be invoked when the callbacks happen.
+ *
+ * We also save the required weak reference to the provided Java object (see
+ * the sidebar on memory management at the start of this file).
+ *
+ * @param jlistener The corresponding java object.
+ */
+JKeyStoreListener::JKeyStoreListener(jobject jlistener)
+    : jkeyStoreListener(NULL)
+{
+    JNIEnv* env = GetEnv();
+    jkeyStoreListener = env->NewWeakGlobalRef(jlistener);
+    if (!jkeyStoreListener) {
+        return;
+    }
+
+    JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
+    if (!clazz) {
+        QCC_LogError(ER_FAIL, ("JKeyStoreListener::JKeyStoreListener(): Can't GetObjectClass() for KeyStoreListener\n"));
+        return;
+    }
+
+    MID_getKeys = env->GetMethodID(clazz, "getKeys", "()[B");
+    if (!MID_getKeys) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find getKeys() in KeyStoreListener\n"));
+        return;
+    }
+
+    MID_getPassword = env->GetMethodID(clazz, "getPassword", "()[C");
+    if (!MID_getPassword) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find getPassword() in KeyStoreListener\n"));
+        return;
+    }
+
+    MID_putKeys = env->GetMethodID(clazz, "putKeys", "([B)V");
+    if (!MID_putKeys) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find putKeys() in KeyStoreListener\n"));
+        return;
+    }
+
+    MID_encode = env->GetStaticMethodID(CLS_BusAttachment, "encode", "([C)[B");
+    if (!MID_encode) {
+        QCC_DbgPrintf(("JKeyStoreListener::JKeystoreListener(): Can't find endode() in KeyStoreListener\n"));
+        return;
+    }
+}
+
+/**
+ * Destroy a JKeyStoreListener C++ object.
+ *
+ * We remove the weak reference to the associated Java object when the C++
+ * object goes away.
+ */
+JKeyStoreListener::~JKeyStoreListener()
+{
+    if (jkeyStoreListener) {
+        GetEnv()->DeleteWeakGlobalRef(jkeyStoreListener);
+        jkeyStoreListener = NULL;
+    }
+}
+
+/**
+ * Handle the C++ LoadRequest callback from the AllJoyn system.
+ */
+QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
+{
+    QCC_DbgPrintf(("JKeyStoreListener::LoadRequest()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    /*
+     * The weak global reference jkeyStoreListener cannot be directly used.  We
+     * have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jkeyStoreListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JKeystoreListener::LoadRequest(): Can't get new local reference to SessionListener\n"));
+        return ER_FAIL;
+    }
+
+    /*
+     * Since the LoadRequest is broken up into three separate calls into two
+     * fundamentally different Java objects, synchronization is hard.  For this
+     * reason, we defer the multithread safety issue to the KeyStoreListener and
+     * consistency to the combination of KeyStore and KeyStoreListner.
+     *
+     * We expect to get back references to arrays which are immutable and so we
+     * can make these calls with the assurance that data will not change out
+     * from under us.  It is not absolutely safe to make a copy of the returned
+     * arrays, since the client can change the object "at the same time" as we
+     * are copying it; so we rely on the client to return us a reference that it
+     * promises not to change.  We assume that an answer from getKeys will be
+     * consistent with a following answer from getPassword, and that interference
+     * from anohter putKeys executing in another thread will not affect us.
+     *
+     * Of course, if the KeyStoreListener doesn't play by our ground rules, it
+     * might result in a Bad Thing (TM) happening.  The choice of API makes this
+     * very difficult for us to deal with.
+     *
+     * The result is that we may have a KeyStoreListener object which may be accessible
+     * globally by any number of threads; and that listener is responsible for being
+     * MT-Safe.
+     */
+    JLocalRef<jbyteArray> jarray = (jbyteArray)env->CallObjectMethod(jo, MID_getKeys);
+    if (env->ExceptionCheck()) {
+        return ER_FAIL;
+    }
+
+    /*
+     * By contract with the KeyStoreListener, jarray will not be changed by the
+     * client as long as we can possibly access it.  We can now do our several
+     * operations on the array without (much) fear.
+     */
+    String source;
+    if (jarray) {
+        jsize len = env->GetArrayLength(jarray);
+        jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
+        if (!jelements) {
+            return ER_FAIL;
+        }
+        source = String((const char*)jelements, len);
+        env->ReleaseByteArrayElements(jarray, jelements, JNI_ABORT);
+    }
+
+    /*
+     * Get the password from the Java listener and load the keys.  The same
+     * caveats apply to this char[] as do to the byte[] we got which contains
+     * the keys.
+     */
+    JLocalRef<jcharArray> jpasswordChar = (jcharArray)env->CallObjectMethod(jo, MID_getPassword);
+    if (env->ExceptionCheck() || !jpasswordChar) {
+        return ER_FAIL;
+    }
+
+    /*
+     * By contract with the KeyStoreListener, jpassword will not be changed by
+     * the client as long as we can possibly access it.  We can now call out to
+     * the bus attachment to encode the array without (much) fear of the client
+     * interfering.  This call out to the bus attachment in a listener callback
+     * implies that the encode method must be MT-Safe.
+     */
+    JLocalRef<jbyteArray> jpassword = (jbyteArray)env->CallStaticObjectMethod(CLS_BusAttachment, MID_encode, (jcharArray)jpasswordChar);
+    if (env->ExceptionCheck()) {
+        return ER_FAIL;
+    }
+
+    /*
+     * Some care here is taken to ensure that we erase any in-memory copies of
+     * the password as soon as possible after use to minimize attack exposure.
+     * The password came in as the char[] jpasswordChar and was converted to
+     * UTF-8 and stored in the byte[] jpassword.  We clear the bytes of the
+     * password that we got from the user.
+     */
+    jchar* passwordChar = env->GetCharArrayElements(jpasswordChar, NULL);
+    if (env->ExceptionCheck()) {
+        return ER_FAIL;
+    }
+    memset(passwordChar, 0, env->GetArrayLength(jpasswordChar) * sizeof(jchar));
+    env->ReleaseCharArrayElements(jpasswordChar, passwordChar, 0);
+    if (!jpassword) {
+        return ER_FAIL;
+    }
+
+    /*
+     * Now, we get the bytes in the UTF-8 encoded password we made for ourselves
+     * and call out AllJoyn, providing the keys and password bytes.  After we're
+     * done with the UTF-8 encoded password, we zero that out to cover our
+     * tracks.
+     */
+    jbyte* password = env->GetByteArrayElements(jpassword, NULL);
+    if (env->ExceptionCheck()) {
+        return ER_FAIL;
+    }
+    QStatus status = PutKeys(keyStore, source, String((const char*)password, env->GetArrayLength(jpassword)));
+    memset(password, 0, env->GetArrayLength(jpassword) * sizeof(jbyte));
+    env->ReleaseByteArrayElements(jpassword, password, 0);
+
+    return status;
+}
+
+/**
+ * Handle the C++ StoreRequest callback from the AllJoyn system.
+ */
+QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
+{
+    QCC_DbgPrintf(("JKeyStoreListener::StoreRequest()\n"));
+
+    String sink;
+
+    QStatus status = GetKeys(keyStore, sink);
+    if (ER_OK != status) {
+        return status;
+    }
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    JLocalRef<jbyteArray> jarray = env->NewByteArray(sink.size());
+    if (!jarray) {
+        return ER_FAIL;
+    }
+
+    env->SetByteArrayRegion(jarray, 0, sink.size(), (jbyte*)sink.data());
+    if (env->ExceptionCheck()) {
+        return ER_FAIL;
+    }
+
+    /*
+     * The weak global reference jkeyStoreListener cannot be directly used.  We
+     * have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jkeyStoreListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JKeystoreListener::StoreRequest(): Can't get new local reference to SessionListener\n"));
+        return ER_FAIL;
+    }
+
+    /*
+     * This call out to the listener means that the putKeys method must be
+     * MT-Safe.  This is implied by the definition of the listener.  The
+     * implementation of the KeyStoreListener is expected to ensure that
+     * its results are consistent since getKeys, getPassword and putKeys
+     * requests may come in from multiple threads.
+     */
+    env->CallVoidMethod(jo, MID_putKeys, (jbyteArray)jarray);
+    if (env->ExceptionCheck()) {
+        return ER_FAIL;
+    }
+
+    return ER_OK;
+}
+
+/**
  * Construct a JBusListener C++ object by arranging the correspondence
  * between the C++ object being constructed and the provided Java object.
  *
@@ -1102,6 +2229,7 @@ JBusListener::JBusListener(jobject jlistener)
     QCC_DbgPrintf(("JBusListener::JBusListener()\n"));
 
     JNIEnv* env = GetEnv();
+
     /*
      * Be careful when using a weak global reference.  They can only be
      * passed to NewLocalRef, NewGlobalRef and DeleteWeakGlobalRef.
@@ -1113,6 +2241,10 @@ JBusListener::JBusListener(jobject jlistener)
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
+    if (!clazz) {
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't GetObjectClass() for KeyStoreListener\n"));
+        return;
+    }
 
     MID_foundAdvertisedName = env->GetMethodID(clazz, "foundAdvertisedName", "(Ljava/lang/String;SLjava/lang/String;)V");
     if (!MID_foundAdvertisedName) {
@@ -1153,7 +2285,7 @@ JBusListener::~JBusListener()
 }
 
 /**
- * Handle the C++ FoundAdvertisedname callback from the AllJoyn system.
+ * Handle the C++ FoundAdvertisedName callback from the AllJoyn system.
  *
  * Called by the bus when an external bus is discovered that is advertising a
  * well-known name that this attachment has registered interest in via a DBus
@@ -1172,6 +2304,11 @@ JBusListener::~JBusListener()
 void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
 {
     QCC_DbgPrintf(("JBusListener::FoundAdvertisedName()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     /*
@@ -1198,9 +2335,14 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Can't get new local reference to SessionListener\n"));
         return;
     }
 
+    /*
+     * This call out to foundAdvertisedName implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_foundAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
@@ -1230,6 +2372,11 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
 void JBusListener::LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
 {
     QCC_DbgPrintf(("JBusListener::LostAdvertisedName()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     /*
@@ -1256,9 +2403,14 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Can't get new local reference to SessionListener\n"));
         return;
     }
 
+    /*
+     * This call out to LostAdvertisedName implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JBusListener::LostAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_lostAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
@@ -1286,6 +2438,11 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
 void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
 {
     QCC_DbgPrintf(("JBusListener::NameOwnerChanged()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     /*
@@ -1316,9 +2473,14 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Can't get new local reference to SessionListener\n"));
         return;
     }
 
+    /*
+     * This call out to NameOwnerChanged implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_nameOwnerChanged, (jstring)jbusName, (jstring)jpreviousOwner, (jstring)jnewOwner);
     if (env->ExceptionCheck()) {
@@ -1340,6 +2502,11 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
 void JBusListener::BusStopping(void)
 {
     QCC_DbgPrintf(("JBusListener::BusStopping()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     /*
@@ -1349,9 +2516,14 @@ void JBusListener::BusStopping(void)
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Can't get new local reference to SessionListener\n"));
         return;
     }
 
+    /*
+     * This call out to BusStopping implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JBusListener::BusStopping(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_busStopping);
     if (env->ExceptionCheck()) {
@@ -1361,43 +2533,6 @@ void JBusListener::BusStopping(void)
 
     QCC_DbgPrintf(("JBusListener::BusStopping(): Return\n"));
 }
-
-/**
- * The C++ class that implements the SessionListener functionality.
- *
- * The standard idiom here is that whenever we have a C++ object in the AllJoyn
- * API, it has a corresponding Java object.  If the objects serve as callback
- * handlers, the C++ object needs to call into the Java object as a result of
- * an invocation by the AllJoyn code.
- *
- * As mentioned in the memory management sidebar (at the start of this file) we
- * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a weak reference so we
- * don't interfere with Java garbage collection.
- *
- * Think of the object reference here as the counterpart to the handle pointer
- * found in the Java objects that need to call into C++.  Java objects use the
- * handle to get at the C++ objects, and C++ objects use a weak reference to
- * get at the Java objects.
- *
- * This object translates C++ callbacks from the SessionListener to its Java
- * counterpart.  Because of this, the constructor performs reflection on the
- * provided Java object to determine the methods that need to be called.  When
- * The callback from C++ is executed, we make corresponding Java calls using the
- * reference to the java object and the reflection information we discovered in
- * the constructor.
- */
-class JSessionListener : public SessionListener {
-  public:
-    JSessionListener(jobject jsessionListener);
-    ~JSessionListener();
-
-    void SessionLost(SessionId sessionId);
-
-  private:
-    jweak jsessionListener;
-    jmethodID MID_sessionLost;
-};
 
 /**
  * Construct a JSessionListener C++ object by arranging the correspondence
@@ -1418,18 +2553,25 @@ JSessionListener::JSessionListener(jobject jlistener)
     : jsessionListener(NULL)
 {
     QCC_DbgPrintf(("JSessionListener::JSessionListener()\n"));
+
     JNIEnv* env = GetEnv();
+
     QCC_DbgPrintf(("JSessionListener::JSessionListener(): Taking weak global reference to SessionListener %p\n", jlistener));
     jsessionListener = env->NewWeakGlobalRef(jlistener);
     if (!jsessionListener) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't create new weak global reference to SessionListener\n"));
         return;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
+    if (!clazz) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't GetObjectClass() for SessionListener\n"));
+        return;
+    }
 
     MID_sessionLost = env->GetMethodID(clazz, "sessionLost", "(I)V");
     if (!MID_sessionLost) {
-        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionLost() in jbusListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionLost() in SessionListener\n"));
     }
 }
 
@@ -1463,6 +2605,11 @@ JSessionListener::~JSessionListener()
 void JSessionListener::SessionLost(SessionId sessionId)
 {
     QCC_DbgPrintf(("JSessionListener::SessionLost()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     /*
@@ -1477,57 +2624,23 @@ void JSessionListener::SessionLost(SessionId sessionId)
      */
     jobject jo = env->NewLocalRef(jsessionListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionLost(): Can't get new local reference to SessionListener\n"));
         return;
     }
 
+    /*
+     * This call out to the listener means that the sessionLost method must
+     * be MT-Safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JSessionListener::SessionLost(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_sessionLost, jsessionId);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::SessionLost(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionLost(): Exception\n"));
         return;
     }
 
     QCC_DbgPrintf(("JSessionListener::SessionLost(): Return\n"));
 }
-
-/**
- * The C++ class that imlements the SessionPortListener functionality.
- *
- * The standard idiom here is that whenever we have a C++ object in the AllJoyn
- * API, it has a corresponding Java object.  If the objects serve as callback
- * handlers, the C++ object needs to call into the Java object as a result of
- * an invocation by the AllJoyn code.
- *
- * As mentioned in the memory management sidebar (at the start of this file) we
- * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a weak reference so we
- * don't interfere with Java garbage collection.
- *
- * Think of the object reference here as the counterpart to the handle pointer
- * found in the Java objects that need to call into C++.  Java objects use the
- * handle to get at the C++ objects, and C++ objects use a weak reference to
- * get at the Java objects.
- *
- * This object translates C++ callbacks from the SessionPortListener to its Java
- * counterpart.  Because of this, the constructor performs reflection on the
- * provided Java object to determine the methods that need to be called.  When
- * The callback from C++ is executed, we make corresponding Java calls using the
- * reference to the java object and the reflection information we discovered in
- * the constructor.
- */
-class JSessionPortListener : public SessionPortListener {
-  public:
-    JSessionPortListener(jobject jsessionPortListener);
-    ~JSessionPortListener();
-
-    bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts);
-    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner);
-
-  private:
-    jweak jsessionPortListener;
-    jmethodID MID_acceptSessionJoiner;
-    jmethodID MID_sessionJoined;
-};
 
 /**
  * Construct a JSessionPortListener C++ object by arranging the correspondence
@@ -1548,23 +2661,30 @@ JSessionPortListener::JSessionPortListener(jobject jlistener)
     : jsessionPortListener(NULL)
 {
     QCC_DbgPrintf(("JSessionPortListener::JSessionPortListener()\n"));
+
     JNIEnv* env = GetEnv();
-    QCC_DbgPrintf(("JBusListener::JBusListener(): Taking weak global reference to SessionPortListener %p\n", jlistener));
+
+    QCC_DbgPrintf(("JSessionPortListener::JSessionPortListener(): Taking weak global reference to SessionPortListener %p\n", jlistener));
     jsessionPortListener = env->NewWeakGlobalRef(jlistener);
     if (!jsessionPortListener) {
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::JSessionPortListener(): Can't create new weak global reference to SessionPortListener\n"));
         return;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
+    if (!clazz) {
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::JSessionPortListener(): Can't GetObjectClass() for SessionPortListener\n"));
+        return;
+    }
 
     MID_acceptSessionJoiner = env->GetMethodID(clazz, "acceptSessionJoiner", "(SLjava/lang/String;Lorg/alljoyn/bus/SessionOpts;)Z");
     if (!MID_acceptSessionJoiner) {
-        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find acceptSessionJoiner() in jbusListener\n"));
+        QCC_DbgPrintf(("JSessionPortListener::JSessionPortListener(): Can't find acceptSessionJoiner() in SessionPortListener\n"));
     }
 
     MID_sessionJoined = env->GetMethodID(clazz, "sessionJoined", "(SILjava/lang/String;)V");
     if (!MID_sessionJoined) {
-        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find sessionJoined() in jbusListener\n"));
+        QCC_DbgPrintf(("JSessionPortListener::JSessionPortListener(): Can't find sessionJoined() in SessionPortListener\n"));
     }
 }
 
@@ -1577,7 +2697,7 @@ JSessionPortListener::JSessionPortListener(jobject jlistener)
 JSessionPortListener::~JSessionPortListener()
 {
     if (jsessionPortListener) {
-        QCC_DbgPrintf(("JBusListener::~JBusListener(): Releasing weak global reference to SessionPortListener %p\n", jsessionPortListener));
+        QCC_DbgPrintf(("JSessionPortListener::~JSessionPortListener(): Releasing weak global reference to SessionPortListener %p\n", jsessionPortListener));
         GetEnv()->DeleteWeakGlobalRef(jsessionPortListener);
         jsessionPortListener = NULL;
     }
@@ -1588,8 +2708,8 @@ JSessionPortListener::~JSessionPortListener()
  * or reject an incoming JoinSession request. The session does not exist until
  * this after this function returns.
  *
- * This callback is only used by session creators. Therefore it is only called on listeners
- * passed to BusAttachment::BindSessionPort.
+ * This callback is only used by session creators. Therefore it is only called
+ * on listeners passed to BusAttachment::BindSessionPort.
  *
  * This is a callback returning bool, so we just need to translate the C++
  * formal parameters we got from AllJoyn into their Java counterparts; call the
@@ -1604,6 +2724,11 @@ JSessionPortListener::~JSessionPortListener()
 bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts)
 {
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
@@ -1644,9 +2769,14 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
      */
     jobject jo = env->NewLocalRef(jsessionPortListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Can't get new local reference to SessionListener\n"));
         return false;
     }
 
+    /*
+     * This call out to the listener means that the acceptSessionJoiner method
+     * must be MT-Safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
     bool result = env->CallBooleanMethod(jo, MID_acceptSessionJoiner, sessionPort, (jstring)jjoiner, (jobject)jsessionopts);
     if (env->ExceptionCheck()) {
@@ -1679,6 +2809,11 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
 void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner)
 {
     QCC_DbgPrintf(("JSessionPortListener::SessionJoined()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
@@ -1693,9 +2828,14 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
      */
     jobject jo = env->NewLocalRef(jsessionPortListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Can't get new local reference to SessionListener\n"));
         return;
     }
 
+    /*
+     * This call out to the listener means that the sessionJoined method
+     * must be MT-Safe.  This is implied by the definition of the listener.
+     */
     QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
     if (env->ExceptionCheck()) {
@@ -1705,51 +2845,6 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
 
     QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Return\n"));
 }
-
-/**
- * The C++ class that imlements the AuthListener functionality.
- *
- * The standard idiom here is that whenever we have a C++ object in the AllJoyn
- * API, it has a corresponding Java object.  If the objects serve as callback
- * handlers, the C++ object needs to call into the Java object as a result of
- * an invocation by the AllJoyn code.
- *
- * As mentioned in the memory management sidebar (at the start of this file) we
- * have an idiom in which the C++ object is allocated and holds a reference to
- * the corresponding Java object.  This reference is a weak reference so we
- * don't interfere with Java garbage collection.  See the member variable
- * jbusListener for this reference.  The bindings hold separate strong references
- * to prevent the listener from being garbage collected in the presence of the
- * anonymous class idiom.
- *
- * Think of the weak reference as the counterpart to the handle pointer found in
- * the Java objects that need to call into C++.  Java objects use the handle to
- * get at the C++ objects, and C++ objects use a weak object reference to get at
- * the Java objects.
- *
- * This object translates C++ callbacks from the AuthListener to its Java
- * counterpart.  Because of this, the constructor performs reflection on the
- * provided Java object to determine the methods that need to be called.  When
- * The callback from C++ is executed, we make corresponding Java calls using the
- * weak reference to the java object and the reflection information we
- * discovered in the constructor.
- */
-class JAuthListener : public AuthListener {
-  public:
-    JAuthListener(jobject jlistener);
-    ~JAuthListener();
-    bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
-                            const char* userName, uint16_t credMask, Credentials& credentials);
-    bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials);
-    void SecurityViolation(QStatus status, const Message& msg);
-    void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
-  private:
-    jweak jauthListener;
-    jmethodID MID_requestCredentials;
-    jmethodID MID_verifyCredentials;
-    jmethodID MID_securityViolation;
-    jmethodID MID_authenticationComplete;
-};
 
 /**
  * Construct a JAuthListener C++ object by arranging the correspondence between
@@ -1764,37 +2859,52 @@ class JAuthListener : public AuthListener {
  * We also save the required weak reference to the provided Java object (see
  * the sidebar on memory management at the start of this file).
  *
+ * Objects of this class are expected to be MT-Safe between construction and
+ * destruction.
+ *
  * @param jlistener The corresponding java object.
  */
 JAuthListener::JAuthListener(jobject jlistener)
     : jauthListener(NULL)
 {
+    QCC_DbgPrintf(("JAuthListener::JAuthListener()\n"));
+
     JNIEnv* env = GetEnv();
+
     QCC_DbgPrintf(("JAuthListener::JAuthListener(): Taking weak global reference to AuthListener %p\n", jlistener));
     jauthListener = env->NewWeakGlobalRef(jlistener);
     if (!jauthListener) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't create new weak global reference to AuthListener\n"));
         return;
     }
+
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
-    MID_requestCredentials = env->GetMethodID(clazz, "requestCredentials",
-                                              "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Lorg/alljoyn/bus/AuthListener$Credentials;");
-    if (!MID_requestCredentials) {
-        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find requestCredentials() in jListener\n"));
+    if (!clazz) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't GetObjectClass() for AuthListener\n"));
         return;
     }
+
+    MID_requestCredentials = env->GetMethodID(clazz, "requestCredentials", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Lorg/alljoyn/bus/AuthListener$Credentials;");
+    if (!MID_requestCredentials) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find requestCredentials() in AuthListener\n"));
+        return;
+    }
+
     MID_verifyCredentials = env->GetMethodID(clazz, "verifyCredentials", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
     if (!MID_verifyCredentials) {
-        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find verifyCredentials() in jListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find verifyCredentials() in jListener\n"));
         return;
     }
+
     MID_securityViolation = env->GetMethodID(clazz, "securityViolation", "(Lorg/alljoyn/bus/Status;)V");
     if (!MID_securityViolation) {
-        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find securityViolation() in jListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find securityViolation() in jListener\n"));
         return;
     }
+
     MID_authenticationComplete = env->GetMethodID(clazz, "authenticationComplete", "(Ljava/lang/String;Ljava/lang/String;Z)V");
     if (!MID_authenticationComplete) {
-        QCC_DbgPrintf(("JAuthListener::JAuthListener(): Can't find authenticationComplete() in jListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find authenticationComplete() in jListener\n"));
         return;
     }
 }
@@ -1839,17 +2949,29 @@ JAuthListener::~JAuthListener()
 bool JAuthListener::RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
                                        const char* userName, uint16_t credMask, Credentials& credentials)
 {
+    QCC_DbgPrintf(("JAuthListener::RequestCredentials()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string\n"));
         return false;
     }
+
     JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string\n"));
         return false;
     }
+
     JLocalRef<jstring> juserName = env->NewStringUTF(userName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string\n"));
         return false;
     }
 
@@ -1860,9 +2982,14 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
      */
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new local reference to AuthListener\n"));
         return false;
     }
 
+    /*
+     * This call out to the listener means that the requestCredentials method must
+     * be MT-Safe.  This is implied by the definition of the listener.
+     */
     JLocalRef<jobject> jcredentials = env->CallObjectMethod(jo, MID_requestCredentials,
                                                             (jstring)jauthMechanism,
                                                             (jstring)jauthPeer,
@@ -1870,24 +2997,37 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
                                                             (jstring)juserName,
                                                             credMask);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Exception calling out to Java method\n"));
         return false;
     }
+
     if (!jcredentials) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Null return from Java method\n"));
         return false;
     }
+
     JLocalRef<jclass> clazz = env->GetObjectClass(jcredentials);
+    if (!clazz) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't GetObjectClass() for Credentials\n"));
+        return false;
+    }
 
     jfieldID fid = env->GetFieldID(clazz, "password", "[B");
     if (!fid) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't find password field in Credentials\n"));
         return false;
     }
+
     JLocalRef<jbyteArray> jpassword = (jbyteArray)env->GetObjectField(jcredentials, fid);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get password byte array from Credentials\n"));
         return false;
     }
+
     if (jpassword) {
         jbyte* password = env->GetByteArrayElements(jpassword, NULL);
         if (env->ExceptionCheck()) {
+            QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get password bytes\n"));
             return false;
         }
         credentials.SetPassword(String((const char*)password, env->GetArrayLength(jpassword)));
@@ -1899,34 +3039,42 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     if (!fid) {
         return false;
     }
+
     juserName = (jstring)env->GetObjectField(jcredentials, fid);
     if (env->ExceptionCheck()) {
         return false;
     }
+
     if (juserName) {
         JString userName(juserName);
         credentials.SetUserName(userName.c_str());
     }
+
     fid = env->GetFieldID(clazz, "certificateChain", "Ljava/lang/String;");
     if (!fid) {
         return false;
     }
+
     JLocalRef<jstring> jcertificate = (jstring)env->GetObjectField(jcredentials, fid);
     if (env->ExceptionCheck()) {
         return false;
     }
+
     if (jcertificate) {
         JString certificate(jcertificate);
         credentials.SetCertChain(certificate.c_str());
     }
+
     fid = env->GetFieldID(clazz, "privateKey", "Ljava/lang/String;");
     if (!fid) {
         return false;
     }
+
     JLocalRef<jstring> jprivateKey = (jstring)env->GetObjectField(jcredentials, fid);
     if (env->ExceptionCheck()) {
         return false;
     }
+
     if (jprivateKey) {
         JString privateKey(jprivateKey);
         credentials.SetPrivateKey(privateKey.c_str());
@@ -1936,10 +3084,12 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     if (!fid) {
         return false;
     }
+
     JLocalRef<jbyteArray> jlogonEntry = (jbyteArray)env->GetObjectField(jcredentials, fid);
     if (env->ExceptionCheck()) {
         return false;
     }
+
     if (jlogonEntry) {
         jbyte* logonEntry = env->GetByteArrayElements(jlogonEntry, NULL);
         if (env->ExceptionCheck()) {
@@ -1973,7 +3123,12 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
  */
 bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* authPeer, const Credentials& credentials)
 {
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
     if (env->ExceptionCheck()) {
         return false;
@@ -2024,7 +3179,12 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
  */
 void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
 {
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     MessageContext context(msg);
     JLocalRef<jobject> jstatus = JStatus(status);
     if (env->ExceptionCheck()) {
@@ -2058,7 +3218,12 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
  */
 void JAuthListener::AuthenticationComplete(const char* authMechanism, const char* authPeer,  bool success)
 {
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
     if (env->ExceptionCheck()) {
         return;
@@ -2081,62 +3246,2757 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
     env->CallVoidMethod(jo, MID_authenticationComplete, (jstring)jauthMechanism, (jstring)jauthPeer, success);
 }
 
-class JBusObject : public BusObject {
-  public:
-    JBusObject(BusAttachment& bus, const char* path, jobject jobj);
-    ~JBusObject();
-    bool IsSameObject(jobject jobj);
-    QStatus AddInterfaces(jobjectArray jbusInterfaces);
-    void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
-    QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
-    QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
-    QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
-                   const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags);
-    QStatus Get(const char* ifcName, const char* propName, MsgArg& val);
-    QStatus Set(const char* ifcName, const char* propName, MsgArg& val);
-    String GenerateIntrospection(bool deep = false, size_t indent = 0) const;
-    void ObjectRegistered();
-    void ObjectUnregistered();
-  private:
-    struct Property {
-        String signature;
-        jobject jget;
-        jobject jset;
-    };
-    typedef map<String, jobject> JMethod;
-    typedef map<String, Property> JProperty;
-    jobject jbusObj;
-    jmethodID MID_generateIntrospection;
-    jmethodID MID_registered;
-    jmethodID MID_unregistered;
-    JMethod methods;
-    JProperty properties;
-};
+JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMessages)
+    : BusAttachment(applicationName, allowRemoteMessages), keyStoreListener(NULL), authListener(NULL)
+{
+}
 
-JBusObject::JBusObject(BusAttachment& bus, const char* path, jobject jobj)
-    : BusObject(bus, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_unregistered(NULL)
+/**
+ * Connect the bus attachment to the underlying daemon.
+ */
+QStatus JBusAttachment::Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
+                                jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
 {
     JNIEnv* env = GetEnv();
+
+    QStatus status = Start();
+    if (ER_OK != status) {
+        goto exit;
+    }
+
     /*
-     * TODO: should this be a weak global reference?
+     * The higher level Java BusAttachment constructor creates a default
+     * AuthListener for us.  A KeyStoreListener can be set by explicit call,
+     * which may or may not have been done.  We provide separate
+     * registerAuthListener and registerKeyStoreListener functions in the Java
+     * Bus Attachment as well.
+     *
+     * It is a bit confusing, but calling the Java version of
+     * registerAuthListener results in a call out to AllJoyn, providing a new
+     * AuthListener to us through enablePeerSecurity.  Calling the Java version
+     * of registerKeyStoreListener just sets the Java member variable containing
+     * the listener reference.  The only chance you get to change the key store
+     * listener is here in connect.
+     *
+     * We take the authentication change lock here just in case someone is doing
+     * something completely strange and bizarre as calling registerAuthListener
+     * at the same time as she is calling connect() on a different thread.
      */
-    jbusObj = env->NewGlobalRef(jobj);
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking Bus Attachment authentication listener change lock\n"));
+    baAuthenticationChangeLock.Lock();
+
+    if (jkeyStoreListener) {
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking strong global reference to KeyStoreListener %p\n", jkeyStoreListener));
+        jkeyStoreListenerRef = env->NewGlobalRef(jkeyStoreListener);
+
+        keyStoreListener = new JKeyStoreListener(jkeyStoreListener);
+        if (!keyStoreListener) {
+            Throw("java/lang/OutOfMemoryError", NULL);
+        }
+        if (env->ExceptionCheck()) {
+            status = ER_FAIL;
+            goto exit;
+        }
+
+        RegisterKeyStoreListener(*keyStoreListener);
+    }
+
+    status = EnablePeerSecurity(authMechanisms, jauthListener, keyStoreFileName, isShared);
+    if (ER_OK != status) {
+        goto exit;
+    }
+
+    status = BusAttachment::Connect(connectArgs);
+
+exit:
+    if (ER_OK != status) {
+        Disconnect(connectArgs);
+
+        env->DeleteGlobalRef(jkeyStoreListenerRef);
+        jkeyStoreListenerRef = NULL;
+
+        delete keyStoreListener;
+        keyStoreListener = NULL;
+    }
+
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment authentication listener change lock\n"));
+    baAuthenticationChangeLock.Unlock();
+    return status;
+}
+
+void JBusAttachment::Disconnect(const char* connectArgs)
+{
+    if (IsConnected()) {
+        QStatus status = BusAttachment::Disconnect(connectArgs);
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Disconnect failed"));
+        }
+    }
+    // TODO: DisablePeerSecurity
+    // TODO: UnregisterKeyStoreListener
+    if (IsStarted()) {
+        QStatus status = Stop();
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Stop failed"));
+        }
+    }
+
+    /*
+     * Whenever we arrange a callback path from AllJoyn to Java, there is a
+     * Java object and a C++ object involved.  Typically, the Java object "owns"
+     * the C++ object.  In some cases, especially with the Java anonymous class
+     * idiom, we have to hold a global strong reference to the Java object to
+     * ensure that it is not garbage collected, which would result in the C++
+     * object being freed before AllJoyn is notified that it should no longer
+     * call back into the C++ object.  Since we hold those references, we have
+     * to release them.
+     *
+     * As soon as we disconnected from the bus, we are guaranteed that we will
+     * no longer receive callbacks, so we can now release all of the listener
+     * resources we may have accumulated.  If we are holding the last reference
+     * to the listener object, its finalize() method will be called, which will
+     * cause its native resources to be released.  If the client still holds a
+     * reference, the release will be delayed until the client releases the
+     * reference.  The exception is user context objects which we are just
+     * passing through uninterpreted.  We hold a reference to them, but there
+     * is no corresponding native resource.
+     */
+    JNIEnv* env = GetEnv();
+
+    /*
+     * We need to be able to access objects in both the global bus object map
+     * and the bus attachment in a critical section.  Since we have multiple
+     * threads accessing multiple critical sections, lock order is important.
+     * We always acquire the global lock first and then the bus attachment lock
+     * and we always release the bus attachment lock first and then the global
+     * object lock.  This must be done wherever these two lock objects are used
+     * to avoid deadlock.
+     */
+    QCC_DbgPrintf(("JBusListener::JBusListener(): Taking global Bus Object map lock\n"));
+    gBusObjectMapLock.Lock();
+    QCC_DbgPrintf(("JBusListener::JBusListener(): Taking Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    for (list<jobject>::iterator i = busListeners.begin(); i != busListeners.end(); ++i) {
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to BusListener %p\n", *i));
+        env->DeleteGlobalRef(*i);
+    }
+    busListeners.clear();
+
+    for (list<PendingAsyncJoin>::iterator i = pendingAsyncJoins.begin(); i != pendingAsyncJoins.end(); ++i) {
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->jlistener));
+        env->DeleteGlobalRef(i->jlistener);
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to OnJoinSessionListener %p\n", i->jcallback));
+        env->DeleteGlobalRef(i->jcallback);
+        if (i->jcontext) {
+            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to context Object %p\n", i->jcontext));
+            env->DeleteGlobalRef(i->jcontext);
+        }
+    }
+    pendingAsyncJoins.clear();
+
+    for (map<SessionPort, jobject>::iterator i = sessionPortListenerMap.begin(); i != sessionPortListenerMap.end(); ++i) {
+        if (i->second) {
+            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionPortListener %p\n", i->second));
+            env->DeleteGlobalRef(i->second);
+        }
+    }
+    sessionPortListenerMap.clear();
+
+    for (map<SessionId, jobject>::iterator i = sessionListenerMap.begin(); i != sessionListenerMap.end(); ++i) {
+        if (i->second) {
+            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->second));
+            env->DeleteGlobalRef(i->second);
+        }
+    }
+    sessionListenerMap.clear();
+
+    /*
+     * We've got to release references to the Bus Objects that this particular Bus Attachment
+     * holds.
+     */
+    for (list<jobject>::iterator i = busObjects.begin(); i != busObjects.end(); ++i) {
+        /*
+         * If we are the last BusAttachment to use this bus Object, we acquire
+         * the memory management responsibility for the associated C++ object.
+         */
+        JBusObject* cppObject = DecRefBackingObject(*i);
+        if (cppObject) {
+            delete cppObject;
+            cppObject = NULL;
+        }
+
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to Bus Object %p\n", *i));
+        env->DeleteGlobalRef(*i);
+    }
+    busObjects.clear();
+
+    delete authListener;
+    authListener = NULL;
+
+    delete keyStoreListener;
+    keyStoreListener = NULL;
+
+    QCC_DbgPrintf(("JBusListener::JBusListener(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+    QCC_DbgPrintf(("JBusListener::JBusListener(): Releasing global Bus Object map lock\n"));
+    gBusObjectMapLock.Unlock();
+}
+
+QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
+{
+    JNIEnv* env = GetEnv();
+    if (!authMechanisms || !IsStarted()) {
+        return ER_OK;
+    }
+
+    /*
+     * We are going to release the common lock when calling out to AllJoyn since
+     * it may call back in during processing of EnablePeerSecurity.  We
+     * therefore need to take the authentication change lock to prevent a user
+     * from sneaking in and changing the authentication listeners out from under
+     * us when we do the call out.
+     */
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking Bus Attachment authentication listener change lock\n"));
+    baAuthenticationChangeLock.Lock();
+
+    /*
+     * Since we are playing with multiple objects that need to be kept consistent, we
+     * need to take the bus attachment lock while doing so.
+     *
+     * Since there are now multiple locks involved, we need to pay attention to
+     * lock order. Since we need to release the common lock during the callout, we
+     * take the common lock second and release it first.
+
+     */
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    /*
+     * Since we are going to associate a C++ backing object to the provided listener,
+     * and this will plumb AllJoyn callbacks into the Java listener object, we need
+     * to take a strong global reference to the listener to ensure the object stays
+     * around until we are done with it.
+     */
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking strong global reference to AuthListener %p\n", jauthListener));
+    jauthListenerRef = env->NewGlobalRef(jauthListener);
+    if (!jauthListenerRef) {
+        QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Unable to take strong global reference to AuthListener %p\n", jauthListener));
+
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment authentication listener change lock\n"));
+        baAuthenticationChangeLock.Unlock();
+        return ER_FAIL;
+    }
+
+    /*
+     * Whenever a new listener is provided, we need to associate a new C++ listener with
+     * it.
+     */
+    delete authListener;
+    authListener = new JAuthListener(jauthListener);
+    if (!authListener) {
+        env->DeleteGlobalRef(jauthListenerRef);
+        jauthListenerRef = NULL;
+
+        Throw("java/lang/OutOfMemoryError", NULL);
+    }
+
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Exception\n"));
+
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment authentication listener change lock\n"));
+        baAuthenticationChangeLock.Unlock();
+        return ER_FAIL;
+    }
+
+    /*
+     * Who knows what the AllJoyn version of EnablePeerSecurity is actually
+     * going to do.  It may decide that it needs to call back out into the
+     * bindings, so we need to be careful to release the BusAttachment common
+     * lock to avoid deadlock.  We continue to hold the authentication listener
+     * change lock to prevent another call on another thread changing our
+     * listeners out from under us.
+     */
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+
+    QStatus status = BusAttachment::EnablePeerSecurity(authMechanisms, authListener, keyStoreFileName, isShared);
+
+    /*
+     * We're back, and depending on what has happened out from under us we
+     * we will need to tweak the listeners.  So we need to take back the
+     * common lock.
+     */
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    /*
+     * If we got an error, we don't need to keep a reference to the Java Object and we don't need the
+     * C++ object, so we get rid of them here.
+     */
+    if (ER_OK != status) {
+        delete authListener;
+        authListener = NULL;
+
+        env->DeleteGlobalRef(jauthListenerRef);
+        jauthListenerRef = NULL;
+    }
+
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment authentication listener change lock\n"));
+    baAuthenticationChangeLock.Unlock();
+
+    return status;
+}
+
+QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces)
+{
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject()\n"));
+
+    /*
+     * We need to be able to access objects in both the global bus object map
+     * and the bus attachment in a critical section.  Since we have multiple
+     * threads accessing multiple critical sections, lock order is important.
+     * We always acquire the global lock first and then the bus attachment lock
+     * and we always release the bus attachment lock first and then the global
+     * object lock.  This must be done wherever these two lock objects are used
+     * to avoid deadlock.
+     */
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Taking global Bus Object map lock\n"));
+    gBusObjectMapLock.Lock();
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Taking Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    /*
+     * It is a programming error to register the same bus object with any given
+     * bus attachment multiple times.
+     */
+    list<jobject>::iterator i = find(busObjects.begin(), busObjects.end(), jbusObject);
+    if (i != busObjects.end()) {
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
+        gBusObjectMapLock.Unlock();
+        return ER_BUS_OBJ_ALREADY_EXISTS;
+    }
+
+    JNIEnv* env = GetEnv();
+
+    /*
+     * We always take a global strong reference to a Java Bus Object that
+     * we are going to use in any way.
+     */
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Taking strong global reference to BusObject %p\n", jbusObject));
+    jobject jglobalref = env->NewGlobalRef(jbusObject);
+    if (!jglobalref) {
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
+        gBusObjectMapLock.Unlock();
+        return ER_FAIL;
+    }
+
+    /*
+     * We need to remember that we have a hold on this bus object so we can
+     * release it if we destruct without the user calling UnregisterBusObject
+     */
+    busObjects.push_back(jglobalref);
+
+    /*
+     * It not a programming error to register the same Java Bus Object with
+     * multiple bus attachments.  In this case, the C++ backing object will
+     * already exist.  If it does exist, we need to increment the reference
+     * count.
+     *
+     * If there is no existing backing C++ object, we need to create one and
+     * introspect the provided Bus Object to figure out what interfaces to add.
+     * Once we have the C++ object ready to go, we transfer ownership of the
+     * object to the global list of these objects (and their relationships with
+     * associated Java objects).
+     */
+    JBusObject* busObject = GetBackingObject(jbusObject);
+    if (busObject) {
+        IncRefBackingObject(jbusObject);
+    } else {
+        busObject = new JBusObject(this, objPath, jbusObject);
+        busObject->AddInterfaces(jbusInterfaces);
+        if (env->ExceptionCheck()) {
+            delete busObject;
+            QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+            baCommonLock.Unlock();
+            QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
+            gBusObjectMapLock.Unlock();
+            return ER_FAIL;
+        }
+
+        NewRefBackingObject(jbusObject, busObject);
+    }
+
+    /*
+     * After we enter this call, AllJoyn has its hands on the bus object and
+     * calls in can start flowing.
+     */
+    QStatus status = BusAttachment::RegisterBusObject(*busObject);
+    if (status != ER_OK) {
+        /*
+         * AllJoyn balked at us for some reason.  As a result we really don't
+         * need to have a hold on any of the objects we've acquired references
+         * to or created.  If we created the C++ backing object, we'll get
+         * responsibility for its disposition from DecRefBackingObject.
+         * release our global reference to taht as well.
+         */
+        JBusObject* cppObject = DecRefBackingObject(*i);
+        if (cppObject) {
+            delete cppObject;
+            cppObject = NULL;
+        }
+
+        /*
+         * If AllJoyn doesn't have a hold on the Java Bus Object, we shouldn't
+         * correspondingly have a hold on it.
+         */
+        env->DeleteGlobalRef(jglobalref);
+    }
+
+    /*
+     * We've successfully arranged for our AllJoyn Bus Attachment to use the
+     * provided Bus Object.  Release our hold on the shared resources,
+     * remembering to reverse the lock order.
+     */
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
+    gBusObjectMapLock.Unlock();
+    return ER_OK;
+}
+
+void JBusAttachment::UnregisterBusObject(jobject jbusObject)
+{
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject()\n"));
+
+    /*
+     * We need to be able to access objects in both the global bus object map
+     * and the bus attachment in a critical section.  Since we have multiple
+     * threads accessing multiple critical sections, lock order is important.
+     * We always acquire the global lock first and then the bus attachment lock
+     * and we always release the bus attachment lock first and then the global
+     * object lock.  This must be done wherever these two lock objects are used
+     * to avoid deadlock.
+     */
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Taking global Bus Object map lock\n"));
+    gBusObjectMapLock.Lock();
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    /*
+     * It is a programming error to 1) register a Bus Object on one Bus
+     * Attachment and unregister it on another; 2) unregister a Bus Object that
+     * has never been regsitered with the given Bus Attachment; and 3)
+     * unregister a Bus Object multiple times on a given Bus Attachment.  All of
+     * these cases are caught by making sure the provided Java Bus Object is
+     * currently in the list of Java Objects associated with this bus
+     * Attachment.
+     */
+    list<jobject>::iterator i = find(busObjects.begin(), busObjects.end(), jbusObject);
+    if (i == busObjects.end()) {
+        QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+        QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
+        gBusObjectMapLock.Unlock();
+        QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Java Bus Object.\n"));
+        return;
+    }
+
+    JBusObject* cppObject = GetBackingObject(jbusObject);
+    if (cppObject == NULL) {
+        QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+        QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
+        gBusObjectMapLock.Unlock();
+        QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Backing Object.\n"));
+        return;
+    }
+
+    /*
+     * As soon as this call completes, AllJoyn will not make any further
+     * calls into the object, so we can safely get rid of it, and we can
+     * release our hold on the corresponding Java object and allow it to
+     * be garbage collected.
+     */
+    BusAttachment::UnregisterBusObject(*cppObject);
+
+    /*
+     * AllJoyn doesn't have its grubby little hands on the C++ Object any
+     * more.  As a result we shouldn't have a hold on any of the objects
+     * we've acquired to support the plumbing.
+     *
+     * Just because we don't need the C++ object doesn't mean that other
+     * bus attachments don't need it, so we need to pay attention to the
+     * reference counting mechanism.  If DecRefBackingObject returns a
+     * pointer to the object, we
+     */
+    JBusObject* cppObjectToDelete = DecRefBackingObject(*i);
+    if (cppObjectToDelete) {
+        /*
+         * The object we delete had better be the object we just told AllJoyn
+         * about.
+         */
+        assert(cppObjectToDelete == cppObject);
+        delete cppObject;
+        cppObject = NULL;
+    }
+
+    /*
+     * If AllJoyn doesn't have a hold on the Java Bus Object, we shouldn't
+     * correspondingly have a hold on it.
+     */
+    GetEnv()->DeleteGlobalRef(jbusObject);
+
+    /*
+     * We've successfully arranged for our AllJoyn Bus Attachment to stop using
+     * the provided Bus Object.  Release our hold on the shared resources,
+     * remembering to reverse the lock order.
+     */
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
+    gBusObjectMapLock.Unlock();
+    return;
+}
+
+QStatus JBusAttachment::RegisterSignalHandler(const char* ifaceName, const char* signalName,
+                                              jobject jsignalHandler, jobject jmethod, const char* srcPath)
+{
+    QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Taking Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    /*
+     * Whenever we get an object from the outside world that we are going to
+     * wire together with a C++ object, we take a strong global reference to it.
+     * We also get a method here but we assume that since the method refers to
+     * an annotation of a method in the provided object it will stay around if
+     * we put a hold on the object.
+     */
+    JNIEnv* env = GetEnv();
+    jobject jglobalref = env->NewGlobalRef(jsignalHandler);
+    if (!jglobalref) {
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+        return ER_FAIL;
+    }
+
+    /*
+     * Create the C++ object that backs the Java signal handler object.
+     */
+    JSignalHandler* signalHandler = new JSignalHandler(jsignalHandler, jmethod);
+    if (signalHandler == NULL) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return ER_FAIL;
+    }
+
+    /*
+     * Wire the C++ signal handler to the Java signal handler and if the
+     * operation was successful, remember both the Java object and the C++
+     * object.  If it didn't work then we might as well forget them both.
+     */
+    QStatus status = signalHandler->Register(*this, ifaceName, signalName, srcPath);
+    if (ER_OK == status) {
+        signalHandlers.push_back(make_pair(jsignalHandler, signalHandler));
+    } else {
+        delete signalHandler;
+        env->DeleteGlobalRef(jglobalref);
+    }
+
+    QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+    return status;
+}
+
+void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
+{
+    QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Taking Bus Attachment common lock\n"));
+    baCommonLock.Lock();
+
+    JNIEnv* env = GetEnv();
+
+    for (vector<pair<jobject, JSignalHandler*> >::iterator i = signalHandlers.begin(); i != signalHandlers.end(); ++i) {
+        if (i->second->IsSameObject(jsignalHandler, jmethod)) {
+            i->second->Unregister(*this);
+            delete (i->second);
+            env->DeleteGlobalRef(i->first);
+            signalHandlers.erase(i);
+            break;
+        }
+    }
+
+    QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Releasing Bus Attachment common lock\n"));
+    baCommonLock.Unlock();
+}
+
+/**
+ * The native C++ implementation of the Java class BusAttachment.create method
+ * found in src/org/alljoyn/bus/BusAttachment.java
+ *
+ * This method allocates any C++ resources that may be associated with the Java
+ * BusAttachment; and is expected to be called from the BusAttachment constructor.
+ *
+ * The picture to keep in mind is that there is a Java BusAttachment object which
+ * is presented to the Java user.  As described in the sidebars at the start of
+ * this file, the Java BusAttachment has a corresponding C++ class.  In order to
+ * simplify lifetime issues for the C++ class, it is accesed through a ManagedObj
+ * which is a reference counting mechanism.  Recall from the sidebars that Java
+ * objects use an opaque handle to get at the C++ objects, and C++ objects use a
+ * weak object reference to get at the Java objects.  The opaque handle in this
+ * case is that managed object pointer.
+ *
+ * This method news up a JBusAttachmentPtr which is a really just a typedef for
+ * ManagedObj<JBusAttachment>.  Despite the name, this is a actaully a smart
+ * pointer.  We need to save this smart pointer into the handle of the Java
+ * object, and since it is a non-intrusive smart pointer we must allocate it on
+ * the heap.  It is then a pointer to a smart pointer, which explains the
+ * unusual busPtrPtr name below.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param japplicationName A name to give the application.  Used primarily in
+ *                         authentication.
+ * @param allowRemoteMessages If true allow communication with attachments
+ *                            on physically remote attachments.
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jobject thiz, jstring japplicationName, jboolean allowRemoteMessages)
+{
+    // TODO: Remove
+
+    QCC_UseOSLogging(true);
+    QCC_SetDebugLevel("ALLJOYN_JAVA", 7);
+
+    QCC_DbgPrintf(("BusAttachment_create()\n"));
+
+    JString applicationName(japplicationName);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    const char* name = applicationName.c_str();
+
+    /*
+     * This looks a bit odd, but what we are doing is saving a smart pointer
+     * into a Java object as a native type.  The smart pointer (AKA a
+     * ManagedObj<T>) is a non-intrusive smart pointer so it does not fit into
+     * the 32-bit "handle" into which we store it (because it contains the
+     * reference count).  This means we need to allocate the smart pointer on
+     * the heap and store a pointer to the smart pointer in the Java object.
+     * When we allocate the smart pointer, it arranges to have the constructor
+     * for the underlying object to be called.
+     */
+    JBusAttachmentPtr* busPtrPtr = new JBusAttachmentPtr(name, allowRemoteMessages);
+    if (!busPtrPtr) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, busPtrPtr);
+    if (env->ExceptionCheck()) {
+        delete busPtrPtr;
+    }
+}
+
+/**
+ * The native C++ implementation of the Java class BusAttachment.destroy method
+ * found in src/org/alljoyn/bus/BusAttachment.java
+ *
+ * This method releasess any C++ resources that may be associated with the Java
+ * BusAttachment; and is expected to be called from the BusAttachment finalizer
+ * method.
+ *
+ * The picture to keep in mind is that there is a Java BusAttachment object which
+ * is presented to the Java user.  As described in the sidebars at the start of
+ * this file, the Java BusAttachment has a corresponding C++ class.
+ *
+ * The Java object lifetime is managed by the JVM garbage collector, but the
+ * C++ object needs to be explicitly managed.  In order to accomodate this, we
+ * hook the finalize() method in the Java BusAttachment finalize() method, which
+ * will be called when the Java object has been determined to be garbage.
+ *
+ * This method is called in BusAttachment.finalize() in order to do the explicit
+ * release of the associated C++ object.  Recall that the reference to the C++
+ * object is stored in the "handle" field of the BusAttachment.  We get at it
+ * using GetHandle.
+ *
+ * When we delete the object pointed to by this handle, we are actually calling
+ * a ManagedObj destructor.  This is conceptually the same thing as a reference
+ * counted smart pointer going out of scope, and it decrements the reference
+ * count on the managed object, which is the C++ bus attachment.  If this delete
+ * causes the ref count to drop to zero, the underlying object is deleted; but
+ * if there are existing proxy bus objects that may be queued for finalizing
+ * after us, the managed object will still hold references to them and so will
+ * stay around until all of those objects are collected.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
+                                                                  jobject thiz)
+{
+    QCC_DbgPrintf(("BusAttachment_destroy()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr* busPtrPtr = GetHandle<JBusAttachmentPtr*>(thiz);
+    if (!busPtrPtr) {
+        return;
+    }
+
+    delete busPtrPtr;
+    SetHandle(thiz, NULL);
+}
+
+/**
+ * Register an object that will receive bus event notifications.  In this
+ * context, registering a listener should be thought of as "adding another
+ * listener."  You may register zero (if you are not interested in receiving
+ * notifications) or more listeners.
+ *
+ * The bus attachment is the way that Java clients and services talk to the bus,
+ * but the bus needs a way to notify clients and services of events happening on
+ * the bus.  This is done via an object with a number of methods corresponding
+ * to callback functions that are invoked when bus events occur.
+ *
+ * The listener passed in as the "jobject jlistener" will be a reference to, or
+ * perhaps descendent of, the java class BusListener.  As usual we need to create
+ * an instance of a C++ object to receive the actual callbacks.  The responsibility
+ * of this C++ object is just to call the corresponding methods in the Java object.
+ *
+ * As mentioned in the sidebar at the start of this file, the C++ object gets to the
+ * Java object via a jobject reference back to the Java object which we pass in the
+ * C++ object constructor.
+ *
+ * If the jobject needs to get back to the C++ object it does so via the "handle"
+ * field and the helpers SetHandle() and GetHandle().
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param listener  Object instance that will receive bus event notifications.
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JNIEnv* env, jobject thiz, jobject jlistener)
+{
+    QCC_DbgPrintf(("BusAttachment_registerBusListener()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception\n"));
+        return;
+    }
+
+    /*
+     * We always take a strong global reference to the listener object.
+     */
+    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Taking strong global reference to BusListener %p\n", jlistener));
+    jobject jglobalref = env->NewGlobalRef(jlistener);
+    if (!jglobalref) {
+        return;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Taking Bus Attachment common lock\n"));
+    busPtr->baCommonLock.Lock();
+    busPtr->busListeners.push_back(jglobalref);
+    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Releasing Bus Attachment common lock\n"));
+    busPtr->baCommonLock.Unlock();
+
+    /*
+     * Get the C++ object that must be there backing the Java object
+     */
+    JBusListener* listener = GetNativeListener<JBusListener*>(env, jlistener);
+    assert(listener);
+
+    /*
+     * Make the call into AllJoyn.
+     */
+    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Call RegisterBusListener()\n"));
+    busPtr->RegisterBusListener(*listener);
+}
+
+/**
+ * Unregister an object to prevent it from receiving further bus event
+ * notifications.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param listener  Object instance that will receive bus event notifications.
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(JNIEnv* env, jobject thiz, jobject jlistener)
+{
+    QCC_DbgPrintf(("BusAttachment_unregisterBusListener()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception\n"));
+        return;
+    }
+
+    /*
+     * Get the C++ object that must be there backing the Java object
+     */
+    JBusListener* listener = GetNativeListener<JBusListener*>(env, jlistener);
+    assert(listener);
+
+    /*
+     * Make the call into AllJoyn.
+     */
+    QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Call UnregisterBusListener()\n"));
+    busPtr->UnregisterBusListener(*listener);
+
+    /*
+     * We always take a reference to the Java listener in registerBusListener,
+     * so we always release a reference here.
+     */
+    QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Taking Bus Attachment common lock\n"));
+    busPtr->baCommonLock.Lock();
+    for (list<jobject>::iterator i = busPtr->busListeners.begin(); i != busPtr->busListeners.end(); ++i) {
+        if (env->IsSameObject(*i, jlistener)) {
+            QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Releasing strong global reference to BusListener %p\n", jlistener));
+            env->DeleteGlobalRef(jlistener);
+            busPtr->busListeners.erase(i);
+            break;
+        }
+    }
+    QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Releasing Bus Attachment common lock\n"));
+    busPtr->baCommonLock.Unlock();
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_create(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("BusListener_create()\n"));
+
+    assert(GetHandle<JBusListener*>(thiz) == NULL);
+
+    JBusListener* jbl = new JBusListener(thiz);
+    if (jbl == NULL) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, jbl);
+    if (env->ExceptionCheck()) {
+        delete jbl;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_destroy(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("BusListener_destroy()\n"));
+
+    JBusListener* jbl = GetHandle<JBusListener*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    assert(jbl);
+    delete jbl;
+
+    SetHandle(thiz, NULL);
+    return;
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv*env, jobject thiz,
+                                                                         jstring jname, jint jflags)
+{
+    QCC_DbgPrintf(("BusAttachment_requestName()\n"));
+
+    /*
+     * Load the C++ well-known name with the Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_requestName(): Call RequestName(%s, 0x%08x)\n", name.c_str(), jflags));
+
+    QStatus status = busPtr->RequestName(name.c_str(), jflags);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_requestName(): RequestName() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv*env, jobject thiz,
+                                                                         jstring jname)
+{
+    QCC_DbgPrintf(("BusAttachment_releaseName()\n"));
+
+    /*
+     * Load the C++ well-known name with the Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+
+    QCC_DbgPrintf(("BusAttachment_releaseName(): Call ReleaseName(%s)\n", name.c_str()));
+
+    QStatus status = busPtr->ReleaseName(name.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_releaseName(): ReleaseName() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env, jobject thiz,
+                                                                      jstring jrule)
+{
+    QCC_DbgPrintf(("BusAttachment_addMatch()\n"));
+
+    /*
+     * Load the C++ well-known name with the Java well-known name.
+     */
+    JString rule(jrule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_addMatch(): Call AddMatch(%s)\n", rule.c_str()));
+
+    QStatus status = busPtr->AddMatch(rule.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_addMatch(): AddMatch() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*env, jobject thiz,
+                                                                         jstring jrule)
+{
+    QCC_DbgPrintf(("BusAttachment_addMatch()\n"));
+
+    /*
+     * Load the C++ well-known name with the Java well-known name.
+     */
+    JString rule(jrule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_removeMatch(): Call RemoveMatch(%s)\n", rule.c_str()));
+
+    QStatus status = busPtr->RemoveMatch(rule.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_removeMatch(): RemoveMatch() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEnv* env, jobject thiz,
+                                                                           jstring jname, jshort jtransports)
+{
+    QCC_DbgPrintf(("BusAttachment_advertiseName()\n"));
+
+    /*
+     * Load the C++ well-known name with the Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_advertiseName(): Call AdvertiseName(%s, 0x%04x)\n", name.c_str(), jtransports));
+
+    QStatus status = busPtr->AdvertiseName(name.c_str(), jtransports);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_advertiseName(): AdvertiseName() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName(JNIEnv* env, jobject thiz,
+                                                                                 jstring jname, jshort jtransports)
+{
+    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName()\n"));
+
+    /*
+     * Load the C++ well-known name Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Call CancelAdvertiseName(%s, 0x%04x)\n", name.c_str()));
+
+    QStatus status = busPtr->CancelAdvertiseName(name.c_str(), jtransports);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_cancelAdvertiseName(): CancelAdvertiseName() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(JNIEnv* env, jobject thiz,
+                                                                                jstring jname)
+{
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedName()\n"));
+
+    /*
+     * Load the C++ well-known name Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Call FindAdvertisedName(%s)\n", name.c_str()));
+
+    QStatus status = busPtr->FindAdvertisedName(name.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_findAdvertsiedName(): FindAdvertisedName() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName(JNIEnv* env, jobject thiz,
+                                                                                      jstring jname)
+{
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName()\n"));
+
+    /*
+     * Load the C++ well-known name Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Call CancelFindAdvertisedName(%s)\n", name.c_str()));
+
+    QStatus status = busPtr->CancelFindAdvertisedName(name.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_cancelfindAdvertisedName(): CancelFindAdvertisedName() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+/**
+ * Bind a session port with the BusAttachment.  This makes a SessionPort
+ * available for external BusAttachments to join, and enables callbacks to the
+ * associated listener.
+ *
+ * Each BusAttachment binds its own set of SessionPorts. Session joiners use the
+ * bound session port along with the name of the attachement to create a
+ * persistent logical connection (called a Session) with the original
+ * BusAttachment.  A SessionPort and bus name form a unique identifier that
+ * BusAttachments use internally as a "half-association" when joining a session.
+ *
+ * SessionPort values can be pre-arranged between AllJoyn services and their
+ * clients (well-known SessionPorts) in much the same way as a well-known IP
+ * port number, although SessionPorts have scope local to the associated
+ * BusAttachment and not the local host.
+ *
+ * Once a session is joined using one of the service's well-known SessionPorts,
+ * the service may bind additional SessionPorts (dynamically) and share these
+ * SessionPorts with the joiner over the original session. The joiner can then
+ * create additional sessions with the service by calling JoinSession with these
+ * dynamic SessionPort ids.
+ *
+ * The bus will return events related to the management of sessions related to
+ * the given session port through a listener object.  This listener object is
+ * expected to inherit from class SessionPortListener and specialize the callback
+ * methods in which a user is interested.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param jsessionPort The SessionPort value to bind or SESSION_PORT_ANY to allow
+ *                     this method to choose an available port. On successful
+ *                     return, this value contains the chosen SessionPort.
+ * @param jsessionOpts Session options that joiners must agree to in order to
+ *                     successfully join the session.
+ * @param jsessionPortListener  Called by the bus when session related events occur.
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNIEnv* env, jobject thiz,
+                                                                             jobject jsessionPort, jobject jsessionOpts,
+                                                                             jobject jlistener)
+{
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort()\n"));
+
+    /*
+     * Load the C++ session port from the Java session port.
+     */
+    SessionPort sessionPort;
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionPort);
+    jfieldID spValueFid = env->GetFieldID(clazz, "value", "S");
+    assert(spValueFid);
+    sessionPort = env->GetShortField(jsessionPort, spValueFid);
+
+    /*
+     * Load the C++ session options from the Java session options.
+     */
+    SessionOpts sessionOpts;
+    clazz = env->GetObjectClass(jsessionOpts);
+    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * We always take a strong global reference to the listener object.  We
+     * can't just store the reference in one common place with all of the other
+     * references since we have to be able to find it on the "un" call which
+     * doesn't provide them.  We have a map of session port to listener object
+     * for that reason.  In this case, the global reference does double duty,
+     * allowing the search and holding on to the listener.  We take the
+     * reference here since callbacks may start flowing the instant the AllJoyn
+     * connection is made and we will have no time to ponder what may have
+     * happened after we get back from the AllJoyn call.  By holding the
+     * reference, we ensure that the corresponding C++ object is live.  We store
+     * it (or not) below in a more convenient place where we can make the
+     * decision.
+     *
+     * If we can't acquire the reference, then we are in an exception state and
+     * returning NULL is okay.
+     */
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Taking strong global reference to SessionPortListener %p\n", jlistener));
+    jobject jglobalref = env->NewGlobalRef(jlistener);
+    if (!jglobalref) {
+        return NULL;
+    }
+
+    /*
+     * Get the C++ object that must be there backing the Java listener object
+     */
+    JSessionPortListener* listener = GetNativeListener<JSessionPortListener*>(env, jlistener);
+    assert(listener);
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
+                   sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
+
+    QStatus status = busPtr->BindSessionPort(sessionPort, sessionOpts, *listener);
+
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Back from BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
+                   sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
+
+    /*
+     * If we get an exception down in the AllJoyn code, it's hard to know what
+     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
+     * clue that we're up here and won't throw any Java exceptions, so we should
+     * be in good shape and never see this.  Famous last words, I know.  To be
+     * safe, we'll keep the global reference(s) in place (leaking temporarily),
+     * log the exception and let it propagate on up the stack to the client.
+     */
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * If we get an error from the AllJoyn code, we know from code inspection
+     * that the C++ listener object will not be used.  In this case, the semantics
+     * of the "un" operation are that it is not required.  Since the C++ listener
+     * object will not be used, and the Java listener global reference is not
+     * required, we can just forget about the provided listener.
+     *
+     * If we get a successful completion, we need to save the provided listener
+     * in our session port map.  Since there can only be one successful bind to
+     * any given session port we are guaranteed that there is a one-to-one map
+     * between session port and active Java listener reference.
+     */
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Success\n"));
+        QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Taking Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Lock();
+        busPtr->sessionPortListenerMap[sessionPort] = jglobalref;
+        QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Releasing Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Unlock();
+    } else {
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
+        env->DeleteGlobalRef(jglobalref);
+        return JStatus(status);
+    }
+
+    /*
+     * Store the actual session port back in the session port out parameter
+     */
+    env->SetShortField(jsessionPort, spValueFid, sessionPort);
+
+    return JStatus(status);
+}
+
+/**
+ * Unbind (cancel) a session port with the BusAttachment.  This makes a
+ * SessionPort unavailable for external BusAttachments to join, and disables
+ * callbacks to the associated listener.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param jsessionPort The SessionPort value to bind or SESSION_PORT_ANY to allow
+ *                     this method to choose an available port. On successful
+ *                     return, this value contains the chosen SessionPort.
+ * @param jsessionOpts Session options that joiners must agree to in order to
+ *                     successfully join the session.
+ * @param jsessionPortListener  Called by the bus when session related events occur.
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(JNIEnv* env, jobject thiz, jshort jsessionPort)
+{
+    QCC_DbgPrintf(("BusAttachment_unbindSessionPort()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Call UnbindSessionPort(%d)\n", jsessionPort));
+
+    QStatus status = busPtr->UnbindSessionPort(jsessionPort);
+
+    /*
+     * If we get an exception down in the AllJoyn code, it's hard to know what
+     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
+     * clue that we're up here and won't throw any Java exceptions, so we should
+     * be in good shape and never see this.  Famous last words, I know.  To be
+     * safe, we'll keep the global reference(s) in place (leaking temporarily),
+     * log the exception and let it propagate on up the stack to the client.
+     */
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * We did the call to unbind the session port but we have to ask ourselves
+     * about the disposition of the C++ session port listener that was
+     * associated with the possibly deceased session port.  Because we can
+     * inspect the code we know that the only time the AllJoyn bus attachement
+     * actually forgets the listener is when UnbindSessionPort returns status
+     * ER_OK.
+     *
+     * This means that if there was any kind of error, AllJoyn can still call
+     * back into our C++ listener.  Therefore we must keep it around.  Since the
+     * C++ object is around, the Java object must be kept around to receive
+     * translated callbacks from the C++ object.  This is a rather Byzantine
+     * error and we are not going to try to harden the Java bindings against an
+     * error of this type that is propagated up.
+     *
+     * It may be surprising to some that a failure to unbind a session port means
+     * they might continue receiving notifications, but it may not be surprising
+     * to others.  We'll just leave it at that.
+     */
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Success\n"));
+
+        /*
+         * We know that AllJoyn has released its hold on C++ listener object
+         * referred to by our Java listener object.  We can now release our hold on
+         * the Java listener object.
+         */
+        QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Taking Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Lock();
+        jobject jglobalref = busPtr->sessionPortListenerMap[jsessionPort];
+        busPtr->sessionPortListenerMap[jsessionPort] = 0;
+        QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Releasing Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Unlock();
+
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Releasing strong global reference to SessionPortListener %p\n", jglobalref));
+        env->DeleteGlobalRef(jglobalref);
+    } else {
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_create(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("SessionPortListener_create()\n"));
+
+    assert(GetHandle<JSessionPortListener*>(thiz) == NULL);
+
+    JSessionPortListener* jspl = new JSessionPortListener(thiz);
+    if (jspl == NULL) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, jspl);
+    if (env->ExceptionCheck()) {
+        delete jspl;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_destroy(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("SessionPortListener_destroy()\n"));
+
+    JSessionPortListener* jspl = GetHandle<JSessionPortListener*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    assert(jspl);
+    delete jspl;
+
+    SetHandle(thiz, NULL);
+    return;
+}
+
+/**
+ * Join a session bound to a given contact session port.
+ *
+ * Each BusAttachment binds its own set of SessionPorts. Session joiners use the
+ * bound session port along with the name of the attachement to create a
+ * persistent logical connection (called a Session) with the original
+ * BusAttachment.  A SessionPort and bus name form a unique identifier that
+ * BusAttachments use internally as a "half-association" when joining a session.
+ *
+ * SessionPort values can be pre-arranged between AllJoyn services and their
+ * clients (well-known SessionPorts) in much the same way as a well-known IP
+ * port number, although SessionPorts have scope local to the associated
+ * BusAttachment and not the local host.
+ *
+ * The bus will return events related to the session through a listener object.
+ * This listener object is expected to inherit from class SessionListener and
+ * specialize the callback methods in which a user is interested.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param jsessionPort The SessionPort value representing the contact port.
+ * @param jsessionId Set to the resulting SessionID value if the call succeeds.
+ * @param jsessionOpts Session options that services must agree to in order to
+ *                     successfully join the session.
+ * @param jlistener Java listener object called when session related events occur.
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv* env, jobject thiz,
+                                                                         jstring jsessionHost,
+                                                                         jshort jsessionPort,
+                                                                         jobject jsessionId,
+                                                                         jobject jsessionOpts,
+                                                                         jobject jlistener)
+{
+    QCC_DbgPrintf(("BusAttachment_joinSession()\n"));
+
+    /*
+     * Load the C++ session host string from the java parameter
+     */
+    JString sessionHost(jsessionHost);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Load the C++ session options from the Java session options.
+     */
+    SessionOpts sessionOpts;
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionOpts);
+    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * We always take a strong global reference to the listener object and hold
+     * it as long as we can possibly get callbacks that use it.  If we can't
+     * acquire the reference, then we are in an exception state and returning
+     * NULL is okay.
+     */
+    QCC_DbgPrintf(("BusAttachment_joinSession(): Taking strong global reference to SessionListener %p\n", jlistener));
+    jobject jglobalref = env->NewGlobalRef(jlistener);
+    if (!jglobalref) {
+        return NULL;
+    }
+
+    /*
+     * Get the C++ object that must be there backing the Java listener object
+     */
+    JSessionListener* listener = GetNativeListener<JSessionListener*>(env, jlistener);
+    assert(listener);
+
+    /*
+     * Make the AllJoyn call.
+     */
+    SessionId sessionId = 0;
+
+    QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %p, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+                   sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports));
+
+    QStatus status = busPtr->JoinSession(sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts);
+
+    QCC_DbgPrintf(("BusAttachment_joinSession(): Back from JoinSession(%s, %d, %p, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
+                   sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports));
+
+    /*
+     * If we get an exception down in the AllJoyn code, it's hard to know what
+     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
+     * clue that we're up here and won't throw any Java exceptions, so we should
+     * be in good shape and never see this.  Famous last words, I know.  To be
+     * safe, we'll keep the global reference(s) in place (leaking temporarily),
+     * log the exception and let it propagate on up the stack to the client.
+     */
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * If we get an error from the AllJoyn code, we know from code inspection
+     * that the C++ listener object will not be used.  Since the C++ listener
+     * object will not be used, and the Java listener global reference is not
+     * required, we can just forget about the provided listener.
+     *
+     * If we get a successful completion, we need to save the provided listener
+     * in our session listener map.  Since there can only be one successful join
+     * to any given session we are guaranteed that there is a one-to-one map
+     * between session ID and active Java listener reference.
+     */
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("BusAttachment_joinSession(): Success\n"));
+        QCC_DbgPrintf(("BusAttachment_joinSession(): Taking Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Lock();
+        busPtr->sessionListenerMap[sessionId] = jglobalref;
+        QCC_DbgPrintf(("BusAttachment_joinSession(): Releasing Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Unlock();
+    } else {
+        QCC_LogError(status, ("BusAttachment_joinSession(): Error\n"));
+        env->DeleteGlobalRef(jglobalref);
+        return JStatus(status);
+    }
+
+    /*
+     * Store the session ID back in its out parameter.
+     */
+    clazz = env->GetObjectClass(jsessionId);
+    fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jsessionId, fid, sessionId);
+
+    /*
+     * Store the Java session options from the returned [out] C++ session options.
+     */
+    clazz = env->GetObjectClass(jsessionOpts);
+
+    fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    env->SetByteField(jsessionOpts, fid, sessionOpts.traffic);
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    env->SetBooleanField(jsessionOpts, fid, sessionOpts.isMultipoint);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    env->SetByteField(jsessionOpts, fid, sessionOpts.proximity);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    env->SetShortField(jsessionOpts, fid, sessionOpts.transports);
+
+    return JStatus(status);
+}
+
+/**
+ * Leave (cancel) a session.  This releases the resources allocated for the
+ * session, notifies the other side that we have left, and disables callbacks
+ * to the associated listener.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param jsessionId The SessionId value of the session to end.
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv* env, jobject thiz,
+                                                                          jint jsessionId)
+{
+    QCC_DbgPrintf(("BusAttachment_leaveSession()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_leaveSession(): Call LeaveSession(%d)\n", jsessionId));
+
+    QStatus status = busPtr->LeaveSession(jsessionId);
+
+    /*
+     * If we get an exception down in the AllJoyn code, it's hard to know what
+     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
+     * clue that we're up here and won't throw any Java exceptions, so we should
+     * be in good shape and never see this.  Famous last words, I know.  To be
+     * safe, we'll keep the global reference(s) in place (leaking temporarily),
+     * log the exception and let it propagate on up the stack to the client.
+     */
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * We did the call to leave the session but we have to ask ourselves about
+     * the disposition of the C++ session listener that was associated with the
+     * possibly deceased session.  Because we can inspect the code we know that
+     * the only time the AllJoyn bus attachement actually forgets the listener
+     * is when LeaveSession returns status ER_OK.
+     *
+     * This means that if there was any kind of error, AllJoyn can still call
+     * back into our C++ listener.  Therefore we must keep it around.  Since the
+     * C++ object is around, the Java object must be kept around to receive
+     * translated callbacks from the C++ object.  This is a rather Byzantine
+     * error and we are not going to try to harden the Java bindings against an
+     * error of this type that is propagated up.
+     *
+     * It may be surprising to some that a failure to leave a session means they
+     * might continue receiving notifications, but it may not be surprising to
+     * others.  We'll just leave it at that.
+     */
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("BusAttachment_leaveSession(): Success\n"));
+
+        /*
+         * We know that AllJoyn has released its hold on C++ listener object
+         * referred to by our Java listener object.  We can now release our hold on
+         * the Java listener object.
+         */
+        QCC_DbgPrintf(("BusAttachment_leaveSession(): Taking Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Lock();
+        jobject jglobalref = busPtr->sessionListenerMap[jsessionId];
+        busPtr->sessionListenerMap[jsessionId] = 0;
+        QCC_DbgPrintf(("BusAttachment_leaveSession(): Releasing Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Unlock();
+
+        QCC_DbgPrintf(("BusAttachment_leaveSession(): Releasing strong global reference to SessionListener %p\n", jglobalref));
+        env->DeleteGlobalRef(jglobalref);
+    } else {
+        QCC_LogError(status, ("BusAttachment_leaveSession(): Error\n"));
+    }
+
+    return JStatus(status);
+}
+
+/**
+ * Explicitly set a session listener for a given session ID.
+ *
+ * Clients provide session listeners when they join sessions since it makes
+ * sense to associate the provided listener with the expected session ID.
+ * Services, on the other hand, do not join sessions, they are notified when
+ * clients join the sessions they are exporting.  So there is no easy way to
+ * make the session ID to session joiner association.  Because of this, it is
+ * expected that a service will make that association explicitly in its
+ * session joined callback by calling this method.
+ *
+ * Although this is intended to be used by services, there is no rule that
+ * states that this method may only be used in that context.  As such, any
+ * call to this method will overwrite an existing listener, disconnecting it
+ * from its callbacks.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param jsessionPort The SessionPort value representing the contact port.
+ * @param jsessionId Set to the resulting SessionID value if the call succeeds.
+ * @param jsessionOpts Session options that services must agree to in order to
+ *                     successfully join the session.
+ * @param jlistener Called by the bus when session related events occur.
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(JNIEnv* env, jobject thiz,
+                                                                                jint jsessionId, jobject jlistener)
+{
+    QCC_DbgPrintf(("BusAttachment_setSessionListener()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * We always take a strong global reference to the listener object and hold
+     * it as long as we can possibly get callbacks that use it.  If we can't
+     * acquire the reference, then we are in an exception state and returning
+     * NULL is okay.
+     */
+    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Taking strong global reference to SessionListener %p\n", jlistener));
+    jobject jglobalref = env->NewGlobalRef(jlistener);
+    if (!jglobalref) {
+        return NULL;
+    }
+
+    /*
+     * Get the C++ object that must be there backing the Java listener object
+     */
+    JSessionListener* listener = GetNativeListener<JSessionListener*>(env, jlistener);
+    assert(listener);
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Call SetSessionListener(%d, %p)\n", jsessionId, listener));
+
+    QStatus status = busPtr->SetSessionListener(jsessionId, listener);
+
+    /*
+     * We did the call to set the session listner, but we have to ask ourselves
+     * two questions: did the new session listener actually get accepted, and
+     * what happened to a C++ session listener that may or may not have
+     * previously existed.  By inspecting the code, we know that if no error
+     * is returned, the session listener has been set.  We don't have any way
+     * of directly inferring that there was a previous listener that will no
+     * longer be used.  That is left to us.
+     *
+     * This means that if there was any kind of error, AllJoyn can still call
+     * back into a possibly pre-existing C++ listener.  Therefore we must keep
+     * it around.  But since the new listener was not accepted, we don't have to
+     * keep it around.  This is a rather Byzantine error and we are not going to
+     * try to harden the Java bindings against an error of this type that is
+     * propagated up.
+     *
+     * It may be surprising to some that a failure to set a session listener
+     * means they might continue receiving notifications on a previously set
+     * session listener, but it may not be surprising to others.  We'll just
+     * leave it at that.
+     */
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Success\n"));
+
+        /*
+         * We know that AllJoyn has released its hold on any pre-existing C++
+         * listener object referred to by a pre-existing Java listener object.
+         * We can now release our hold on that Java listener object.
+         */
+        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Taking Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Lock();
+
+        jobject joldglobalref = busPtr->sessionListenerMap[jsessionId];
+        busPtr->sessionListenerMap[jsessionId] = 0;
+
+        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Releasing strong global reference to SessionListener %p\n", joldglobalref));
+        env->DeleteGlobalRef(joldglobalref);
+
+        /*
+         * We also know that AllJoyn has a hold on the C++ listener object that
+         * we just used.  We have got to keep a hold on the corresponding Java
+         * object.
+         */
+        busPtr->sessionListenerMap[jsessionId] = jglobalref;
+
+        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Releasing Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Unlock();
+    } else {
+        QCC_LogError(status, ("BusAttachment_setSessionListener(): Error\n"));
+
+        /*
+         * We know that the C++ listener corresponding to the Java listener we
+         * got passed into this method was not accepted by AllJoyn.  This means
+         * that we don't need to keep a hold of the reference we took above.  It
+         * does mean that if an existing object is there, it may still be used
+         * to receive callbacks.  That is, if there is an existing listener on a
+         * session, and a subsequent setSessionListener fails, the existing
+         * listener remains.
+         */
+        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Releasing strong global reference to SessionListener %p\n", jglobalref));
+        env->DeleteGlobalRef(jglobalref);
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_create(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("SessionListener_create()\n"));
+
+    assert(GetHandle<JSessionListener*>(thiz) == NULL);
+
+    JSessionListener* jsl = new JSessionListener(thiz);
+    if (jsl == NULL) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, jsl);
+    if (env->ExceptionCheck()) {
+        delete jsl;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("SessionListener_destroy()\n"));
+
+    JSessionListener* jsl = GetHandle<JSessionListener*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    assert(jsl);
+    delete jsl;
+
+    SetHandle(thiz, NULL);
+    return;
+}
+
+JOnJoinSessionListener::JOnJoinSessionListener(jobject jonJoinSessionListener)
+    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), busPtr(NULL)
+{
+    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener()\n"));
+
+    JNIEnv* env = GetEnv();
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Taking weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
+    this->jonJoinSessionListener = env->NewWeakGlobalRef(jonJoinSessionListener);
+    if (!this->jonJoinSessionListener) {
+        return;
+    }
+
+    JLocalRef<jclass> clazz = env->GetObjectClass(jonJoinSessionListener);
+
+    MID_onJoinSession = env->GetMethodID(clazz, "onJoinSession", "(Lorg/alljoyn/bus/Status;ILorg/alljoyn/bus/SessionOpts;Ljava/lang/Object;)V");
+    if (!MID_onJoinSession) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Can't find onJoinSession() in OnJoinSessionListener\n"));
+    }
+}
+
+JOnJoinSessionListener::~JOnJoinSessionListener()
+{
+    QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener()\n"));
+
+    JNIEnv* env = GetEnv();
+
+    if (jsessionListener) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
+        env->DeleteWeakGlobalRef(jsessionListener);
+        jsessionListener = NULL;
+    }
+
+    if (jonJoinSessionListener) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
+        env->DeleteWeakGlobalRef(jonJoinSessionListener);
+        jonJoinSessionListener = NULL;
+    }
+
+    if (jcontext) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to context Object %p\n", jcontext));
+        env->DeleteWeakGlobalRef(jcontext);
+        jcontext = NULL;
+    }
+}
+
+void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr busPtr)
+{
+    /*
+     * When an async join operation is started, we are provided three Java
+     * object references: a session listener object, a callback listener object
+     * and a user-defined context object.  In order to keep the memory
+     * management model of the bindings somewhat consistent, the bus attachment
+     * is in charge of holding Java references to these objects while AllJoyn is
+     * off pondering what to do with the C++ counterparts.
+     *
+     * When the C++ callback is fired (our method), we need to decide what to do
+     * with those Java objects.  There may be multiple instances of async joins,
+     * including instances with the three provided ojects being identical.  We
+     * don't comment on the wisdom of a client doint that, we just admit the
+     * possibility.  If the three references we have weak references to
+     * (locally) are equal to the three references held in an instance of an
+     * asyn join by the bus attachment, we decide that we have found the right
+     * instance.  It may be the case that the client is trying to change values
+     * in a context object out from under us, and provide the same three objects
+     * thinking we can magically differentiate between them, but that's not
+     * really our problem.
+     *
+     * So we take new weak references to the provided Java objects (so we don't
+     * interfere in garbage collection) and save them to compare later.  If we
+     * can't get a reference we will be in exception state.
+     */
+    JNIEnv* env = GetEnv();
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to SessionListener %p\n", jsessionListener));
+    this->jsessionListener = env->NewWeakGlobalRef(jsessionListener);
+    if (!this->jsessionListener) {
+        return;
+    }
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to context Object %p\n", jcontext));
+    this->jcontext = env->NewWeakGlobalRef(jcontext);
+    if (!this->jcontext) {
+        env->DeleteWeakGlobalRef(jsessionListener);
+        return;
+    }
+
+    /*
+     * We need to be able to get back at the bus attachment in the callback to
+     * release and/or reassign resources.
+     */
+    this->busPtr = busPtr;
+}
+
+void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
+{
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
+                   QCC_StatusText(status), sessionId, opts.traffic, opts.isMultipoint,
+                   opts.proximity, opts.transports, context));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    JLocalRef<jobject> jstatus;
+    jint jsessionId;
+    jmethodID mid;
+    JLocalRef<jobject> jopts;
+    jfieldID fid;
+    jobject jo;
+
+    /*
+     * Translate the C++ formal parameters into their JNI counterparts.
+     */
+    jstatus = JStatus(status);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
+        goto exit;
+    }
+
+    jsessionId = sessionId;
+
+    mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
+    if (!mid) {
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Can't find SessionOpts constructor\n"));
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Create new SessionOpts\n"));
+    jopts = env->NewObject(CLS_SessionOpts, mid);
+    if (!jopts) {
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Cannot create SessionOpts\n"));
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Load SessionOpts\n"));
+    fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
+    env->SetByteField(jopts, fid, opts.traffic);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "isMultipoint", "Z");
+    env->SetBooleanField(jopts, fid, opts.isMultipoint);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "proximity", "B");
+    env->SetByteField(jopts, fid, opts.proximity);
+
+    fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
+    env->SetShortField(jopts, fid, opts.transports);
+
+    /*
+     * The weak global reference jonJoinSessionListener cannot be directly used.
+     * We have to get a "hard" reference to it and then use that.  If you try to
+     * use a weak reference directly you will crash and burn.
+     */
+    jo = env->NewLocalRef(jonJoinSessionListener);
+    if (!jo) {
+        goto exit;
+    }
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jo, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)context);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
+        goto exit;
+    }
+
+exit:
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release Resources\n"));
+
+    /*
+     * We have our Java resources stashed away in a list stored in the bus
+     * attachment.  We need to match our object "signature" with those "pended"
+     * objects and come to a resolution about their lifetimes.
+     */
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Taking Bus Attachment common lock\n"));
+    busPtr->baCommonLock.Lock();
+    for (list<PendingAsyncJoin>::iterator i = busPtr->pendingAsyncJoins.begin(); i != busPtr->pendingAsyncJoins.end(); ++i) {
+        if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
+            if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
+                /*
+                 * All of the stashed objects match, so the found case is
+                 * indistinguishable from any additional instance, so we use
+                 * this one.  We rely on our destructor to release our weak
+                 * references, but we need to deal with the strong references
+                 * that the bus attachment holds (mostly to make memory management
+                 * of this case similar to others).
+                 *
+                 * We always release our hold on the user context object and the
+                 * OnJoinSessionListener since they will no longer be used by
+                 * this asynchronous join instance.  If the join succeeded,
+                 * however, we need to keep on holding the session listener in
+                 * case something happens to the now "up" session.  This
+                 * reference must go in the sessionListenerMap.  If the async
+                 * call failed, we are done with the session listener as well.
+                 */
+                if (i->jcontext) {
+                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to context Object %p\n", i->jcontext));
+                    env->DeleteGlobalRef(i->jcontext);
+                    jcontext = NULL;
+                }
+
+                if (status == ER_OK) {
+                    busPtr->sessionListenerMap[sessionId] = i->jlistener;
+                } else {
+                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
+                    env->DeleteGlobalRef(i->jlistener);
+                }
+
+                /*
+                 * releasing the Java callback on join session listener is
+                 * effectively a "delete this" since the global reference to the
+                 * Java object controls the lifetime of its corresponding C++
+                 * object -- us.  We have got to do that last, so we init a
+                 * local variable with the object reference before erasing the
+                 * list entry we've been working with and then delete the
+                 * global reference just before we leave.
+                 */
+                jobject jcallback = i->jcallback;
+
+                /*
+                 * Tell the bus to forget about the Java object references since
+                 * we have dealt with them all.
+                 */
+                busPtr->pendingAsyncJoins.erase(i);
+
+                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
+                env->DeleteGlobalRef(jcallback);
+                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
+                busPtr->baCommonLock.Unlock();
+                return;
+            }
+        }
+    }
+
+    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
+    busPtr->baCommonLock.Unlock();
+    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env,
+                                                                              jobject thiz,
+                                                                              jstring jsessionHost,
+                                                                              jshort jsessionPort,
+                                                                              jobject jsessionOpts,
+                                                                              jobject jsessionListener,
+                                                                              jobject jonJoinSessionListener,
+                                                                              jobject jcontext)
+{
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync()\n"));
+
+    /*
+     * Load the C++ session host string from the java parameter
+     */
+    JString sessionHost(jsessionHost);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Load the C++ session options from the Java session options.
+     */
+    SessionOpts sessionOpts;
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionOpts);
+    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
+    assert(fid);
+    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
+
+    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
+    assert(fid);
+    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "proximity", "B");
+    assert(fid);
+    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
+
+    fid = env->GetFieldID(clazz, "transports", "S");
+    assert(fid);
+    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This method is unusual in that there are three objects passed which have
+     * a lifetime past the duration of the method: The SessionListener needs to
+     * be kept around to hear about the joined session being lost for as long as
+     * the session is up; the OnJoinSessionListner needs to be kept around until
+     * the asynchronous join completes; and the user-defined context object has
+     * the same lifetime (from our perspective) as the OnJoinSessionListener.
+     *
+     * It is tempting to think of the "single-shot" objects here as somehow different
+     * than other Java objects, whereupon we can take shortcuts on memory management.
+     * This is not the case since we cannot impose a use model on the user.  She may
+     * decide to instantiate any or all of these objects and reuse them -- or not.
+     *
+     * So we handle all of these objects the same way we do all other long-lived
+     * Java objects.  We expect them to create their own corresponding C++
+     * object when the Java constructor is run, and we expect them to delete the
+     * C++ object when they are finalized.  Our memory management responsibility
+     * here is then to add a strong global reference to the objects to keep them
+     * alive.
+     */
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to SessionListener %p\n", jsessionListener));
+    jobject jglobalListenerRef = env->NewGlobalRef(jsessionListener);
+    if (!jglobalListenerRef) {
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
+    jobject jglobalCallbackRef = env->NewGlobalRef(jonJoinSessionListener);
+    if (!jglobalCallbackRef) {
+        env->DeleteGlobalRef(jglobalListenerRef);
+        return NULL;
+    }
+
+    /*
+     * The user context is optional.
+     */
+    jobject jglobalContextRef = NULL;
+    if (jcontext) {
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to context Object %p\n", jcontext));
+        jglobalContextRef = env->NewGlobalRef(jcontext);
+        if (!jglobalContextRef) {
+            env->DeleteGlobalRef(jglobalListenerRef);
+            env->DeleteGlobalRef(jglobalCallbackRef);
+            return NULL;
+        }
+    }
+
+    /*
+     * Get the C++ object that must be there backing the Java listener object
+     */
+    JSessionListener* listener = GetNativeListener<JSessionListener*>(env, jsessionListener);
+    assert(listener);
+
+    /*
+     * Get the C++ object that must be there backing the Java callback object
+     */
+    JOnJoinSessionListener* callback = GetNativeListener<JOnJoinSessionListener*>(env, jonJoinSessionListener);
+    assert(callback);
+
+    /*
+     * There is no C++ object backing the Java context object.  This is just an
+     * object reference that is plumbed through AllJoyn which will pop out the
+     * other side un-molested.  It is not interpreted by AllJoyn so we can just
+     * use our Java global reference to the provided Java object.  We pass the
+     * reference nack to the user when the callback fires.
+     */
+    void* context = jglobalContextRef;
+
+    /*
+     * We have three objects now that are closely associated.  We have an
+     * OnJoinSessionListener that will be waiting for the async join to complete.
+     * We have a SessionListener that we need to hold a strong reference to if
+     * the join is successful, and we have a user context object we need to
+     * provide back to the user when the async call is finished.  We tie them
+     * all together as weak references in the C++ listener object corresponding
+     * to the OnJoinSessionListener.
+     *
+     * Note: If a user makes an asynchronous call using one combination of the
+     * Java objects OnJoinSessionListener, SessionListener and context; and she
+     * makes a subsequent call with the first join still outstanding and with
+     * the same OnJoinSessionListener but a different SessionListener or
+     * context, the async callbacks will both come out with the second flavors
+     * of the objects.  The original objects will be temporarily leaked.  This
+     * is proabbly expected behavior, but we note it just in case.
+     */
+    callback->Setup(jsessionListener, jcontext, busPtr);
+
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
+                   sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
+                   sessionOpts.proximity, sessionOpts.transports, callback, context));
+
+    QStatus status = busPtr->JoinSessionAsync(sessionHost.c_str(), jsessionPort, listener, sessionOpts, callback, context);
+
+    /*
+     * If we get an exception down in the AllJoyn code, it's hard to know what
+     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
+     * clue that we're up here and won't throw any Java exceptions, so we should
+     * be in good shape and never see this.  Famous last words, I know.  To be
+     * safe, we'll keep the global reference(s) in place (leaking temporarily),
+     * log the exception and let it propagate on up the stack to the client.
+     */
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This is an async join method, so getting a successful completion only
+     * means that AllJoyn was able to send off a message requesting the join.
+     * This means we have a special case code to "pend" the Java objects we are
+     * holding until we get a status from AllJoyn.  We will release the callback
+     * and the context unconditionally when the callback fires, but what we do
+     * with the session listener will depend on the completion status.
+     *
+     * If we get an error from the AllJoyn code now it means that the send of
+     * the join session message to the daemon failed, and nothing has worked.
+     * We know from code inspection that neither the C++ listener object, the
+     * C++ callback nor the C++ context will be remembered by AllJoyn if an
+     * error happens now.  Since the C++ objects will not be used, the Java
+     * objects will never be used and our saved global references are not
+     * required -- we can just forget about them.
+     *
+     * Pick up the async join code path in JOnJoinSessionListener::JoinSessionCB
+     */
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Success\n"));
+        PendingAsyncJoin paj(jglobalListenerRef, jglobalCallbackRef, jglobalContextRef);
+
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Lock();
+
+        busPtr->pendingAsyncJoins.push_back(paj);
+
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing Bus Attachment common lock\n"));
+        busPtr->baCommonLock.Unlock();
+    } else {
+        QCC_LogError(status, ("BusAttachment_joinSessionAsync(): Error\n"));
+
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to SessionListener %p\n", jglobalListenerRef));
+        env->DeleteGlobalRef(jglobalListenerRef);
+
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to OnJoinSessionListener %p\n", jglobalCallbackRef));
+        env->DeleteGlobalRef(jglobalCallbackRef);
+
+        if (jglobalContextRef) {
+            QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to context Object %p\n", jcontext));
+            env->DeleteGlobalRef(jglobalContextRef);
+        }
+    }
+    return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_create(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("OnJoinSessionListener_create()\n"));
+
+    assert(GetHandle<JOnJoinSessionListener*>(thiz) == NULL);
+
+    JOnJoinSessionListener* jojsl = new JOnJoinSessionListener(thiz);
+    if (jojsl == NULL) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, jojsl);
+    if (env->ExceptionCheck()) {
+        delete jojsl;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_destroy(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("OnJoinSessionListener_destroy()\n"));
+
+    JOnJoinSessionListener* jojsl = GetHandle<JOnJoinSessionListener*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    assert(jojsl);
+    delete jojsl;
+
+    SetHandle(thiz, NULL);
+    return;
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv* env, jobject thiz,
+                                                                          jint jsessionId,
+                                                                          jobject jsockfd)
+{
+    QCC_DbgPrintf(("BusAttachment_getSessionFd()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    qcc::SocketFd sockfd = -1;
+
+    QCC_DbgPrintf(("BusAttachment_getSessionFd(): Call GetSessionFd(%d, %d)\n", jsessionId, sockfd));
+
+    QStatus status = busPtr->GetSessionFd(jsessionId, sockfd);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_getSessionFd(): GetSessionFd() fails\n"));
+    }
+
+    /*
+     * Store the sockFd in its corresponding out parameter.
+     */
+    JLocalRef<jclass> clazz = env->GetObjectClass(jsockfd);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    env->SetIntField(jsockfd, fid, sockfd);
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv* env,
+                                                                         jobject thiz,
+                                                                         jstring jname,
+                                                                         jobject jguid)
+{
+    QCC_DbgPrintf(("BusAttachment::getPeerGUID()\n"));
+
+    /*
+     * Load the C++ name string from the java parameter.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    qcc::String guidstr;
+    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Call GetPeerGUID(%s, %s)\n", name.c_str(), guidstr.c_str()));
+
+    QStatus status = busPtr->GetPeerGUID(name.c_str(), guidstr);
+
+    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Back from GetPeerGUID(%s, %s)\n", name.c_str(), guidstr.c_str()));
+
+    /*
+     * Locate the C++ GUID string.  Note that the reference to the string is
+     * passed in as an [out] parameter using a mutable object, so we are really
+     * finding the field which we will write our found GUID string reference into.
+     */
+    JLocalRef<jclass> clazz = env->GetObjectClass(jguid);
+    jfieldID guidValueFid = env->GetFieldID(clazz, "value", "Ljava/lang/String;");
+    assert(guidValueFid);
+
+    /*
+     * We provided an empty C++ string to AllJoyn, and it has put the GUID in
+     * that string if it succeeded.  We need to create a Java string with the
+     * returned bytes and put it into the StringValue object's "value" field
+     * which we just located.
+     */
+    jstring jstr = env->NewStringUTF(guidstr.c_str());
+    env->SetObjectField(jguid, guidValueFid, jstr);
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_getPeerGUID(): GetPeerGUID() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIEnv*env, jobject thiz,
+                                                                            jstring jmodule, jint jlevel)
+{
+    QCC_DbgPrintf(("BusAttachment_setDaemonDebug()\n"));
+
+    /*
+     * Load the C++ module name with the Java module name.
+     */
+    JString module(jmodule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_setDaemonDebug(): Call SetDaemonDebug(%s, %d)\n", module.c_str(), jlevel));
+
+    QStatus status = busPtr->SetDaemonDebug(module.c_str(), jlevel);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_setDaemonDebug(): SetDaemonDebug() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setLogLevels(JNIEnv*env, jobject thiz, jstring jlogEnv)
+{
+    QCC_DbgPrintf(("BusAttachment_setLogLevels()\n"));
+
+    /*
+     * Load the C++ environment string with the Java environment string.
+     */
+    JString logEnv(jlogEnv);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLogLevels(): Exception\n"));
+        return;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("QCC_SetLogLevels(%s)\n", logEnv.c_str()));
+    QCC_SetLogLevels(logEnv.c_str());
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setDebugLevel(JNIEnv*env, jobject thiz, jstring jmodule, jint jlevel)
+{
+    QCC_DbgPrintf(("BusAttachment_setDebugLevel()\n"));
+
+    /*
+     * Load the C++ module string with the Java module string.
+     */
+    JString module(jmodule);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDebugLevel(): Exception\n"));
+        return;
+    }
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("QCC_SetDebugLevel(%s, %d)\n", module.c_str(), jlevel));
+    QCC_SetDebugLevel(module.c_str(), jlevel);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_useOSLogging(JNIEnv*env, jobject thiz, jboolean juseOSLog)
+{
+    QCC_DbgPrintf(("BusAttachment_useOSLogging()\n"));
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("QCC_UseOSLogging(%d)\n", juseOSLog));
+    QCC_UseOSLogging(juseOSLog);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env,
+                                                                     jobject thiz,
+                                                                     jstring jconnectArgs,
+                                                                     jobject jkeyStoreListener,
+                                                                     jstring jauthMechanisms,
+                                                                     jobject jauthListener,
+                                                                     jstring jkeyStoreFileName,
+                                                                     jboolean isShared)
+{
+    QCC_DbgPrintf(("BusAttachment_connect()\n"));
+
+    JString connectArgs(jconnectArgs);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    JString authMechanisms(jauthMechanisms);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    JString keyStoreFileName(jkeyStoreFileName);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    QStatus status = busPtr->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
+                                     jauthListener, keyStoreFileName.c_str(), isShared);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    } else {
+        return JStatus(status);
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env, jobject thiz, jstring jconnectArgs)
+{
+    QCC_DbgPrintf(("BusAttachment_disconnect()\n"));
+
+    JString connectArgs(jconnectArgs);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+    busPtr->Disconnect(connectArgs.c_str());
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(JNIEnv* env, jobject thiz, jstring jauthMechanisms, jobject jauthListener,
+                                                                                jstring jkeyStoreFileName, jboolean isShared)
+{
+    QCC_DbgPrintf(("BusAttachment_enablePeerSecurity()\n"));
+
+    JString authMechanisms(jauthMechanisms);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    JString keyStoreFileName(jkeyStoreFileName);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    QStatus status = busPtr->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str(), isShared);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    } else {
+        return JStatus(status);
+    }
+}
+
+/**
+ * Create a new JBusObject to serve as the C++ half of a Java BusObject and C++
+ * JBusObject pair.
+ */
+JBusObject::JBusObject(JBusAttachmentPtr jbap, const char* path, jobject jobj)
+    : BusObject(*jbap, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_unregistered(NULL)
+{
+    QCC_DbgPrintf(("JBusObject::JBusObject()\n"));
+
+    JNIEnv* env = GetEnv();
+
+    /*
+     * take a weak global reference back to the Java object.  We expect the bus
+     * attachment to have a strong reference to keep it from being garbage
+     * collected, but we need to get back to it without interfering with GC.
+     */
+    jbusObj = env->NewWeakGlobalRef(jobj);
     if (!jbusObj) {
         return;
     }
+
     if (env->IsInstanceOf(jobj, CLS_IntrospectionListener)) {
-        JLocalRef<jclass> clazz = env->GetObjectClass(jbusObj);
+        JLocalRef<jclass> clazz = env->GetObjectClass(jobj);
+
         MID_generateIntrospection = env->GetMethodID(clazz, "generateIntrospection", "(ZI)Ljava/lang/String;");
         if (!MID_generateIntrospection) {
             return;
         }
     }
+
     if (env->IsInstanceOf(jobj, CLS_BusObjectListener)) {
-        JLocalRef<jclass> clazz = env->GetObjectClass(jbusObj);
+        JLocalRef<jclass> clazz = env->GetObjectClass(jobj);
+
         MID_registered = env->GetMethodID(clazz, "registered", "()V");
         if (!MID_registered) {
             return;
         }
+
         MID_unregistered = env->GetMethodID(clazz, "unregistered", "()V");
         if (!MID_unregistered) {
             return;
@@ -2146,70 +6006,77 @@ JBusObject::JBusObject(BusAttachment& bus, const char* path, jobject jobj)
 
 JBusObject::~JBusObject()
 {
+    QCC_DbgPrintf(("JBusObject::~JBusObject()\n"));
+
     JNIEnv* env = GetEnv();
+
     for (JMethod::const_iterator method = methods.begin(); method != methods.end(); ++method) {
         env->DeleteGlobalRef(method->second);
     }
+
     for (JProperty::const_iterator property = properties.begin(); property != properties.end(); ++property) {
         env->DeleteGlobalRef(property->second.jget);
         env->DeleteGlobalRef(property->second.jset);
     }
-    if (jbusObj) {
-        env->DeleteGlobalRef(jbusObj);
-    }
-}
 
-bool JBusObject::IsSameObject(jobject jobj)
-{
-    return GetEnv()->IsSameObject(jbusObj, jobj);
+    if (jbusObj) {
+        env->DeleteWeakGlobalRef(jbusObj);
+    }
 }
 
 QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
 {
+    QCC_DbgPrintf(("JBusObject::AddInterfaces()\n"));
+
     QStatus status;
 
     JNIEnv* env = GetEnv();
     jsize len = env->GetArrayLength(jbusInterfaces);
+
     for (jsize i = 0; i < len; ++i) {
         JLocalRef<jobject> jbusInterface = env->GetObjectArrayElement(jbusInterfaces, i);
         if (env->ExceptionCheck()) {
             return ER_FAIL;
         }
-        const InterfaceDescription* intf = (const InterfaceDescription*)GetHandle(jbusInterface);
+
+        const InterfaceDescription* intf = GetHandle<const InterfaceDescription*>(jbusInterface);
         if (env->ExceptionCheck()) {
             return ER_FAIL;
         }
         assert(intf);
+
         status = AddInterface(*intf);
         if (ER_OK != status) {
             return status;
         }
 
         size_t numMembs = intf->GetMembers(NULL);
-        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member *[numMembs];
+        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member*[numMembs];
         if (!membs) {
             return ER_OUT_OF_MEMORY;
         }
+
         intf->GetMembers(membs, numMembs);
         for (size_t m = 0; m < numMembs; ++m) {
             if (MESSAGE_METHOD_CALL == membs[m]->memberType) {
-                status = AddMethodHandler(membs[m],
-                                          static_cast<MessageReceiver::MethodHandler>(&JBusObject::MethodHandler));
+                status = AddMethodHandler(membs[m], static_cast<MessageReceiver::MethodHandler>(&JBusObject::MethodHandler));
                 if (ER_OK != status) {
                     break;
                 }
+
                 JLocalRef<jstring> jname = env->NewStringUTF(membs[m]->name.c_str());
                 if (!jname) {
                     status = ER_FAIL;
                     break;
                 }
+
                 JLocalRef<jclass> clazz = env->GetObjectClass(jbusInterface);
-                jmethodID mid = env->GetMethodID(clazz, "getMember",
-                                                 "(Ljava/lang/String;)Ljava/lang/reflect/Method;");
+                jmethodID mid = env->GetMethodID(clazz, "getMember", "(Ljava/lang/String;)Ljava/lang/reflect/Method;");
                 if (!mid) {
                     status = ER_FAIL;
                     break;
                 }
+
                 JLocalRef<jobject> jmethod = env->CallObjectMethod(jbusInterface, mid, (jstring)jname);
                 if (env->ExceptionCheck()) {
                     status = ER_FAIL;
@@ -2219,15 +6086,18 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
                     status = ER_BUS_INTERFACE_NO_SUCH_MEMBER;
                     break;
                 }
+
                 jobject jref = env->NewGlobalRef(jmethod);
                 if (!jref) {
                     status = ER_FAIL;
                     break;
                 }
+
                 String key = intf->GetName() + membs[m]->name;
                 methods.insert(pair<String, jobject>(key, jref));
             }
         }
+
         delete [] membs;
         membs = NULL;
         if (ER_OK != status) {
@@ -2235,11 +6105,13 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numProps = intf->GetProperties(NULL);
-        const InterfaceDescription::Property** props = new const InterfaceDescription::Property *[numProps];
+        const InterfaceDescription::Property** props = new const InterfaceDescription::Property*[numProps];
         if (!props) {
             return ER_OUT_OF_MEMORY;
         }
+
         intf->GetProperties(props, numProps);
+
         for (size_t p = 0; p < numProps; ++p) {
             Property property;
             property.signature = props[p]->signature;
@@ -2249,6 +6121,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
                 status = ER_FAIL;
                 break;
             }
+
             JLocalRef<jclass> clazz = env->GetObjectClass(jbusInterface);
             jmethodID mid = env->GetMethodID(clazz, "getProperty",
                                              "(Ljava/lang/String;)[Ljava/lang/reflect/Method;");
@@ -2256,8 +6129,8 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
                 status = ER_FAIL;
                 break;
             }
-            JLocalRef<jobjectArray> jmethods = (jobjectArray)env->CallObjectMethod(jbusInterface, mid,
-                                                                                   (jstring)jname);
+
+            JLocalRef<jobjectArray> jmethods = (jobjectArray)env->CallObjectMethod(jbusInterface, mid, (jstring)jname);
             if (env->ExceptionCheck()) {
                 status = ER_FAIL;
                 break;
@@ -2266,6 +6139,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
                 status = ER_BUS_NO_SUCH_PROPERTY;
                 break;
             }
+
             JLocalRef<jobject> jget = env->GetObjectArrayElement(jmethods, 0);
             if (env->ExceptionCheck()) {
                 status = ER_FAIL;
@@ -2280,11 +6154,13 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
             } else {
                 property.jget = NULL;
             }
+
             JLocalRef<jobject> jset = env->GetObjectArrayElement(jmethods, 1);
             if (env->ExceptionCheck()) {
                 status = ER_FAIL;
                 break;
             }
+
             if (jset) {
                 property.jset = env->NewGlobalRef(jset);
                 if (!property.jset) {
@@ -2413,7 +6289,14 @@ static QStatus Unmarshal(Message& msg, jobject jmethod, JLocalRef<jobjectArray>&
 
 void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Message& msg)
 {
+    QCC_DbgPrintf(("JBusObject::MethodHandler()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     MessageContext context(msg);
     /*
      * The Java method is called via invoke() on the
@@ -2436,22 +6319,36 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(method->second);
-    jmethodID mid = env->GetMethodID(clazz, "invoke",
-                                     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+    jmethodID mid = env->GetMethodID(clazz, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
         MethodReply(member, msg, ER_FAIL);
         return;
     }
-    JLocalRef<jobject> jreply = env->CallObjectMethod(method->second, mid, jbusObj, (jobjectArray)jargs);
+
+    /*
+     * The weak global reference jbusObj cannot be directly used.  We have to
+     * get a "hard" reference to it and then use that.  If you try to use a weak
+     * reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jbusObj);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusObject::MethodHandler(): Can't get new local reference to BusObject\n"));
+        return;
+    }
+
+    JLocalRef<jobject> jreply = env->CallObjectMethod(method->second, mid, jo, (jobjectArray)jargs);
     if (env->ExceptionCheck()) {
         MethodReply(member, msg, ER_FAIL);
         return;
     }
+
     MethodReply(member, msg, jreply);
 }
 
 QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status)
 {
+    QCC_DbgPrintf(("JBusObject::MethodReply()\n"));
+
     if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
         return ER_OK;
     } else {
@@ -2461,6 +6358,8 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
 
 QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply)
 {
+    QCC_DbgPrintf(("JBusObject::MethodReply()\n"));
+
     if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
         if (!jreply) {
             return ER_OK;
@@ -2521,6 +6420,8 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
 QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
                            const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags)
 {
+    QCC_DbgPrintf(("JBusObject::Signal()\n"));
+
     const InterfaceDescription* intf = bus.GetInterface(ifaceName);
     if (!intf) {
         return ER_BUS_OBJECT_NO_SUCH_INTERFACE;
@@ -2534,7 +6435,14 @@ QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const c
 
 QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
 {
+    QCC_DbgPrintf(("JBusObject::Get()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     String key = String(ifcName) + propName;
     JProperty::const_iterator property = properties.find(key);
     if (properties.end() == property) {
@@ -2545,15 +6453,27 @@ QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(property->second.jget);
-    jmethodID mid = env->GetMethodID(clazz, "invoke",
-                                     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+    jmethodID mid = env->GetMethodID(clazz, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
         return ER_FAIL;
     }
-    JLocalRef<jobject> jvalue = env->CallObjectMethod(property->second.jget, mid, jbusObj, NULL);
+
+    /*
+     * The weak global reference jbusObj cannot be directly used.  We have to
+     * get a "hard" reference to it and then use that.  If you try to use a weak
+     * reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jbusObj);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusObject::Get(): Can't get new local reference to BusObject\n"));
+        return ER_FAIL;
+    }
+
+    JLocalRef<jobject> jvalue = env->CallObjectMethod(property->second.jget, mid, jo, NULL);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
     }
+
     if (!Marshal(property->second.signature.c_str(), (jobject)jvalue, &val)) {
         return ER_FAIL;
     }
@@ -2563,7 +6483,14 @@ QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
 
 QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
 {
+    QCC_DbgPrintf(("JBusObject::Set()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     String key = String(ifcName) + propName;
     JProperty::const_iterator property = properties.find(key);
     if (properties.end() == property) {
@@ -2580,11 +6507,22 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(property->second.jset);
-    jmethodID mid = env->GetMethodID(clazz, "invoke",
-                                     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+    jmethodID mid = env->GetMethodID(clazz, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
         return ER_FAIL;
     }
+
+    /*
+     * The weak global reference jbusObj cannot be directly used.  We have to
+     * get a "hard" reference to it and then use that.  If you try to use a weak
+     * reference directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jbusObj);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusObject::Set(): Can't get new local reference to BusObject\n"));
+        return ER_FAIL;
+    }
+
     env->CallObjectMethod(property->second.jset, mid, jbusObj, (jobjectArray)jvalue);
     if (env->ExceptionCheck()) {
         return ER_FAIL;
@@ -2595,16 +6533,36 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
 
 String JBusObject::GenerateIntrospection(bool deep, size_t indent) const
 {
+    QCC_DbgPrintf(("JBusObject::GenerateIntrospection()\n"));
+
     if (NULL != MID_generateIntrospection) {
+        /*
+         * JScopedEnv will automagically attach the JVM to the current native
+         * thread.
+         */
         JScopedEnv env;
-        JLocalRef<jstring> jintrospection = (jstring)env->CallObjectMethod(jbusObj, MID_generateIntrospection, deep, indent);
+
+        /*
+         * The weak global reference jbusObj cannot be directly used.  We have to
+         * get a "hard" reference to it and then use that.  If you try to use a weak
+         * reference directly you will crash and burn.
+         */
+        jobject jo = env->NewLocalRef(jbusObj);
+        if (!jo) {
+            QCC_LogError(ER_FAIL, ("JBusObject::GenerateIntrospection(): Can't get new local reference to BusObject\n"));
+            return "";
+        }
+
+        JLocalRef<jstring> jintrospection = (jstring)env->CallObjectMethod(jo, MID_generateIntrospection, deep, indent);
         if (env->ExceptionCheck()) {
             return BusObject::GenerateIntrospection(deep, indent);
         }
+
         JString introspection(jintrospection);
         if (env->ExceptionCheck()) {
             return BusObject::GenerateIntrospection(deep, indent);
         }
+
         return String(introspection.c_str());
     }
     return BusObject::GenerateIntrospection(deep, indent);
@@ -2612,37 +6570,100 @@ String JBusObject::GenerateIntrospection(bool deep, size_t indent) const
 
 void JBusObject::ObjectRegistered()
 {
+    QCC_DbgPrintf(("JBusObject::ObjectRegistered()\n"));
+
     BusObject::ObjectRegistered();
     if (NULL != MID_registered) {
+        /*
+         * JScopedEnv will automagically attach the JVM to the current native
+         * thread.
+         */
         JScopedEnv env;
-        env->CallVoidMethod(jbusObj, MID_registered);
+
+        /*
+         * The weak global reference jbusObj cannot be directly used.  We have to
+         * get a "hard" reference to it and then use that.  If you try to use a weak
+         * reference directly you will crash and burn.
+         */
+        jobject jo = env->NewLocalRef(jbusObj);
+        if (!jo) {
+            QCC_LogError(ER_FAIL, ("JBusObject::ObjectRegistered(): Can't get new local reference to BusObject\n"));
+            return;
+        }
+
+        env->CallVoidMethod(jo, MID_registered);
     }
 }
 
 void JBusObject::ObjectUnregistered()
 {
+    QCC_DbgPrintf(("JBusObject::ObjectUnregistered()\n"));
+
     BusObject::ObjectUnregistered();
     if (NULL != MID_registered) {
+        /*
+         * JScopedEnv will automagically attach the JVM to the current native
+         * thread.
+         */
         JScopedEnv env;
-        env->CallVoidMethod(jbusObj, MID_unregistered);
+
+        /*
+         * The weak global reference jbusObj cannot be directly used.  We have to
+         * get a "hard" reference to it and then use that.  If you try to use a weak
+         * reference directly you will crash and burn.
+         */
+        jobject jo = env->NewLocalRef(jbusObj);
+        if (!jo) {
+            QCC_LogError(ER_FAIL, ("JBusObject::ObjectUnregistered(): Can't get new local reference to BusObject\n"));
+            return;
+        }
+
+        env->CallVoidMethod(jo, MID_unregistered);
     }
 }
 
-class JSignalHandler : public MessageReceiver {
-  public:
-    JSignalHandler(jobject jobj, jobject jmethod);
-    ~JSignalHandler();
-    bool IsSameObject(jobject jobj, jobject jmethod);
-    QStatus Register(BusAttachment& bus, const char* ifaceName, const char* signalName, const char* srcPath);
-    void Unregister(BusAttachment& bus);
-    void SignalHandler(const InterfaceDescription::Member* member, const char* sourcePath, Message& msg);
-  private:
-    jweak jsignalHandler;
-    jobject jmethod;
-    const InterfaceDescription::Member* member;
-    String source;
-    String rule;
-};
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(JNIEnv* env, jobject thiz, jstring jobjPath,
+                                                                               jobject jbusObject, jobjectArray jbusInterfaces)
+{
+    QCC_DbgPrintf(("BusAttachment_registerBusObject()\n"));
+
+    JString objPath(jobjPath);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    QStatus status = busPtr->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject(JNIEnv* env, jobject thiz, jobject jbusObject)
+{
+    QCC_DbgPrintf(("BusAttachment_unregisterBusObject()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    busPtr->UnregisterBusObject(jbusObject);
+}
 
 JSignalHandler::JSignalHandler(jobject jobj, jobject jmeth)
     : jsignalHandler(NULL), jmethod(NULL), member(NULL)
@@ -2677,6 +6698,7 @@ bool JSignalHandler::IsSameObject(jobject jobj, jobject jmeth)
     if (!jo) {
         return false;
     }
+
     return env->IsSameObject(jo, jobj) && env->CallBooleanMethod(jmethod, MID_Object_equals, jmeth);
 }
 
@@ -2728,7 +6750,12 @@ void JSignalHandler::SignalHandler(const InterfaceDescription::Member* member,
                                    const char* sourcePath,
                                    Message& msg)
 {
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
     JScopedEnv env;
+
     MessageContext context(msg);
 
     JLocalRef<jobjectArray> jargs;
@@ -2756,2417 +6783,22 @@ void JSignalHandler::SignalHandler(const InterfaceDescription::Member* member,
     env->CallObjectMethod(jmethod, mid, jo, (jobjectArray)jargs);
 }
 
-/**
- * A class to hold the Java object references required for an asynchronous
- * join operation while AllJoyn mulls over what it can do about the
- * operation.
- */
-class PendingAsyncJoin {
-  public:
-    PendingAsyncJoin(jobject jlistener, jobject jcallback, jobject jcontext) {
-        this->jlistener = jlistener;
-        this->jcallback = jcallback;
-        this->jcontext = jcontext;
-    }
-    jobject jlistener;
-    jobject jcallback;
-    jobject jcontext;
-};
-
-class _Bus : public BusAttachment {
-  public:
-    static JBusObject* GetBusObject(jobject jbusObject);
-
-    _Bus(const char* applicationName, bool allowRemoteMessages);
-    QStatus Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
-                    jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
-    void Disconnect(const char* connectArgs);
-    QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
-    QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces);
-    void UnregisterBusObject(jobject jbusObject);
-    QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
-                                  jobject jsignalHandler, jobject jmethod, const char* srcPath);
-    void UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod);
-
-    static vector<JBusObject*> busObjs;
-
-    JKeyStoreListener* keyStoreListener;
-    JAuthListener* authListener;
-    vector<JSignalHandler*> signalHandlers;
-
-    /**
-     * A list of strong references to Java bus listener objects.
-     *
-     * If clients use the unnamed parameter / unnamed class idiom to provide bus
-     * listeners to registerBusListener, they can forget that the listeners
-     * exist after the register call and never explicitly call unregister.
-     *
-     * Since we need these Java objects around, we need to hold a strong
-     * reference to them to keep them from being garbage collected.
-     */
-    list<jobject> busListeners;
-
-    /**
-     * A map from session ports to their associated Java session port listeners.
-     *
-     * This mapping must be on a per-bus attachment basis since the scope of the
-     * uniqueness of a session port is per-bus attachment
-     */
-    map<SessionPort, jobject> sessionPortListenerMap;
-
-    /**
-     * A map from sessions to their associated Java session listeners.
-     *
-     * This mapping must be on a per-bus attachment basis since the uniqueness of a
-     * session is per-bus attachment
-     */
-    map<SessionId, jobject> sessionListenerMap;
-
-    /**
-     * A List of pending asynchronous join operation informations.  We store
-     * Java object references here while AllJoyn mulls over what it can do about
-     * the operation.
-     */
-    list<PendingAsyncJoin> pendingAsyncJoins;
-};
-
-vector<JBusObject*> _Bus::busObjs;
-
-_Bus::_Bus(const char* applicationName, bool allowRemoteMessages)
-    : BusAttachment(applicationName, allowRemoteMessages), keyStoreListener(NULL), authListener(NULL)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSignalHandler(JNIEnv* env, jobject thiz, jstring jifaceName,
+                                                                                         jstring jsignalName, jobject jsignalHandler,
+                                                                                         jobject jmethod, jstring jsource)
 {
-}
+    QCC_DbgPrintf(("BusAttachment_registerNativeSignalHandler()\n"));
 
-JBusObject* _Bus::GetBusObject(jobject jbusObject)
-{
-    for (vector<JBusObject*>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
-        if ((*it)->IsSameObject(jbusObject)) {
-            return (*it);
-        }
-    }
-    return NULL;
-}
-
-QStatus _Bus::Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
-                      jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
-{
-    JNIEnv* env = GetEnv();
-    QStatus status = Start();
-    if (ER_OK != status) {
-        goto exit;
-    }
-
-    if (jkeyStoreListener) {
-        keyStoreListener = new JKeyStoreListener(jkeyStoreListener);
-        if (!keyStoreListener) {
-            Throw("java/lang/OutOfMemoryError", NULL);
-        }
-        if (env->ExceptionCheck()) {
-            status = ER_FAIL;
-            goto exit;
-        }
-        RegisterKeyStoreListener(*keyStoreListener);
-    }
-
-    status = EnablePeerSecurity(authMechanisms, jauthListener, keyStoreFileName, isShared);
-    if (ER_OK != status) {
-        goto exit;
-    }
-
-    status = BusAttachment::Connect(connectArgs);
-
-    exit :
-    if (ER_OK != status) {
-        Disconnect(connectArgs);
-    }
-    return status;
-}
-
-void _Bus::Disconnect(const char* connectArgs)
-{
-    if (IsConnected()) {
-        QStatus status = BusAttachment::Disconnect(connectArgs);
-        if (ER_OK != status) {
-            QCC_LogError(status, ("Disconnect failed"));
-        }
-    }
-    // TODO: DisablePeerSecurity
-    // TODO: UnregisterKeyStoreListener
-    if (IsStarted()) {
-        QStatus status = Stop();
-        if (ER_OK != status) {
-            QCC_LogError(status, ("Stop failed"));
-        }
-    }
-
-    /*
-     * Whenever we arrange a callback path from AllJoyn to Java, there is a
-     * Java object and a C++ object involved.  Typically, the Java object "owns"
-     * the C++ object.  In some cases, especially with the Java anonymous class
-     * idiom, we have to hold a global strong reference to the Java object to
-     * ensure that it is not garbage collected, which would result in the C++
-     * object being freed before AllJoyn is notified that it should no longer
-     * call back into the C++ object.  Since we hold those references, we have
-     * to release them.
-     *
-     * As soon as we disconnected from the bus, we are guaranteed that we will
-     * no longer receive callbacks, so we can now release all of the listener
-     * resources we may have accumulated.  If we are holding the last reference
-     * to the listener object, its finalize() method will be called, which will
-     * cause its native resources to be released.  If the client still holds a
-     * reference, the release will be delayed until the client releases the
-     * reference.  The exception is user context objects which we are just
-     * passing through uninterpreted.  We hold a reference to them, but there
-     * is no corresponding native resource.
-     */
-    JNIEnv*env = GetEnv();
-    for (list<jobject>::iterator i = busListeners.begin(); i != busListeners.end(); ++i) {
-        QCC_DbgPrintf(("_Bus::Disconnect(): Releasing strong global reference to BusListener %p\n", *i));
-        env->DeleteGlobalRef(*i);
-    }
-    busListeners.clear();
-
-    for (list<PendingAsyncJoin>::iterator i = pendingAsyncJoins.begin(); i != pendingAsyncJoins.end(); ++i) {
-        QCC_DbgPrintf(("_Bus::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->jlistener));
-        env->DeleteGlobalRef(i->jlistener);
-        QCC_DbgPrintf(("_Bus::Disconnect(): Releasing strong global reference to OnJoinSessionListener %p\n", i->jcallback));
-        env->DeleteGlobalRef(i->jcallback);
-        if (i->jcontext) {
-            QCC_DbgPrintf(("_Bus::Disconnect(): Releasing strong global reference to context Object %p\n", i->jcontext));
-            env->DeleteGlobalRef(i->jcontext);
-        }
-    }
-    pendingAsyncJoins.clear();
-
-
-    for (map<SessionPort, jobject>::iterator i = sessionPortListenerMap.begin(); i != sessionPortListenerMap.end(); ++i) {
-        if (i->second) {
-            QCC_DbgPrintf(("_Bus::Disconnect(): Releasing strong global reference to SessionPortListener %p\n", i->second));
-            env->DeleteGlobalRef(i->second);
-        }
-    }
-    sessionPortListenerMap.clear();
-
-    for (map<SessionId, jobject>::iterator i = sessionListenerMap.begin(); i != sessionListenerMap.end(); ++i) {
-        if (i->second) {
-            QCC_DbgPrintf(("_Bus::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->second));
-            env->DeleteGlobalRef(i->second);
-        }
-    }
-    sessionListenerMap.clear();
-
-    delete authListener;
-    authListener = NULL;
-
-    delete keyStoreListener;
-    keyStoreListener = NULL;
-}
-
-QStatus _Bus::EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
-{
-    JNIEnv* env = GetEnv();
-    if (!authMechanisms || !IsStarted()) {
-        return ER_OK;
-    }
-    authListener = new JAuthListener(jauthListener);
-    if (!authListener) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-    }
-    if (env->ExceptionCheck()) {
-        return ER_FAIL;
-    }
-    QStatus status = BusAttachment::EnablePeerSecurity(authMechanisms, authListener, keyStoreFileName, isShared);
-    if (ER_OK != status) {
-        delete authListener;
-        authListener = NULL;
-    }
-    return status;
-}
-
-QStatus _Bus::RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces)
-{
-    JNIEnv* env = GetEnv();
-    if (GetBusObject(jbusObject)) {
-        return ER_BUS_OBJ_ALREADY_EXISTS;
-    }
-    JBusObject* busObj = new JBusObject(*this, objPath, jbusObject);
-    QStatus status = busObj->AddInterfaces(jbusInterfaces);
-    if (env->ExceptionCheck()) {
-        status = ER_FAIL;
-    }
-    if (ER_OK == status) {
-        status = BusAttachment::RegisterBusObject(*busObj);
-    }
-    if (ER_OK == status) {
-        busObjs.push_back(busObj);
-    } else {
-        delete busObj;
-    }
-    return status;
-}
-
-void _Bus::UnregisterBusObject(jobject jbusObject)
-{
-    JBusObject* busObj = GetBusObject(jbusObject);
-    if (busObj) {
-        BusAttachment::UnregisterBusObject(*busObj);
-        for (vector<JBusObject*>::iterator it = busObjs.begin(); it != busObjs.end(); ++it) {
-            if ((*it)->IsSameObject(jbusObject)) {
-                delete (*it);
-                busObjs.erase(it);
-                break;
-            }
-        }
-    }
-}
-
-QStatus _Bus::RegisterSignalHandler(const char* ifaceName, const char* signalName,
-                                    jobject jsignalHandler, jobject jmethod, const char* srcPath)
-{
-    JSignalHandler* signalHandler = new JSignalHandler(jsignalHandler, jmethod);
-    QStatus status = signalHandler->Register(*this, ifaceName, signalName, srcPath);
-    if (ER_OK == status) {
-        signalHandlers.push_back(signalHandler);
-    } else {
-        delete signalHandler;
-    }
-    return status;
-}
-
-void _Bus::UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
-{
-    for (vector<JSignalHandler*>::iterator it = signalHandlers.begin(); it != signalHandlers.end(); ++it) {
-        if ((*it)->IsSameObject(jsignalHandler, jmethod)) {
-            (*it)->Unregister(*this);
-            delete (*it);
-            signalHandlers.erase(it);
-            break;
-        }
-    }
-}
-
-/*
- * The Java garbage collector may queue and call finalizers in any order, so we
- * have to ensure that an underlying BusAttachment stays around until all of its
- * attached ProxyBusObjects are deleted. The easiest way to do this is to
- * reference count the underlying C++ BusAttachment.  This way, the C++ object
- * is kept around until the last of the ProxyBusObjects or the BusAttachemnt is
- * destroyed.  The last one to go triggers the delete of the actual
- * BusAttachment.  The AllJoyn version of a reference counted smart pointer is
- * the ManagedObj.
- *
- * TODO:
- * The use of this typedef is just confusing.  We should remove it to make
- * it more clear that we are storing ManagedObj * in handles, which implies an
- * extra indirection is required to access it.  When you think you are getting
- * a pointer to a class Bus from a Java object,
- *
- *   Bus* bus = (Bus*)GetHandle(thiz);
- *
- * You are really getting a managed object, not a pointer to a bus.  You have
- * to use operator * to get a pointer to the _Bus even though it looks like you
- * should just be able to use it directly.  Silly.
- */
-typedef ManagedObj<_Bus> Bus;
-
-/**
- * The native C++ implementation of the Java class BusAttachment.create method
- * found in src/org/alljoyn/bus/BusAttachment.java
- *
- * This method allocates any C++ resources that may be associated with the Java
- * BusAttachment; and is expected to be called from the BusAttachment constructor.
- *
- * The picture to keep in mind is that there is a Java BusAttachment object which
- * is presented to the Java user.  As described in the sidebars at the start of
- * this file, the Java BusAttachment has a corresponding C++ class.  In order to
- * simplify lifetime issues for the C++ class, it is accesed through a ManagedObj
- * which is a reference counting mechanism.  Recall from the sidebars that Java
- * objects use an opaque handle to get at the C++ objects, and C++ objects use a
- * weak object reference to get at the Java objects.  The opaque handle in this
- * case is that managed object pointer.
- *
- * This method, which allocates the C++ resources, then news up a Bus which is a
- * typedef for ManagedObj<_Bus>.  The _Bus is a class that inherits from the
- * desired C++ class BusAttachment.  It adds a few methods to make life easier
- * for the Java classes, but it is essentially a BusAttachment; and when we use
- * Bus it is essentially the managed object version of a pointer to a C++
- * BusAttachment.
- *
- * We are provided a "this" reference, which is a reference to the Java
- * BusAttachment which is being constructed.  Inside this BusAttachment we expect
- * to find a field named "handle" into which we place the pointer to the new
- * C++ bus attachment.  Since the BusAttachment only provides a path for
- * making calls into C++ there is no need for a reference back from C++ to
- * Java and we don't need the corresponding weak reference.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param japplicationName A name to give the application.  Used primarily in
- *                         authentication.
- * @param allowRemoteMessages If true allow communication with attachments
- *                            on physically remote attachments.
- */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env,
-                                                                 jobject thiz,
-                                                                 jstring japplicationName,
-                                                                 jboolean allowRemoteMessages)
-{
-    JString applicationName(japplicationName);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    const char* name = applicationName.c_str();
-    Bus* bus = new Bus(name, allowRemoteMessages);
-    if (!bus) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-    }
-    if (!env->ExceptionCheck()) {
-        SetHandle(thiz, bus);
-    }
-    if (env->ExceptionCheck()) {
-        delete bus;
-    }
-}
-
-/**
- * The native C++ implementation of the Java class BusAttachment.destroy method
- * found in src/org/alljoyn/bus/BusAttachment.java
- *
- * This method releasess any C++ resources that may be associated with the Java
- * BusAttachment; and is expected to be called from the BusAttachment finalizer
- * method.
- *
- * The picture to keep in mind is that there is a Java BusAttachment object which
- * is presented to the Java user.  As described in the sidebars at the start of
- * this file, the Java BusAttachment has a corresponding C++ class.
- *
- * The Java object lifetime is managed by the JVM garbage collector, but the
- * C++ object needs to be explicitly managed.  In order to accomodate this, we
- * hook the finalize() method in the Java BusAttachment finalize() method, which
- * will be called when the Java object has been determined to be garbage.
- *
- * This method is called in BusAttachment.finalize() in order to do the explicit
- * release of the associated C++ object.  Recall that the reference to the C++
- * object is stored in the "handle" field of the BusAttachment.  We get at it
- * using GetHandle.
- *
- * When we delete the object pointed to by this handle, we are actually calling
- * a ManagedObj destructor.  This is conceptually the same thing as a reference
- * counted smart pointer going out of scope, and it decrements the reference
- * count on the managed object, which is the C++ bus attachment.  If this delete
- * causes the ref count to drop to zero, the underlying object is deleted; but
- * if there are existing proxy bus objects that may be queued for finalizing
- * after us, the managed object will still hold references to them and so will
- * stay around until all of those objects are collected.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
-                                                                  jobject thiz)
-{
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (!bus) {
-        return;
-    }
-
-    delete bus;
-    SetHandle(thiz, NULL);
-}
-
-/**
- * Register an object that will receive bus event notifications.  In this
- * context, registering a listener should be thought of as "adding another
- * listener."  You may register zero (if you are not interested in receiving
- * notifications) or more listeners.
- *
- * The bus attachment is the way that Java clients and services talk to the bus,
- * but the bus needs a way to notify clients and services of events happening on
- * the bus.  This is done via an object with a number of methods corresponding
- * to callback functions that are invoked when bus events occur.
- *
- * The listener passed in as the "jobject jlistener" will be a reference to, or
- * perhaps descendent of, the java class BusListener.  As usual we need to create
- * an instance of a C++ object to receive the actual callbacks.  The responsibility
- * of this C++ object is just to call the corresponding methods in the Java object.
- *
- * As mentioned in the sidebar at the start of this file, the C++ object gets to the
- * Java object via a jobject reference back to the Java object which we pass in the
- * C++ object constructor.
- *
- * If the jobject needs to get back to the C++ object it does so via the "handle"
- * field and the helpers SetHandle() and GetHandle().
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param listener  Object instance that will receive bus event notifications.
- */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JNIEnv* env, jobject thiz, jobject jlistener)
-{
-    QCC_DbgPrintf(("BusAttachment_registerBusListener()\n"));
-
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception\n"));
-        return;
-    }
-    assert(bus);
-
-    /*
-     * We always take a strong global reference to the listener object.
-     */
-    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Taking strong global reference to BusListener %p\n", jlistener));
-    jobject jglobalref = env->NewGlobalRef(jlistener);
-    if (!jglobalref) {
-        return;
-    }
-    (*bus)->busListeners.push_back(jglobalref);
-
-    /*
-     * Get the C++ object that must be there backing the Java object
-     */
-    JBusListener* listener = GetNativeListener<JBusListener>(env, jlistener);
-    assert(listener);
-
-    /*
-     * Make the call into AllJoyn.
-     */
-    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Call RegisterBusListener()\n"));
-    (*bus)->RegisterBusListener(*listener);
-}
-
-/**
- * Unregister an object to prevent it from receiving further bus event
- * notifications.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param listener  Object instance that will receive bus event notifications.
- */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(JNIEnv* env, jobject thiz, jobject jlistener)
-{
-    QCC_DbgPrintf(("BusAttachment_unregisterBusListener()\n"));
-
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception\n"));
-        return;
-    }
-    assert(bus);
-
-    /*
-     * Get the C++ object that must be there backing the Java object
-     */
-    JBusListener* listener = GetNativeListener<JBusListener>(env, jlistener);
-    assert(listener);
-
-    /*
-     * Make the call into AllJoyn.
-     */
-    QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Call UnregisterBusListener()\n"));
-    (*bus)->UnregisterBusListener(*listener);
-
-    /*
-     * We always take a reference to the Java listener in registerBusListener,
-     * so we always release a reference here.
-     */
-    for (list<jobject>::iterator i = (*bus)->busListeners.begin(); i != (*bus)->busListeners.end(); ++i) {
-        if (env->IsSameObject(*i, jlistener)) {
-            QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Releasing strong global reference to BusListener %p\n", jlistener));
-            env->DeleteGlobalRef(jlistener);
-            (*bus)->busListeners.erase(i);
-            break;
-        }
-    }
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_create(JNIEnv* env, jobject thiz)
-{
-    assert(GetHandle(thiz) == NULL);
-
-    JBusListener* jbl = new JBusListener(thiz);
-    if (jbl == NULL) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-        return;
-    }
-
-    SetHandle(thiz, jbl);
-    if (env->ExceptionCheck()) {
-        delete jbl;
-        return;
-    }
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_destroy(JNIEnv* env, jobject thiz)
-{
-    void* v = GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-
-    assert(v);
-    delete reinterpret_cast<JBusListener*>(v);
-
-    SetHandle(thiz, NULL);
-    return;
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv*env, jobject thiz,
-                                                                         jstring jname, jint jflags)
-{
-    QCC_DbgPrintf(("BusAttachment_requestName()\n"));
-
-    /*
-     * Load the C++ well-known name with the Java well-known name.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_requestName(): Call RequestName(%s, 0x%08x)\n", name.c_str(), jflags));
-
-    QStatus status = (*bus)->RequestName(name.c_str(), jflags);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_requestName(): RequestName() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv*env, jobject thiz,
-                                                                         jstring jname)
-{
-    QCC_DbgPrintf(("BusAttachment_releaseName()\n"));
-
-    /*
-     * Load the C++ well-known name with the Java well-known name.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-
-    QCC_DbgPrintf(("BusAttachment_releaseName(): Call ReleaseName(%s)\n", name.c_str()));
-
-    QStatus status = (*bus)->ReleaseName(name.c_str());
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_releaseName(): ReleaseName() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env, jobject thiz,
-                                                                      jstring jrule)
-{
-    QCC_DbgPrintf(("BusAttachment_addMatch()\n"));
-
-    /*
-     * Load the C++ well-known name with the Java well-known name.
-     */
-    JString rule(jrule);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_addMatch(): Call AddMatch(%s)\n", rule.c_str()));
-
-    QStatus status = (*bus)->AddMatch(rule.c_str());
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_addMatch(): AddMatch() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*env, jobject thiz,
-                                                                         jstring jrule)
-{
-    QCC_DbgPrintf(("BusAttachment_addMatch()\n"));
-
-    /*
-     * Load the C++ well-known name with the Java well-known name.
-     */
-    JString rule(jrule);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_removeMatch(): Call RemoveMatch(%s)\n", rule.c_str()));
-
-    QStatus status = (*bus)->RemoveMatch(rule.c_str());
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_removeMatch(): RemoveMatch() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEnv* env, jobject thiz,
-                                                                           jstring jname, jshort jtransports)
-{
-    QCC_DbgPrintf(("BusAttachment_advertiseName()\n"));
-
-    /*
-     * Load the C++ well-known name with the Java well-known name.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_advertiseName(): Call AdvertiseName(%s, 0x%04x)\n", name.c_str(), jtransports));
-
-    QStatus status = (*bus)->AdvertiseName(name.c_str(), jtransports);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_advertiseName(): AdvertiseName() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName(JNIEnv* env, jobject thiz,
-                                                                                 jstring jname, jshort jtransports)
-{
-    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName()\n"));
-
-    /*
-     * Load the C++ well-known name Java well-known name.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Call CancelAdvertiseName(%s, 0x%04x)\n", name.c_str()));
-
-    QStatus status = (*bus)->CancelAdvertiseName(name.c_str(), jtransports);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_cancelAdvertiseName(): CancelAdvertiseName() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(JNIEnv* env, jobject thiz,
-                                                                                jstring jname)
-{
-    QCC_DbgPrintf(("BusAttachment_findAdvertisedName()\n"));
-
-    /*
-     * Load the C++ well-known name Java well-known name.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Call FindAdvertisedName(%s)\n", name.c_str()));
-
-    QStatus status = (*bus)->FindAdvertisedName(name.c_str());
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_findAdvertsiedName(): FindAdvertisedName() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName(JNIEnv* env, jobject thiz,
-                                                                                      jstring jname)
-{
-    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName()\n"));
-
-    /*
-     * Load the C++ well-known name Java well-known name.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Call CancelFindAdvertisedName(%s)\n", name.c_str()));
-
-    QStatus status = (*bus)->CancelFindAdvertisedName(name.c_str());
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_cancelfindAdvertisedName(): CancelFindAdvertisedName() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-/**
- * Bind a session port with the BusAttachment.  This makes a SessionPort
- * available for external BusAttachments to join, and enables callbacks to the
- * associated listener.
- *
- * Each BusAttachment binds its own set of SessionPorts. Session joiners use the
- * bound session port along with the name of the attachement to create a
- * persistent logical connection (called a Session) with the original
- * BusAttachment.  A SessionPort and bus name form a unique identifier that
- * BusAttachments use internally as a "half-association" when joining a session.
- *
- * SessionPort values can be pre-arranged between AllJoyn services and their
- * clients (well-known SessionPorts) in much the same way as a well-known IP
- * port number, although SessionPorts have scope local to the associated
- * BusAttachment and not the local host.
- *
- * Once a session is joined using one of the service's well-known SessionPorts,
- * the service may bind additional SessionPorts (dynamically) and share these
- * SessionPorts with the joiner over the original session. The joiner can then
- * create additional sessions with the service by calling JoinSession with these
- * dynamic SessionPort ids.
- *
- * The bus will return events related to the management of sessions related to
- * the given session port through a listener object.  This listener object is
- * expected to inherit from class SessionPortListener and specialize the callback
- * methods in which a user is interested.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param jsessionPort The SessionPort value to bind or SESSION_PORT_ANY to allow
- *                     this method to choose an available port. On successful
- *                     return, this value contains the chosen SessionPort.
- * @param jsessionOpts Session options that joiners must agree to in order to
- *                     successfully join the session.
- * @param jsessionPortListener  Called by the bus when session related events occur.
- */
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNIEnv* env, jobject thiz,
-                                                                             jobject jsessionPort, jobject jsessionOpts,
-                                                                             jobject jlistener)
-{
-    QCC_DbgPrintf(("BusAttachment_bindSessionPort()\n"));
-
-    /*
-     * Load the C++ session port from the Java session port.
-     */
-    SessionPort sessionPort;
-    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionPort);
-    jfieldID spValueFid = env->GetFieldID(clazz, "value", "S");
-    assert(spValueFid);
-    sessionPort = env->GetShortField(jsessionPort, spValueFid);
-
-    /*
-     * Load the C++ session options from the Java session options.
-     */
-    SessionOpts sessionOpts;
-    clazz = env->GetObjectClass(jsessionOpts);
-    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
-    assert(fid);
-    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
-
-    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
-    assert(fid);
-    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
-
-    fid = env->GetFieldID(clazz, "proximity", "B");
-    assert(fid);
-    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
-
-    fid = env->GetFieldID(clazz, "transports", "S");
-    assert(fid);
-    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
-
-    /*
-     * Get a copy of the pointer to the C++ BusAttachment (via a managed object)
-     * from the Java BusAttachment.
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * We always take a strong global reference to the listener object.  We
-     * can't just store the reference in one common place with all of the other
-     * references since we have to be able to find it on the "un" call which
-     * doesn't provide them.  We have a map of session port to listener object
-     * for that reason.  In this case, the global reference does double duty,
-     * allowing the search and holding on to the listener.  We take the
-     * reference here since callbacks may start flowing the instant the AllJoyn
-     * connection is made and we will have no time to ponder what may have
-     * happened after we get back from the AllJoyn call.  By holding the
-     * reference, we ensure that the corresponding C++ object is live.  We store
-     * it (or not) below in a more convenient place where we can make the
-     * decision.
-     *
-     * If we can't acquire the reference, then we are in an exception state and
-     * returning NULL is okay.
-     */
-    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Taking strong global reference to SessionPortListener %p\n", jlistener));
-    jobject jglobalref = env->NewGlobalRef(jlistener);
-    if (!jglobalref) {
-        return NULL;
-    }
-
-    /*
-     * Get the C++ object that must be there backing the Java listener object
-     */
-    JSessionPortListener* listener = GetNativeListener<JSessionPortListener>(env, jlistener);
-    assert(listener);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Call BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
-                   sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
-
-    QStatus status = (*bus)->BindSessionPort(sessionPort, sessionOpts, *listener);
-
-    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Back from BindSessionPort(%d, <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
-                   sessionPort, sessionOpts.traffic, sessionOpts.isMultipoint, sessionOpts.proximity, sessionOpts.transports, listener));
-
-    /*
-     * If we get an exception down in the AllJoyn code, it's hard to know what
-     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
-     * clue that we're up here and won't throw any Java exceptions, so we should
-     * be in good shape and never see this.  Famous last words, I know.  To be
-     * safe, we'll keep the global reference in place (it will leak
-     * temporarily), log the exception and let it propagate on up the stack to
-     * the client.
-     */
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * If we get an error from the AllJoyn code, we know from code inspection
-     * that the C++ listener object will not be used.  In this case, the semantics
-     * of the "un" operation are that it is not required.  Since the C++ listener
-     * object will not be used, and the Java listener global reference is not
-     * required, we can just forget about the provided listener.
-     *
-     * If we get a successful completion, we need to save the provided listener
-     * in our session port map.  Since there can only be one successful bind to
-     * any given session port we are guaranteed that there is a one-to-one map
-     * between session port and active Java listener reference.
-     */
-    if (status == ER_OK) {
-        QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Success\n"));
-        (*bus)->sessionPortListenerMap[sessionPort] = jglobalref;
-    } else {
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
-        env->DeleteGlobalRef(jglobalref);
-        return JStatus(status);
-    }
-
-    /*
-     * Store the actual session port back in the session port out parameter
-     */
-    env->SetShortField(jsessionPort, spValueFid, sessionPort);
-
-    return JStatus(status);
-}
-
-/**
- * Unbind (cancel) a session port with the BusAttachment.  This makes a
- * SessionPort unavailable for external BusAttachments to join, and disables
- * callbacks to the associated listener.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param jsessionPort The SessionPort value to bind or SESSION_PORT_ANY to allow
- *                     this method to choose an available port. On successful
- *                     return, this value contains the chosen SessionPort.
- * @param jsessionOpts Session options that joiners must agree to in order to
- *                     successfully join the session.
- * @param jsessionPortListener  Called by the bus when session related events occur.
- */
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(JNIEnv* env, jobject thiz, jshort jsessionPort)
-{
-    QCC_DbgPrintf(("BusAttachment_unbindSessionPort()\n"));
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Call UnbindSessionPort(%d)\n", jsessionPort));
-
-    QStatus status = (*bus)->UnbindSessionPort(jsessionPort);
-
-    /*
-     * If we get an exception down in the AllJoyn code, it's hard to know what
-     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
-     * clue that we're up here and won't throw any Java exceptions, so we should
-     * be in good shape and never see this.  Famous last words, I know.  To be
-     * safe, we'll keep the global reference in place (it will leak
-     * temporarily), log the exception and let it propagate on up the stack to
-     * the client.
-     */
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * We did the call to unbind the session port but we have to ask ourselves
-     * about the disposition of the C++ session port listener that was
-     * associated with the possibly deceased session port.  Because we can
-     * inspect the code we know that the only time the AllJoyn bus attachement
-     * actually forgets the listener is when UnbindSessionPort returns status
-     * ER_OK.
-     *
-     * This means that if there was any kind of error, AllJoyn can still call
-     * back into our C++ listener.  Therefore we must keep it around.  Since the
-     * C++ object is around, the Java object must be kept around to receive
-     * translated callbacks from the C++ object.  This is a rather Byzantine
-     * error and we are not going to try to harden the Java bindings against an
-     * error of this type that is propagated up.
-     *
-     * It may be surprising to some that a failure to unbind a session port means
-     * they might continue receiving notifications, but it may not be surprising
-     * to others.  We'll just leave it at that.
-     */
-    if (status == ER_OK) {
-        QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Success\n"));
-
-        /*
-         * We know that AllJoyn has released its hold on C++ listener object
-         * referred to by our Java listener object.  We can now release our hold on
-         * the Java listener object.
-         */
-        jobject jglobalref = (*bus)->sessionPortListenerMap[jsessionPort];
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Releasing strong global reference to SessionPortListener %p\n", jglobalref));
-        env->DeleteGlobalRef(jglobalref);
-        (*bus)->sessionPortListenerMap[jsessionPort] = 0;
-    } else {
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_create(JNIEnv* env, jobject thiz)
-{
-    assert(GetHandle(thiz) == NULL);
-
-    JSessionPortListener* jspl = new JSessionPortListener(thiz);
-    if (jspl == NULL) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-        return;
-    }
-
-    SetHandle(thiz, jspl);
-    if (env->ExceptionCheck()) {
-        delete jspl;
-        return;
-    }
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_destroy(JNIEnv* env, jobject thiz)
-{
-    void* v = GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-
-    assert(v);
-    delete reinterpret_cast<JSessionPortListener*>(v);
-
-    SetHandle(thiz, NULL);
-    return;
-}
-
-/**
- * Join a session bound to a given contact session port.
- *
- * Each BusAttachment binds its own set of SessionPorts. Session joiners use the
- * bound session port along with the name of the attachement to create a
- * persistent logical connection (called a Session) with the original
- * BusAttachment.  A SessionPort and bus name form a unique identifier that
- * BusAttachments use internally as a "half-association" when joining a session.
- *
- * SessionPort values can be pre-arranged between AllJoyn services and their
- * clients (well-known SessionPorts) in much the same way as a well-known IP
- * port number, although SessionPorts have scope local to the associated
- * BusAttachment and not the local host.
- *
- * The bus will return events related to the session through a listener object.
- * This listener object is expected to inherit from class SessionListener and
- * specialize the callback methods in which a user is interested.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param jsessionPort The SessionPort value representing the contact port.
- * @param jsessionId Set to the resulting SessionID value if the call succeeds.
- * @param jsessionOpts Session options that services must agree to in order to
- *                     successfully join the session.
- * @param jlistener Java listener object called when session related events occur.
- */
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv* env, jobject thiz,
-                                                                         jstring jsessionHost,
-                                                                         jshort jsessionPort,
-                                                                         jobject jsessionId,
-                                                                         jobject jsessionOpts,
-                                                                         jobject jlistener)
-{
-    QCC_DbgPrintf(("BusAttachment_joinSession()\n"));
-
-    /*
-     * Load the C++ session host string from the java parameter
-     */
-    JString sessionHost(jsessionHost);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Load the C++ session options from the Java session options.
-     */
-    SessionOpts sessionOpts;
-    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionOpts);
-    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
-    assert(fid);
-    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
-
-    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
-    assert(fid);
-    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
-
-    fid = env->GetFieldID(clazz, "proximity", "B");
-    assert(fid);
-    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
-
-    fid = env->GetFieldID(clazz, "transports", "S");
-    assert(fid);
-    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
-
-    /*
-     * Get a copy of the pointer to the C++ BusAttachment (via a managed object)
-     * from the Java BusAttachment.
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * We always take a strong global reference to the listener object and hold
-     * it as long as we can possibly get callbacks that use it.  If we can't
-     * acquire the reference, then we are in an exception state and returning
-     * NULL is okay.
-     */
-    QCC_DbgPrintf(("BusAttachment_joinSession(): Taking strong global reference to SessionListener %p\n", jlistener));
-    jobject jglobalref = env->NewGlobalRef(jlistener);
-    if (!jglobalref) {
-        return NULL;
-    }
-
-    /*
-     * Get the C++ object that must be there backing the Java listener object
-     */
-    JSessionListener* listener = GetNativeListener<JSessionListener>(env, jlistener);
-    assert(listener);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    SessionId sessionId = 0;
-
-    QCC_DbgPrintf(("BusAttachment_joinSession(): Call JoinSession(%s, %d, %p, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
-                   sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
-                   sessionOpts.proximity, sessionOpts.transports));
-
-    QStatus status = (*bus)->JoinSession(sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts);
-
-    QCC_DbgPrintf(("BusAttachment_joinSession(): Back from JoinSession(%s, %d, %p, %d,  <0x%02x, %d, 0x%02x, 0x%04x>)\n",
-                   sessionHost.c_str(), jsessionPort, listener, sessionId, sessionOpts.traffic, sessionOpts.isMultipoint,
-                   sessionOpts.proximity, sessionOpts.transports));
-
-    /*
-     * If we get an exception down in the AllJoyn code, it's hard to know what
-     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
-     * clue that we're up here and won't throw any Java exceptions, so we should
-     * be in good shape and never see this.  Famous last words, I know.  To be
-     * safe, we'll keep the global reference in place (it will leak
-     * temporarily), log the exception and let it propagate on up the stack to
-     * the client.
-     */
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * If we get an error from the AllJoyn code, we know from code inspection
-     * that the C++ listener object will not be used.  Since the C++ listener
-     * object will not be used, and the Java listener global reference is not
-     * required, we can just forget about the provided listener.
-     *
-     * If we get a successful completion, we need to save the provided listener
-     * in our session listener map.  Since there can only be one successful join
-     * to any given session we are guaranteed that there is a one-to-one map
-     * between session ID and active Java listener reference.
-     */
-    if (status == ER_OK) {
-        QCC_DbgPrintf(("BusAttachment_joinSession(): Success\n"));
-        (*bus)->sessionListenerMap[sessionId] = jglobalref;
-    } else {
-        QCC_LogError(status, ("BusAttachment_joinSession(): Error\n"));
-        env->DeleteGlobalRef(jglobalref);
-        return JStatus(status);
-    }
-
-    /*
-     * Store the session ID back in its out parameter.
-     */
-    clazz = env->GetObjectClass(jsessionId);
-    fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jsessionId, fid, sessionId);
-
-    /*
-     * Store the Java session options from the returned [out] C++ session options.
-     */
-    clazz = env->GetObjectClass(jsessionOpts);
-
-    fid = env->GetFieldID(clazz, "traffic", "B");
-    assert(fid);
-    env->SetByteField(jsessionOpts, fid, sessionOpts.traffic);
-
-    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
-    assert(fid);
-    env->SetBooleanField(jsessionOpts, fid, sessionOpts.isMultipoint);
-
-    fid = env->GetFieldID(clazz, "proximity", "B");
-    assert(fid);
-    env->SetByteField(jsessionOpts, fid, sessionOpts.proximity);
-
-    fid = env->GetFieldID(clazz, "transports", "S");
-    assert(fid);
-    env->SetShortField(jsessionOpts, fid, sessionOpts.transports);
-
-    return JStatus(status);
-}
-
-/**
- * Leave (cancel) a session.  This releases the resources allocated for the
- * session, notifies the other side that we have left, and disables callbacks
- * to the associated listener.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param jsessionId The SessionId value of the session to end.
- */
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv* env, jobject thiz,
-                                                                          jint jsessionId)
-{
-    QCC_DbgPrintf(("BusAttachment_leaveSession()\n"));
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_leaveSession(): Call LeaveSession(%d)\n", jsessionId));
-
-    QStatus status = (*bus)->LeaveSession(jsessionId);
-
-    /*
-     * If we get an exception down in the AllJoyn code, it's hard to know what
-     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
-     * clue that we're up here and won't throw any Java exceptions, so we should
-     * be in good shape and never see this.  Famous last words, I know.  To be
-     * safe, we'll keep the global reference in place (it will leak
-     * temporarily), log the exception and let it propagate on up the stack to
-     * the client.
-     */
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * We did the call to leave the session but we have to ask ourselves about
-     * the disposition of the C++ session listener that was associated with the
-     * possibly deceased session.  Because we can inspect the code we know that
-     * the only time the AllJoyn bus attachement actually forgets the listener
-     * is when LeaveSession returns status ER_OK.
-     *
-     * This means that if there was any kind of error, AllJoyn can still call
-     * back into our C++ listener.  Therefore we must keep it around.  Since the
-     * C++ object is around, the Java object must be kept around to receive
-     * translated callbacks from the C++ object.  This is a rather Byzantine
-     * error and we are not going to try to harden the Java bindings against an
-     * error of this type that is propagated up.
-     *
-     * It may be surprising to some that a failure to leave a session means they
-     * might continue receiving notifications, but it may not be surprising to
-     * others.  We'll just leave it at that.
-     */
-    if (status == ER_OK) {
-        QCC_DbgPrintf(("BusAttachment_leaveSession(): Success\n"));
-
-        /*
-         * We know that AllJoyn has released its hold on C++ listener object
-         * referred to by our Java listener object.  We can now release our hold on
-         * the Java listener object.
-         */
-        jobject jglobalref = (*bus)->sessionListenerMap[jsessionId];
-        QCC_DbgPrintf(("BusAttachment_leaveSession(): Releasing strong global reference to SessionListener %p\n", jglobalref));
-        env->DeleteGlobalRef(jglobalref);
-        (*bus)->sessionListenerMap[jsessionId] = 0;
-    } else {
-        QCC_LogError(status, ("BusAttachment_leaveSession(): Error\n"));
-    }
-
-    return JStatus(status);
-}
-
-/**
- * Explicitly set a session listener for a given session ID.
- *
- * Clients provide session listeners when they join sessions since it makes
- * sense to associate the provided listener with the expected session ID.
- * Services, on the other hand, do not join sessions, they are notified when
- * clients join the sessions they are exporting.  So there is no easy way to
- * make the session ID to session joiner association.  Because of this, it is
- * expected that a service will make that association explicitly in its
- * session joined callback by calling this method.
- *
- * Although this is intended to be used by services, there is no rule that
- * states that this method may only be used in that context.  As such, any
- * call to this method will overwrite an existing listener, disconnecting it
- * from its callbacks.
- *
- * @param env  The environment pointer used to get access to the JNI helper
- *             functions.
- * @param thiz The Java object reference back to the BusAttachment.  Like a
- *             "this" pointer in C++.
- * @param jsessionPort The SessionPort value representing the contact port.
- * @param jsessionId Set to the resulting SessionID value if the call succeeds.
- * @param jsessionOpts Session options that services must agree to in order to
- *                     successfully join the session.
- * @param jlistener Called by the bus when session related events occur.
- */
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(JNIEnv* env, jobject thiz,
-                                                                                jint jsessionId, jobject jlistener)
-{
-    QCC_DbgPrintf(("BusAttachment_setSessionListener()\n"));
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * We always take a strong global reference to the listener object and hold
-     * it as long as we can possibly get callbacks that use it.  If we can't
-     * acquire the reference, then we are in an exception state and returning
-     * NULL is okay.
-     */
-    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Taking strong global reference to SessionListener %p\n", jlistener));
-    jobject jglobalref = env->NewGlobalRef(jlistener);
-    if (!jglobalref) {
-        return NULL;
-    }
-
-    /*
-     * Get the C++ object that must be there backing the Java listener object
-     */
-    JSessionListener* listener = GetNativeListener<JSessionListener>(env, jlistener);
-    assert(listener);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Call SetSessionListener(%d, %p)\n", jsessionId, listener));
-
-    QStatus status = (*bus)->SetSessionListener(jsessionId, listener);
-
-    /*
-     * We did the call to set the session listner, but we have to ask ourselves
-     * two questions: did the new session listener actually get accepted, and
-     * what happened to a C++ session listener that may or may not have
-     * previously existed.  By inspecting the code, we know that if no error
-     * is returned, the session listener has been set.  We don't have any way
-     * of directly inferring that there was a previous listener that will no
-     * longer be used.  That is left to us.
-     *
-     * This means that if there was any kind of error, AllJoyn can still call
-     * back into a possibly pre-existing C++ listener.  Therefore we must keep
-     * it around.  But since the new listener was not accepted, we don't have to
-     * keep it around.  This is a rather Byzantine error and we are not going to
-     * try to harden the Java bindings against an error of this type that is
-     * propagated up.
-     *
-     * It may be surprising to some that a failure to set a session listener
-     * means they might continue receiving notifications on a previously set
-     * session listener, but it may not be surprising to others.  We'll just
-     * leave it at that.
-     */
-    if (status == ER_OK) {
-        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Success\n"));
-
-        /*
-         * We know that AllJoyn has released its hold on any pre-existing C++
-         * listener object referred to by a pre-existing Java listener object.
-         * We can now release our hold on that Java listener object.
-         */
-        jobject joldglobalref = (*bus)->sessionListenerMap[jsessionId];
-        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Releasing strong global reference to SessionListener %p\n", joldglobalref));
-        env->DeleteGlobalRef(joldglobalref);
-        (*bus)->sessionListenerMap[jsessionId] = 0;
-
-        /*
-         * We also know that AllJoyn has a hold on the C++ listener object that
-         * we just used.  We have got to keep a hold on the corresponding Java
-         * object.
-         */
-        (*bus)->sessionListenerMap[jsessionId] = jglobalref;
-    } else {
-        QCC_LogError(status, ("BusAttachment_setSessionListener(): Error\n"));
-
-        /*
-         * We know that the C++ listener corresponding to the Java listener we
-         * got passed into this method was not accepted by AllJoyn.  This means
-         * that we don't need to keep a hold of the reference we took above.  It
-         * does mean that if an existing object is there, it may still be used
-         * to receive callbacks.  That is, if there is an existing listener on a
-         * session, and a subsequent setSessionListener fails, the existing
-         * listener remains.
-         */
-        QCC_DbgPrintf(("BusAttachment_setSessionListener(): Releasing strong global reference to SessionListener %p\n", jglobalref));
-        env->DeleteGlobalRef(jglobalref);
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_create(JNIEnv* env, jobject thiz)
-{
-    assert(GetHandle(thiz) == NULL);
-
-    JSessionListener* jsl = new JSessionListener(thiz);
-    if (jsl == NULL) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-        return;
-    }
-
-    SetHandle(thiz, jsl);
-    if (env->ExceptionCheck()) {
-        delete jsl;
-        return;
-    }
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env, jobject thiz)
-{
-    void* v = GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-
-    assert(v);
-    delete reinterpret_cast<JSessionListener*>(v);
-
-    SetHandle(thiz, NULL);
-    return;
-}
-
-class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
-  public:
-    JOnJoinSessionListener(jobject jonJoinSessionListener);
-    ~JOnJoinSessionListener();
-
-    void Setup(jobject jsessionListener, jobject jcontext, Bus* bus);
-    void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
-
-  private:
-    jweak jsessionListener;
-    jweak jonJoinSessionListener;
-    jweak jcontext;
-    jmethodID MID_onJoinSession;
-    Bus* bus;
-};
-
-JOnJoinSessionListener::JOnJoinSessionListener(jobject jonJoinSessionListener)
-    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), bus(NULL)
-{
-    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener()\n"));
-
-    JNIEnv* env = GetEnv();
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Taking weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-    this->jonJoinSessionListener = env->NewWeakGlobalRef(jonJoinSessionListener);
-    if (!this->jonJoinSessionListener) {
-        return;
-    }
-
-    JLocalRef<jclass> clazz = env->GetObjectClass(jonJoinSessionListener);
-
-    MID_onJoinSession = env->GetMethodID(clazz, "onJoinSession", "(Lorg/alljoyn/bus/Status;ILorg/alljoyn/bus/SessionOpts;Ljava/lang/Object;)V");
-    if (!MID_onJoinSession) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Can't find onJoinSession() in OnJoinSessionListener\n"));
-    }
-}
-
-JOnJoinSessionListener::~JOnJoinSessionListener()
-{
-    QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener()\n"));
-
-    JNIEnv* env = GetEnv();
-
-    if (jsessionListener) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
-        env->DeleteWeakGlobalRef(jsessionListener);
-        jsessionListener = NULL;
-    }
-
-    if (jonJoinSessionListener) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-        env->DeleteWeakGlobalRef(jonJoinSessionListener);
-        jonJoinSessionListener = NULL;
-    }
-
-    if (jcontext) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to context Object %p\n", jcontext));
-        env->DeleteWeakGlobalRef(jcontext);
-        jcontext = NULL;
-    }
-}
-
-void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, Bus* bus)
-{
-    /*
-     * When an async join operation is started, we are provided three Java
-     * object references: a session listener object, a callback listener object
-     * and a user-defined context object.  In order to keep the memory
-     * management model of the bindings somewhat consistent, the bus attachment
-     * is in charge of holding Java references to these objects while AllJoyn is
-     * off pondering what to do with the C++ counterparts.
-     *
-     * When the C++ callback is fired (our method), we need to decide what to do
-     * with those Java objects.  There may be multiple instances of async joins,
-     * including instances with the three provided ojects being identical.  We
-     * don't comment on the wisdom of a client doint that, we just admit the
-     * possibility.  If the three references we have weak references to
-     * (locally) are equal to the three references held in an instance of an
-     * asyn join by the bus attachment, we decide that we have found the right
-     * instance.  It may be the case that the client is trying to change values
-     * in a context object out from under us, and provide the same three objects
-     * thinking we can magically differentiate between them, but that's not
-     * really our problem.
-     *
-     * So we take new weak references to the provided Java objects (so we don't
-     * interfere in garbage collection) and save them to compare later.  If we
-     * can't get a reference we will be in exception state so there's not much
-     * more we can do here.
-     */
-    JNIEnv* env = GetEnv();
-    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to SessionListener %p\n", jsessionListener));
-    this->jsessionListener = env->NewWeakGlobalRef(jsessionListener);
-    if (!this->jsessionListener) {
-        return;
-    }
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to context Object %p\n", jcontext));
-    this->jcontext = env->NewWeakGlobalRef(jcontext);
-    if (!this->jcontext) {
-        return;
-    }
-
-    /*
-     * We need to be able to get back at the bus attachment in the callback to
-     * release and/or reassign resources.
-     */
-    this->bus = bus;
-}
-
-void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
-{
-    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
-                   QCC_StatusText(status), sessionId, opts.traffic, opts.isMultipoint,
-                   opts.proximity, opts.transports, context));
-
-    JScopedEnv env;
-    JLocalRef<jobject> jstatus;
-    jint jsessionId;
-    jmethodID mid;
-    JLocalRef<jobject> jopts;
-    jfieldID fid;
-    jobject jo;
-
-    /*
-     * Translate the C++ formal parameters into their JNI counterparts.
-     */
-    jstatus = JStatus(status);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
-        goto exit;
-    }
-
-    jsessionId = sessionId;
-
-    mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
-    if (!mid) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Can't find SessionOpts constructor\n"));
-        goto exit;
-    }
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Create new SessionOpts\n"));
-    jopts = env->NewObject(CLS_SessionOpts, mid);
-    if (!jopts) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Cannot create SessionOpts\n"));
-        goto exit;
-    }
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Load SessionOpts\n"));
-    fid = env->GetFieldID(CLS_SessionOpts, "traffic", "B");
-    env->SetByteField(jopts, fid, opts.traffic);
-
-    fid = env->GetFieldID(CLS_SessionOpts, "isMultipoint", "Z");
-    env->SetBooleanField(jopts, fid, opts.isMultipoint);
-
-    fid = env->GetFieldID(CLS_SessionOpts, "proximity", "B");
-    env->SetByteField(jopts, fid, opts.proximity);
-
-    fid = env->GetFieldID(CLS_SessionOpts, "transports", "S");
-    env->SetShortField(jopts, fid, opts.transports);
-
-    /*
-     * The weak global reference jonJoinSessionListener cannot be directly used.
-     * We have to get a "hard" reference to it and then use that.  If you try to
-     * use a weak reference directly you will crash and burn.
-     */
-    jo = env->NewLocalRef(jonJoinSessionListener);
-    if (!jo) {
-        goto exit;
-    }
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Call out to listener object and method\n"));
-    env->CallVoidMethod(jo, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)context);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
-        goto exit;
-    }
-
-exit:
-    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release Resources\n"));
-
-    /*
-     * We have our Java resources stashed away in a list stored in the bus
-     * attachment.  We need to match our object "signature" with those "pended"
-     * objects and come to a resolution about their lifetimes.
-     */
-    for (list<PendingAsyncJoin>::iterator i = (*bus)->pendingAsyncJoins.begin(); i != (*bus)->pendingAsyncJoins.end(); ++i) {
-        if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
-            if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
-                /*
-                 * All of the stashed objects match, so the found case is
-                 * indistinguishable from any additional instance, so we use
-                 * this one.  We rely on our destructor to release our weak
-                 * references, but we need to deal with the strong references
-                 * that the bus attachment holds (mostly to make memory management
-                 * of this case similar to others).
-                 *
-                 * We always release our hold on the user context object and the
-                 * OnJoinSessionListener since they will no longer be used by
-                 * this asynchronous join instance.  If the join succeeded,
-                 * however, we need to keep on holding the session listener in
-                 * case something happens to the now "up" session.  This
-                 * reference must go in the sessionListenerMap.  If the async
-                 * call failed, we are done with the session listener as well.
-                 */
-                if (i->jcontext) {
-                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to context Object %p\n", i->jcontext));
-                    env->DeleteGlobalRef(i->jcontext);
-                    jcontext = NULL;
-                }
-
-                if (status == ER_OK) {
-                    (*bus)->sessionListenerMap[sessionId] = i->jlistener;
-                } else {
-                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
-                    env->DeleteGlobalRef(i->jlistener);
-                }
-
-
-                /*
-                 * releasing the Java callback on join session listener is
-                 * effectively a "delete this" since the global reference to the
-                 * Java object controls the lifetime of its corresponding C++
-                 * object -- us.  We have got to do that last, so we init a
-                 * local variable with the object reference before erasing the
-                 * list entry we've been working with and then delete the
-                 * global reference just before we leave.
-                 */
-                jobject jcallback = i->jcallback;
-
-                /*
-                 * TODO this is executing in the context of the AllJoyn bus
-                 * attachment so we need locking!  This whole bindings mess is
-                 * not even multithread aware.
-                 *
-                 * Tell the bus to forget about the Java object references since
-                 * we have dealt with them all.
-                 */
-                (*bus)->pendingAsyncJoins.erase(i);
-
-                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
-                env->DeleteGlobalRef(jcallback);
-                return;
-            }
-        }
-    }
-    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env,
-                                                                              jobject thiz,
-                                                                              jstring jsessionHost,
-                                                                              jshort jsessionPort,
-                                                                              jobject jsessionOpts,
-                                                                              jobject jsessionListener,
-                                                                              jobject jonJoinSessionListener,
-                                                                              jobject jcontext)
-{
-    QCC_DbgPrintf(("BusAttachment_joinSessionAsync()\n"));
-
-    /*
-     * Load the C++ session host string from the java parameter
-     */
-    JString sessionHost(jsessionHost);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Load the C++ session options from the Java session options.
-     */
-    SessionOpts sessionOpts;
-    JLocalRef<jclass> clazz = env->GetObjectClass(jsessionOpts);
-    jfieldID fid = env->GetFieldID(clazz, "traffic", "B");
-    assert(fid);
-    sessionOpts.traffic = static_cast<SessionOpts::TrafficType>(env->GetByteField(jsessionOpts, fid));
-
-    fid = env->GetFieldID(clazz, "isMultipoint", "Z");
-    assert(fid);
-    sessionOpts.isMultipoint = env->GetBooleanField(jsessionOpts, fid);
-
-    fid = env->GetFieldID(clazz, "proximity", "B");
-    assert(fid);
-    sessionOpts.proximity = env->GetByteField(jsessionOpts, fid);
-
-    fid = env->GetFieldID(clazz, "transports", "S");
-    assert(fid);
-    sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
-
-    /*
-     * Get a copy of the pointer to the C++ BusAttachment (via a managed object)
-     * from the Java BusAttachment.
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * This method is unusual in that there are three objects passed which have
-     * a lifetime past the duration of the method: The SessionListener needs to
-     * be kept around to hear about the joined session being lost for as long as
-     * the session is up; the OnJoinSessionListner needs to be kept around until
-     * the asynchronous join completes; and the user-defined context object has
-     * the same lifetime (from our perspective) as the OnJoinSessionListener.
-     *
-     * It is tempting to think of the "single-shot" objects here as somehow different
-     * than other Java objects, whereupon we can take shortcuts on memory management.
-     * This is not the case since we cannot impose a use model on the user.  She may
-     * decide to instantiate any or all of these objects and reuse them -- or not.
-     *
-     * So we handle all of these objects the same way we do all other long-lived
-     * Java objects.  We expect them to create their own corresponding C++
-     * object when the Java constructor is run, and we expect them to delete the
-     * C++ object when they are finalized.  Our memory management responsibility
-     * here is then to add a strong global reference to the objects to keep them
-     * alive.
-     *
-     * If we can't acquire the required references, we are in an exception state
-     * and returning NULL required -- i.e. there's nothing we can do about the
-     * other references here.
-     */
-    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to SessionListener %p\n", jsessionListener));
-    jobject jglobalListenerRef = env->NewGlobalRef(jsessionListener);
-    if (!jglobalListenerRef) {
-        return NULL;
-    }
-
-    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-    jobject jglobalCallbackRef = env->NewGlobalRef(jonJoinSessionListener);
-    if (!jglobalCallbackRef) {
-        return NULL;
-    }
-
-    /*
-     * The user context is optional.
-     */
-    jobject jglobalContextRef = NULL;
-    if (jcontext) {
-        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to context Object %p\n", jcontext));
-        jglobalContextRef = env->NewGlobalRef(jcontext);
-        if (!jglobalContextRef) {
-            return NULL;
-        }
-    }
-
-    /*
-     * Get the C++ object that must be there backing the Java listener object
-     */
-    JSessionListener* listener = GetNativeListener<JSessionListener>(env, jsessionListener);
-    assert(listener);
-
-    /*
-     * Get the C++ object that must be there backing the Java callback object
-     */
-    JOnJoinSessionListener* callback = GetNativeListener<JOnJoinSessionListener>(env, jonJoinSessionListener);
-    assert(callback);
-
-    /*
-     * There is no C++ object backing the Java context object.  This is just an
-     * object reference that is plumbed through AllJoyn which will pop out the
-     * other side un-molested.  It is not interpreted by AllJoyn so we can just
-     * use our Java global reference to the provided Java object.  We pass the
-     * reference nack to the user when the callback fires.
-     */
-    void* context = jglobalContextRef;
-
-    /*
-     * We have three objects now that are closely associated.  We have an
-     * OnJoinSessionListener that will be waiting for the async join to complete.
-     * We have a SessionListener that we need to hold a strong reference to if
-     * the join is successful, and we have a user context object we need to
-     * provide back to the user when the async call is finished.  We tie them
-     * all together as weak references in the C++ listener object corresponding
-     * to the OnJoinSessionListener.
-     *
-     * Note: If a user makes an asynchronous call using one combination of the
-     * Java objects OnJoinSessionListener, SessionListener and context; and she
-     * makes a subsequent call with the first join still outstanding and with
-     * the same OnJoinSessionListener but a different SessionListener or
-     * context, the async callbacks will both come out with the second flavors
-     * of the objects.  The original objects will be temporarily leaked.  This
-     * is proabbly expected behavior, but we note it just in case.
-     */
-    callback->Setup(jsessionListener, jcontext, bus);
-
-    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
-                   sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
-                   sessionOpts.proximity, sessionOpts.transports, callback, context));
-
-    QStatus status = (*bus)->JoinSessionAsync(sessionHost.c_str(), jsessionPort, listener, sessionOpts, callback, context);
-
-    /*
-     * If we get an exception down in the AllJoyn code, it's hard to know what
-     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
-     * clue that we're up here and won't throw any Java exceptions, so we should
-     * be in good shape and never see this.  Famous last words, I know.  To be
-     * safe, we'll keep the global references in place (they will leak
-     * temporarily), log the exception and let it propagate on up the stack to
-     * the client.
-     */
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * This is an async join method, so getting a successful completion only
-     * means that AllJoyn was able to send off a message requesting the join.
-     * This means we have a special case code to "pend" the Java objects we are
-     * holding until we get a status from AllJoyn.  We will release the callback
-     * and the context unconditionally when the callback fires, but what we do
-     * with the session listener will depend on the completion status.
-     *
-     * If we get an error from the AllJoyn code now it means that the send of
-     * the join session message to the daemon failed, and nothing has worked.
-     * We know from code inspection that neither the C++ listener object, the
-     * C++ callback nor the C++ context will be remembered by AllJoyn if an
-     * error happens now.  Since the C++ objects will not be used, the Java
-     * objects will never be used and our saved global references are not
-     * required -- we can just forget about them.
-     *
-     * Pick up the async join code path in JOnJoinSessionListener::JoinSessionCB
-     */
-    if (status == ER_OK) {
-        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Success\n"));
-        PendingAsyncJoin paj(jglobalListenerRef, jglobalCallbackRef, jglobalContextRef);
-        (*bus)->pendingAsyncJoins.push_back(paj);
-    } else {
-        QCC_LogError(status, ("BusAttachment_joinSessionAsync(): Error\n"));
-        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to SessionListener %p\n", jglobalListenerRef));
-        env->DeleteGlobalRef(jglobalListenerRef);
-        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to OnJoinSessionListener %p\n", jglobalCallbackRef));
-        env->DeleteGlobalRef(jglobalCallbackRef);
-        if (jglobalContextRef) {
-            QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to context Object %p\n", jcontext));
-            env->DeleteGlobalRef(jglobalContextRef);
-        }
-    }
-    return JStatus(status);
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_create(JNIEnv* env, jobject thiz)
-{
-    assert(GetHandle(thiz) == NULL);
-
-    JOnJoinSessionListener* jojsl = new JOnJoinSessionListener(thiz);
-    if (jojsl == NULL) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-        return;
-    }
-
-    SetHandle(thiz, jojsl);
-    if (env->ExceptionCheck()) {
-        delete jojsl;
-        return;
-    }
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_destroy(JNIEnv* env, jobject thiz)
-{
-    void* v = GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-
-    assert(v);
-    delete reinterpret_cast<JOnJoinSessionListener*>(v);
-
-    SetHandle(thiz, NULL);
-    return;
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv* env, jobject thiz,
-                                                                          jint jsessionId,
-                                                                          jobject jsockfd)
-{
-    QCC_DbgPrintf(("BusAttachment_getSessionFd()\n"));
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    qcc::SocketFd sockfd = -1;
-
-    QCC_DbgPrintf(("BusAttachment_getSessionFd(): Call GetSessionFd(%d, %d)\n", jsessionId, sockfd));
-
-    QStatus status = (*bus)->GetSessionFd(jsessionId, sockfd);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_getSessionFd(): GetSessionFd() fails\n"));
-    }
-
-    /*
-     * Store the sockFd in its corresponding out parameter.
-     */
-    JLocalRef<jclass> clazz = env->GetObjectClass(jsockfd);
-    jfieldID fid = env->GetFieldID(clazz, "value", "I");
-    assert(fid);
-    env->SetIntField(jsockfd, fid, sockfd);
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv* env,
-                                                                         jobject thiz,
-                                                                         jstring jname,
-                                                                         jobject jguid)
-{
-    QCC_DbgPrintf(("BusAttachment::getPeerGUID()\n"));
-
-    /*
-     * Load the C++ name string from the java parameter.
-     */
-    JString name(jname);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): Exception\n"));
-        return NULL;
-    }
-
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    qcc::String guidstr;
-    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Call GetPeerGUID(%s, %s)\n", name.c_str(), guidstr.c_str()));
-
-    QStatus status = (*bus)->GetPeerGUID(name.c_str(), guidstr);
-
-    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Back from GetPeerGUID(%s, %s)\n", name.c_str(), guidstr.c_str()));
-
-    /*
-     * Locate the C++ GUID string.  Note that the reference to the string is
-     * passed in as an [out] parameter using a mutable object, so we are really
-     * finding the field which we will write our found GUID string reference into.
-     */
-    JLocalRef<jclass> clazz = env->GetObjectClass(jguid);
-    jfieldID guidValueFid = env->GetFieldID(clazz, "value", "Ljava/lang/String;");
-    assert(guidValueFid);
-
-    /*
-     * We provided an empty C++ string to AllJoyn, and it has put the GUID in
-     * that string if it succeeded.  We need to create a Java string with the
-     * returned bytes and put it into the StringValue object's "value" field
-     * which we just located.
-     */
-    jstring jstr = env->NewStringUTF(guidstr.c_str());
-    env->SetObjectField(jguid, guidValueFid, jstr);
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_getPeerGUID(): GetPeerGUID() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIEnv*env, jobject thiz,
-                                                                            jstring jmodule, jint jlevel)
-{
-    QCC_DbgPrintf(("BusAttachment_setDaemonDebug()\n"));
-
-    /*
-     * Load the C++ module name with the Java module name.
-     */
-    JString module(jmodule);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
-        return NULL;
-    }
-
-    /*
-     * Get a copy of the pointer to the BusAttachment (via a managed object)
-     */
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
-        return NULL;
-    }
-    assert(bus);
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("BusAttachment_setDaemonDebug(): Call SetDaemonDebug(%s, %d)\n", module.c_str(), jlevel));
-
-    QStatus status = (*bus)->SetDaemonDebug(module.c_str(), jlevel);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
-        return NULL;
-    }
-
-    if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_setDaemonDebug(): SetDaemonDebug() fails\n"));
-    }
-
-    return JStatus(status);
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setLogLevels(JNIEnv*env, jobject thiz,
-                                                                       jstring jlogEnv)
-{
-    QCC_DbgPrintf(("BusAttachment_setLogLevels()\n"));
-
-    /*
-     * Load the C++ environment string with the Java environment string.
-     */
-    JString logEnv(jlogEnv);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setLogLevels(): Exception\n"));
-        return;
-    }
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("QCC_SetLogLevels(%s)\n", logEnv.c_str()));
-    QCC_SetLogLevels(logEnv.c_str());
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setDebugLevel(JNIEnv*env, jobject thiz,
-                                                                        jstring jmodule, jint jlevel)
-{
-    QCC_DbgPrintf(("BusAttachment_setDebugLevel()\n"));
-
-    /*
-     * Load the C++ module string with the Java module string.
-     */
-    JString module(jmodule);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDebugLevel(): Exception\n"));
-        return;
-    }
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("QCC_SetDebugLevel(%s, %d)\n", module.c_str(), jlevel));
-    QCC_SetDebugLevel(module.c_str(), jlevel);
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_useOSLogging(JNIEnv*env, jobject thiz,
-                                                                       jboolean juseOSLog)
-{
-    QCC_DbgPrintf(("BusAttachment_useOSLogging()\n"));
-
-    /*
-     * Make the AllJoyn call.
-     */
-    QCC_DbgPrintf(("QCC_UseOSLogging(%d)\n", juseOSLog));
-    QCC_UseOSLogging(juseOSLog);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env,
-                                                                     jobject thiz,
-                                                                     jstring jconnectArgs,
-                                                                     jobject jkeyStoreListener,
-                                                                     jstring jauthMechanisms,
-                                                                     jobject jauthListener,
-                                                                     jstring jkeyStoreFileName,
-                                                                     jboolean isShared)
-{
-    JString connectArgs(jconnectArgs);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    JString authMechanisms(jauthMechanisms);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    JString keyStoreFileName(jkeyStoreFileName);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
-
-    QStatus status = (*bus)->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
-                                     jauthListener, keyStoreFileName.c_str(), isShared);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    } else {
-        return JStatus(status);
-    }
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env,
-                                                                     jobject thiz,
-                                                                     jstring jconnectArgs)
-{
-    JString connectArgs(jconnectArgs);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    assert(bus);
-    (*bus)->Disconnect(connectArgs.c_str());
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(JNIEnv* env,
-                                                                                jobject thiz,
-                                                                                jstring jauthMechanisms,
-                                                                                jobject jauthListener,
-                                                                                jstring jkeyStoreFileName,
-                                                                                jboolean isShared)
-{
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
-    JString authMechanisms(jauthMechanisms);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    JString keyStoreFileName(jkeyStoreFileName);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    QStatus status = (*bus)->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str(), isShared);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    } else {
-        return JStatus(status);
-    }
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(JNIEnv* env,
-                                                                               jobject thiz,
-                                                                               jstring jobjPath,
-                                                                               jobject jbusObject,
-                                                                               jobjectArray jbusInterfaces)
-{
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
-    JString objPath(jobjPath);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    QStatus status = (*bus)->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    return JStatus(status);
-}
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject(JNIEnv* env,
-                                                                              jobject thiz,
-                                                                              jobject jbusObject)
-{
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    assert(bus);
-    (*bus)->UnregisterBusObject(jbusObject);
-}
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSignalHandler(JNIEnv* env,
-                                                                                         jobject thiz,
-                                                                                         jstring jifaceName,
-                                                                                         jstring jsignalName,
-                                                                                         jobject jsignalHandler,
-                                                                                         jobject jmethod,
-                                                                                         jstring jsource)
-{
-    Bus* bus = (Bus*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
     JString ifaceName(jifaceName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString signalName(jsignalName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString source(jsource);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -5176,63 +6808,89 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
     if (source.c_str() && source.c_str()[0]) {
         srcPath = source.c_str();
     }
-    QStatus status = (*bus)->RegisterSignalHandler(ifaceName.c_str(), signalName.c_str(),
-                                                   jsignalHandler, jmethod, srcPath);
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
+    QStatus status = busPtr->RegisterSignalHandler(ifaceName.c_str(), signalName.c_str(), jsignalHandler, jmethod, srcPath);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterSignalHandler(JNIEnv* env,
-                                                                                  jobject thiz,
-                                                                                  jobject jsignalHandler,
-                                                                                  jobject jmethod)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterSignalHandler(JNIEnv* env, jobject thiz, jobject jsignalHandler, jobject jmethod)
 {
-    Bus* bus = (Bus*)GetHandle(thiz);
+    QCC_DbgPrintf(("BusAttachment_unregisterSignalHandler()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
-    assert(bus);
-    (*bus)->UnregisterSignalHandler(jsignalHandler, jmethod);
+
+    busPtr->UnregisterSignalHandler(jsignalHandler, jmethod);
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEnv* env,
-                                                                           jobject thiz)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEnv* env, jobject thiz)
 {
-    Bus* bus = (Bus*)GetHandle(thiz);
+    QCC_DbgPrintf(("BusAttachment_getUniqueName()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
-    assert(bus);
-    return env->NewStringUTF((*bus)->GetUniqueName().c_str());
+
+    return env->NewStringUTF(busPtr->GetUniqueName().c_str());
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getGlobalGUIDString(JNIEnv* env, jobject thiz)
 {
-    Bus* bus = (Bus*)GetHandle(thiz);
+    QCC_DbgPrintf(("BusAttachment_getGlobalGUIDString()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
-    assert(bus);
-    return env->NewStringUTF((*bus)->GetGlobalGUIDString().c_str());
+
+    return env->NewStringUTF(busPtr->GetGlobalGUIDString().c_str());
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* env,
-                                                                        jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* env, jobject thiz)
 {
-    Bus* bus = (Bus*)GetHandle(thiz);
+    QCC_DbgPrintf(("BusAttachment_clearKeyStore()\n"));
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
-    assert(bus);
 
-    (*bus)->ClearKeyStore();
+    busPtr->ClearKeyStore();
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* env,
-                                                                       jobject thiz,
-                                                                       jstring jguid)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* env, jobject thiz, jstring jguid)
 {
     QCC_DbgPrintf(("BusAttachment::clearKeys()\n"));
 
@@ -5245,15 +6903,18 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
         return NULL;
     }
 
-    Bus* bus = (Bus*)GetHandle(thiz);
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
-    assert(bus);
 
     QCC_DbgPrintf(("BusAttachment_clearKeys(): Call ClearKeys(%s)\n", guid.c_str()));
 
-    QStatus status = (*bus)->ClearKeys(guid.c_str());
+    QStatus status = busPtr->ClearKeys(guid.c_str());
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_clearKeys(): ClearKeys() fails\n"));
@@ -5262,20 +6923,22 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
     return JStatus(status);
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIEnv* env,
-                                                                            jobject thiz)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIEnv* env, jobject thiz)
 {
-    QCC_DbgPrintf(("BusAttachment::reloadKeyStore()\n"));
+    QCC_DbgPrintf(("BusAttachment_reloadKeyStore()\n"));
 
-    Bus* bus = (Bus*)GetHandle(thiz);
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in our Java object as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
-    assert(bus);
 
     QCC_DbgPrintf(("BusAttachment_reloadKeyStore(): Call ReloadKeyStore()\n"));
 
-    QStatus status = (*bus)->ReloadKeyStore();
+    QStatus status = busPtr->ReloadKeyStore();
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment_reloadKeyStore(): ReloadKeyStore() fails\n"));
@@ -5284,34 +6947,42 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIE
     return JStatus(status);
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(JNIEnv* env,
-                                                                               jobject thiz)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(JNIEnv* env, jobject thiz)
 {
+    QCC_DbgPrintf(("BusAttachment_getMessageContext()\n"));
+
     Message msg = MessageContext::GetMessage();
+
     JLocalRef<jstring> jobjectPath = env->NewStringUTF(msg->GetObjectPath());
     if (!jobjectPath) {
         return NULL;
     }
+
     JLocalRef<jstring> jinterfaceName = env->NewStringUTF(msg->GetInterface());
     if (!jinterfaceName) {
         return NULL;
     }
+
     JLocalRef<jstring> jmemberName = env->NewStringUTF(msg->GetMemberName());
     if (!jmemberName) {
         return NULL;
     }
+
     JLocalRef<jstring> jdestination = env->NewStringUTF(msg->GetDestination());
     if (!jdestination) {
         return NULL;
     }
+
     JLocalRef<jstring> jsender = env->NewStringUTF(msg->GetSender());
     if (!jsender) {
         return NULL;
     }
+
     JLocalRef<jstring> jsignature = env->NewStringUTF(msg->GetSignature());
     if (!jsignature) {
         return NULL;
     }
+
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(msg->GetAuthMechanism().c_str());
     if (!jauthMechanism) {
         return NULL;
@@ -5323,35 +6994,33 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(J
     if (!mid) {
         return NULL;
     }
+
     return env->NewObject(CLS_MessageContext, mid, msg->IsUnreliable(), (jstring)jobjectPath,
                           (jstring)jinterfaceName, (jstring)jmemberName, (jstring)jdestination,
                           (jstring)jsender, sessionId, (jstring)jsignature, (jstring)jauthMechanism);
 }
 
-/*
- * class org_alljoyn_bus_InterfaceDescription
- */
-
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEnv* env,
-                                                                           jobject thiz,
-                                                                           jobject jbus,
-                                                                           jstring jname,
-                                                                           jboolean secure,
-                                                                           jint numProps,
-                                                                           jint numMembers)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEnv* env, jobject thiz, jobject jbus, jstring jname,
+                                                                           jboolean secure, jint numProps, jint numMembers)
 {
-    Bus* bus = (Bus*)GetHandle(jbus);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
+    QCC_DbgPrintf(("InterfaceDescription_create()\n"));
+
     JString name(jname);
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to the JBusAttachment in the bus attachment as a "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
     InterfaceDescription* intf;
-    QStatus status = (*bus)->CreateInterface(name.c_str(), intf, secure);
+    QStatus status = busPtr->CreateInterface(name.c_str(), intf, secure);
     if (ER_BUS_IFACE_ALREADY_EXISTS == status) {
         /*
          * We know that an interface exists with the same name, but it may differ in other parameters,
@@ -5360,7 +7029,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
          * Note that we're not checking members or properties here, that check will be done later in
          * addMember and addProperty.
          */
-        intf = (InterfaceDescription*)(*bus)->GetInterface(name.c_str());
+        intf = (InterfaceDescription*)busPtr->GetInterface(name.c_str());
         assert(intf);
         if ((intf->IsSecure() == secure) &&
             (intf->GetProperties() == (size_t)numProps) &&
@@ -5371,6 +7040,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
     if (ER_OK == status) {
         SetHandle(thiz, intf);
     }
+
     if (env->ExceptionCheck()) {
         return NULL;
     } else {
@@ -5378,34 +7048,33 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
     }
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JNIEnv* env,
-                                                                              jobject thiz,
-                                                                              jint type,
-                                                                              jstring jname,
-                                                                              jstring jinputSig,
-                                                                              jstring joutSig,
-                                                                              jint annotation)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JNIEnv* env, jobject thiz, jint type, jstring jname,
+                                                                              jstring jinputSig, jstring joutSig, jint annotation)
 {
-    InterfaceDescription* intf = (InterfaceDescription*)GetHandle(thiz);
+    QCC_DbgPrintf(("InterfaceDescription_addMember()\n"));
+
+    InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
     assert(intf);
+
     JString name(jname);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString outSig(joutSig);
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
-    QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(),
-                                     inputSig.c_str(), outSig.c_str(), NULL, annotation);
+    QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(), inputSig.c_str(), outSig.c_str(), NULL, annotation);
     if (ER_BUS_MEMBER_ALREADY_EXISTS == status || ER_BUS_INTERFACE_ACTIVATED == status) {
         /*
          * We know that a member exists with the same name, but check that the other parameters
@@ -5424,21 +7093,22 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
     return JStatus(status);
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(JNIEnv* env,
-                                                                                jobject thiz,
-                                                                                jstring jname,
-                                                                                jstring jsignature,
-                                                                                jint access)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(JNIEnv* env, jobject thiz, jstring jname,
+                                                                                jstring jsignature, jint access)
 {
-    InterfaceDescription* intf = (InterfaceDescription*)GetHandle(thiz);
+    QCC_DbgPrintf(("InterfaceDescription_addProperty()\n"));
+
+    InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
     assert(intf);
+
     JString name(jname);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -5461,91 +7131,89 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(
     return JStatus(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv* env,
-                                                                          jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv* env, jobject thiz)
 {
-    InterfaceDescription* intf = (InterfaceDescription*)GetHandle(thiz);
+    QCC_DbgPrintf(("InterfaceDescription_activate()\n"));
+
+    InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
     assert(intf);
+
     intf->Activate();
 }
 
-/*
- * class org_alljoyn_bus_ProxyBusObject
- */
-
-class JProxyBusObject : public ProxyBusObject {
-  public:
-    JProxyBusObject(Bus& bus, const char* endpoint, const char* path, SessionId sessionId);
-    Bus bus;
-};
-
-JProxyBusObject::JProxyBusObject(Bus& b, const char* endpoint, const char* path, SessionId sessionId)
-    : ProxyBusObject(*b, endpoint, path, sessionId), bus(b)
+JProxyBusObject::JProxyBusObject(JBusAttachmentPtr p, const char* endpoint, const char* path, SessionId sessionId)
+    : ProxyBusObject(*p, endpoint, path, sessionId), busPtr(p)
 {
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, jobject thiz,
-                                                                  jobject jbus,
-                                                                  jstring jbusName,
-                                                                  jstring jobjPath,
-                                                                  jint sessionId)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, jobject thiz, jobject jbus,
+                                                                  jstring jbusName, jstring jobjPath, jint sessionId)
 {
-    Bus* bus = (Bus*)GetHandle(jbus);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    assert(bus);
+    QCC_DbgPrintf(("ProxyBusObject_create()\n"));
+
     JString busName(jbusName);
     if (env->ExceptionCheck()) {
         return;
     }
+
     JString objPath(jobjPath);
     if (env->ExceptionCheck()) {
         return;
     }
-    JProxyBusObject* proxyBusObj = new JProxyBusObject(*bus, busName.c_str(), objPath.c_str(), sessionId);
-    if (!proxyBusObj) {
-        Throw("java/lang/OutOfMemoryError", NULL);
-    }
-    if (!env->ExceptionCheck()) {
-        SetHandle(thiz, proxyBusObj);
-    }
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to a JBusAttachment in the Java BusAttachment object as a
+     * "handle."  We're going to grab a reference to that JBusAttachment and
+     * stash it in our own "handle."
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
     if (env->ExceptionCheck()) {
-        Bus tmp = proxyBusObj->bus;
-        delete proxyBusObj;
+        return;
+    }
+
+    /*
+     * Create a C++ proxy bus object to back the Java bus object and stash the
+     * pointer to it in our "handle"
+     */
+    JProxyBusObject* jpbo = new JProxyBusObject(busPtr, busName.c_str(), objPath.c_str(), sessionId);
+    if (!jpbo) {
+        Throw("java/lang/OutOfMemoryError", NULL);
+        return;
+    }
+
+    SetHandle(thiz, jpbo);
+    if (env->ExceptionCheck()) {
+        delete jpbo;
     }
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env,
-                                                                   jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env, jobject thiz)
 {
-    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
+    QCC_DbgPrintf(("ProxyBusObject_destroy()\n"));
+
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (!proxyBusObj) {
         return;
     }
-    Bus tmp = proxyBusObj->bus;
+
     delete proxyBusObj;
     SetHandle(thiz, NULL);
 }
 
-static void AddInterface(jobject thiz,
-                         jobject jbus,
-                         jstring jinterfaceName)
+static void AddInterface(jobject thiz, jobject jbus, jstring jinterfaceName)
 {
     JNIEnv* env = GetEnv();
-    Bus* bus = (Bus*)GetHandle(jbus);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    assert(bus);
-    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
+
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
     assert(proxyBusObj);
+
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
         return;
@@ -5556,17 +7224,32 @@ static void AddInterface(jobject thiz,
     if (!mid) {
         return;
     }
+
     QStatus status = (QStatus)env->CallIntMethod(thiz, mid, jinterfaceName);
     if (env->ExceptionCheck()) {
         /* AnnotationBusException */
         return;
     }
+
     if (ER_OK != status) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         return;
     }
-    const InterfaceDescription* intf = (*bus)->GetInterface(interfaceName.c_str());
+
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to a JBusAttachment in the Java BusAttachment object as a
+     * "handle."  We're going to grab a reference to that JBusAttachment so
+     * we can make our AllJoyn call.
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    const InterfaceDescription* intf = busPtr->GetInterface(interfaceName.c_str());
     assert(intf);
+
     status = proxyBusObj->AddInterface(*intf);
     if (ER_OK != status) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
@@ -5584,39 +7267,53 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
                                                                          jint replyTimeoutMsecs,
                                                                          jint flags)
 {
-    Bus* bus = (Bus*)GetHandle(jbus);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(bus);
-    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(proxyBusObj);
+    QCC_DbgPrintf(("ProxyBusObject_methodCall()\n"));
+
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString methodName(jmethodName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
-    QStatus status;
+    /*
+     * This looks a bit odd, but what we have done is to save a pointer to a
+     * smart pointer to a JBusAttachment in the Java BusAttachment object as a
+     * "handle."  We're going to grab a reference to that JBusAttachment so
+     * we can refer to it when creating the Message that will be sent.
+     */
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    Message replyMsg(*busPtr);
+
+    /*
+     * Get the pointer to the underlying C++ proxy bus object that we have stashed
+     * in our "handle."
+     */
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(proxyBusObj);
+
     MsgArg args;
-    Message replyMsg(**bus);
+    QStatus status;
     const MsgArg* replyArgs;
     size_t numReplyArgs;
     jobject jreplyArg = NULL;
-    const InterfaceDescription* intf;
-    const InterfaceDescription::Member* member;
+    const InterfaceDescription::Member* member = NULL;
 
-    intf = proxyBusObj->GetInterface(interfaceName.c_str());
+    const InterfaceDescription* intf = proxyBusObj->GetInterface(interfaceName.c_str());
     if (!intf) {
         AddInterface(thiz, jbus, jinterfaceName);
         if (env->ExceptionCheck()) {
@@ -5625,6 +7322,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         intf = proxyBusObj->GetInterface(interfaceName.c_str());
         assert(intf);
     }
+
     member = intf->GetMember(methodName.c_str());
     if (!member) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_INTERFACE_NO_SUCH_MEMBER));
@@ -5683,25 +7381,30 @@ exit:
     }
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv* env,
-                                                                          jobject thiz,
-                                                                          jobject jbus,
-                                                                          jstring jinterfaceName,
-                                                                          jstring jpropertyName)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv* env, jobject thiz, jobject jbus,
+                                                                          jstring jinterfaceName, jstring jpropertyName)
 {
-    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
-    assert(proxyBusObj);
+    QCC_DbgPrintf(("ProxyBusObject_getProperty()\n"));
+
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     JString propertyName(jpropertyName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
+    /*
+     * Get the pointer to the underlying C++ proxy bus object that we have stashed
+     * in our "handle."
+     */
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    assert(proxyBusObj);
 
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
         AddInterface(thiz, jbus, jinterfaceName);
@@ -5728,23 +7431,32 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
                                                                        jstring jsignature,
                                                                        jobject jvalue)
 {
-    JProxyBusObject* proxyBusObj = (JProxyBusObject*)GetHandle(thiz);
-    if (env->ExceptionCheck()) {
-        return;
-    }
-    assert(proxyBusObj);
+    QCC_DbgPrintf(("ProxyBusObject_setProperty()\n"));
+
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
         return;
     }
+
     JString propertyName(jpropertyName);
     if (env->ExceptionCheck()) {
         return;
     }
+
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
         return;
     }
+
+    /*
+     * Get the pointer to the underlying C++ proxy bus object that we have stashed
+     * in our "handle."
+     */
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
+    if (env->ExceptionCheck()) {
+        return;
+    }
+    assert(proxyBusObj);
 
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
         AddInterface(thiz, jbus, jinterfaceName);
@@ -5765,39 +7477,27 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
     }
 }
 
-/*
- * class org_alljoyn_bus_SignalEmitter
- */
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env,
-                                                                 jobject thiz,
-                                                                 jobject jbusObj,
-                                                                 jstring jdestination,
-                                                                 jint sessionId,
-                                                                 jstring jifaceName,
-                                                                 jstring jsignalName,
-                                                                 jstring jinputSig,
-                                                                 jobjectArray jargs,
-                                                                 jint timeToLive,
-                                                                 jint flags)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jobject thiz, jobject jbusObject, jstring jdestination,
+                                                                 jint sessionId, jstring jifaceName, jstring jsignalName,
+                                                                 jstring jinputSig, jobjectArray jargs, jint timeToLive, jint flags)
 {
-    JBusObject* busObj = _Bus::GetBusObject(jbusObj);
-    if (!busObj) {
-        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
-        return;
-    }
+    QCC_DbgPrintf(("SignalEmitter_signal()\n"));
+
     JString destination(jdestination);
     if (env->ExceptionCheck()) {
         return;
     }
+
     JString ifaceName(jifaceName);
     if (env->ExceptionCheck()) {
         return;
     }
+
     JString signalName(jsignalName);
     if (env->ExceptionCheck()) {
         return;
     }
+
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
         return;
@@ -5807,21 +7507,45 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env,
     if (!Marshal(inputSig.c_str(), jargs, &args)) {
         return;
     }
-    QStatus status = busObj->Signal(destination.c_str(), sessionId, ifaceName.c_str(), signalName.c_str(),
-                                    args.v_struct.members, args.v_struct.numMembers, timeToLive, flags);
+
+    /*
+     * We have to find the C++ object that backs our Java Bus Object.  Since we are
+     * provided a Java Bus Object reference here, there should be a corresponding
+     * C++ backing object stored in the global map of such things.  Just because we
+     * think it should be there doesn't mean that the client is playing games that
+     * would mess us up.  For example, she could call signal on one thread and also
+     * "simultaneously" call UnregisterBusObject on another, which could cause the
+     * C++ backing object to be deleted out from under us.  To prevent such scenarios
+     * we take the global bus object map lock during the entire signal processing
+     * time.  This does mean that if the Signal function causes the execution of
+     * something that needs to come back in and manage the global bus objects, we
+     * will deadlock.
+     */
+    QCC_DbgPrintf(("SignalEmitter_signal(): Taking global Bus Object map lock\n"));
+    gBusObjectMapLock.Lock();
+    JBusObject* busObject = GetBackingObject(jbusObject);
+    if (!busObject) {
+        QCC_DbgPrintf(("SignalEmitter_signal(): Releasing global Bus Object map lock\n"));
+        gBusObjectMapLock.Unlock();
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
+        return;
+    }
+
+    QStatus status = busObject->Signal(destination.c_str(), sessionId, ifaceName.c_str(), signalName.c_str(),
+                                       args.v_struct.members, args.v_struct.numMembers, timeToLive, flags);
+
+    QCC_DbgPrintf(("SignalEmitter_signal(): Releasing global Bus Object map lock\n"));
+    gBusObjectMapLock.Unlock();
+
     if (ER_OK != status) {
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
 }
 
-/*
- * class org_alljoyn_bus_Signature
- */
-
-JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env,
-                                                                    jclass clazz,
-                                                                    jstring jsignature)
+JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env, jclass clazz, jstring jsignature)
 {
+    QCC_DbgPrintf(("Signature_split()\n"));
+
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -5859,14 +7583,11 @@ JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env,
     }
 }
 
-/*
- * class org_alljoyn_bus_Variant
- */
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env,
-                                                            jobject thiz)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env, jobject thiz)
 {
-    MsgArg* arg = (MsgArg*)GetHandle(thiz);
+    QCC_DbgPrintf(("Variant_destroy()\n"));
+
+    MsgArg* arg = GetHandle<MsgArg*>(thiz);
     if (!arg) {
         return;
     }
@@ -5874,10 +7595,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env,
     SetHandle(thiz, NULL);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv* env,
-                                                              jobject thiz,
-                                                              jlong jmsgArg)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv* env, jobject thiz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("Variant_setMsgArg()\n"));
+
     MsgArg* arg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_VARIANT == arg->typeId);
     MsgArg* argCopy = new MsgArg(*arg->v_variant.val);
@@ -5891,13 +7612,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv* env,
     }
 }
 
-/*
- * class org_alljoyn_bus_BusException
- */
-
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusException_logln(JNIEnv* env,
-                                                               jclass clazz,
-                                                               jstring jline)
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusException_logln(JNIEnv* env, jclass clazz, jstring jline)
 {
     JString line(jline);
     if (env->ExceptionCheck()) {
@@ -5906,86 +7621,84 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusException_logln(JNIEnv* env,
     _QCC_DbgPrint(DBG_LOCAL_ERROR, ("%s", line.c_str()));
 }
 
-/*
- * class org_alljoyn_bus_MsgArg
- */
-
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumElements(JNIEnv* env,
-                                                                  jclass clazz,
-                                                                  jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumElements(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getNumElements()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
     return msgArg->v_array.GetNumElements();
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getElement(JNIEnv* env,
-                                                               jclass clazz,
-                                                               jlong jmsgArg,
-                                                               jint index)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getElement(JNIEnv* env, jclass clazz, jlong jmsgArg, jint index)
 {
+    QCC_DbgPrintf(("MsgArg_getElement()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
     assert(index < (jint)msgArg->v_array.GetNumElements());
     return (jlong) & msgArg->v_array.GetElements()[index];
 }
 
-JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getElemSig(JNIEnv* env,
-                                                                 jclass clazz,
-                                                                 jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getElemSig(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getElementSig()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
     return env->NewStringUTF(msgArg->v_array.GetElemSig());
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getVal(JNIEnv* env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getVal(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getVal()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     switch (msgArg->typeId) {
-    case ALLJOYN_VARIANT: return (jlong)msgArg->v_variant.val;
+    case ALLJOYN_VARIANT:
+        return (jlong)msgArg->v_variant.val;
 
-    case ALLJOYN_DICT_ENTRY: return (jlong)msgArg->v_dictEntry.val;
+    case ALLJOYN_DICT_ENTRY:
+        return (jlong)msgArg->v_dictEntry.val;
 
-    default: assert(0); return 0;
+    default:
+        assert(0);
+        return 0;
     }
 }
 
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumMembers(JNIEnv* env,
-                                                                 jclass clazz,
-                                                                 jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumMembers(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getNumMembers()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRUCT == msgArg->typeId);
     return msgArg->v_struct.numMembers;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getMember(JNIEnv* env,
-                                                              jclass clazz,
-                                                              jlong jmsgArg,
-                                                              jint index)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getMember(JNIEnv* env, jclass clazz, jlong jmsgArg, jint index)
 {
+    QCC_DbgPrintf(("MsgArg_getMember()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRUCT == msgArg->typeId);
     assert(index < (jint)msgArg->v_struct.numMembers);
     return (jlong) & msgArg->v_struct.members[index];
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getKey(JNIEnv* env,
-                                                           jclass clazz,
-                                                           jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getKey(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getKey()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DICT_ENTRY == msgArg->typeId);
     return (jlong)msgArg->v_dictEntry.key;
 }
 
-JNIEXPORT jbyteArray JNICALL Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv* env,
-                                                                      jclass clazz,
-                                                                      jlong jmsgArg)
+JNIEXPORT jbyteArray JNICALL Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getKey()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BYTE_ARRAY == msgArg->typeId);
     jbyteArray jarray = env->NewByteArray(msgArg->v_scalarArray.numElements);
@@ -6000,311 +7713,347 @@ JNIEXPORT jbyteArray JNICALL Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv* en
     return jarray;
 }
 
-JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv* env,
-                                                                        jclass clazz,
-                                                                        jlong jmsgArg)
+JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getInt16Array()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT16_ARRAY == msgArg->typeId);
+
     jshortArray jarray = env->NewShortArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jshort* jelements = env->GetShortArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_int16[i];
     }
+
     env->ReleaseShortArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv* env,
-                                                                         jclass clazz,
-                                                                         jlong jmsgArg)
+JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint16Array()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT16_ARRAY == msgArg->typeId);
+
     jshortArray jarray = env->NewShortArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jshort* jelements = env->GetShortArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_uint16[i];
     }
+
     env->ReleaseShortArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jbooleanArray JNICALL Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv* env,
-                                                                         jclass clazz,
-                                                                         jlong jmsgArg)
+JNIEXPORT jbooleanArray JNICALL Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getBoolArray()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BOOLEAN_ARRAY == msgArg->typeId);
+
     jbooleanArray jarray = env->NewBooleanArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jboolean* jelements = env->GetBooleanArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_bool[i];
     }
+
     env->ReleaseBooleanArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv* env,
-                                                                       jclass clazz,
-                                                                       jlong jmsgArg)
+JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint32Array()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT32_ARRAY == msgArg->typeId);
+
     jintArray jarray = env->NewIntArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jint* jelements = env->GetIntArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_uint32[i];
     }
+
     env->ReleaseIntArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv* env,
-                                                                      jclass clazz,
-                                                                      jlong jmsgArg)
+JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint32Array()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT32_ARRAY == msgArg->typeId);
+
     jintArray jarray = env->NewIntArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jint* jelements = env->GetIntArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_int32[i];
     }
+
     env->ReleaseIntArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv* env,
-                                                                       jclass clazz,
-                                                                       jlong jmsgArg)
+JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getInt64Array()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT64_ARRAY == msgArg->typeId);
+
     jlongArray jarray = env->NewLongArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jlong* jelements = env->GetLongArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_int64[i];
     }
+
     env->ReleaseLongArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv* env,
-                                                                        jclass clazz,
-                                                                        jlong jmsgArg)
+JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint64Array()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT64_ARRAY == msgArg->typeId);
+
     jlongArray jarray = env->NewLongArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jlong* jelements = env->GetLongArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_uint64[i];
     }
+
     env->ReleaseLongArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jdoubleArray JNICALL Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv* env,
-                                                                          jclass clazz,
-                                                                          jlong jmsgArg)
+JNIEXPORT jdoubleArray JNICALL Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getDoubleArray()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DOUBLE_ARRAY == msgArg->typeId);
+
     jdoubleArray jarray = env->NewDoubleArray(msgArg->v_scalarArray.numElements);
     if (!jarray) {
         return NULL;
     }
+
     jdouble* jelements = env->GetDoubleArrayElements(jarray, NULL);
     for (size_t i = 0; i < msgArg->v_scalarArray.numElements; ++i) {
         jelements[i] = msgArg->v_scalarArray.v_double[i];
     }
+
     env->ReleaseDoubleArrayElements(jarray, jelements, 0);
     return jarray;
 }
 
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getTypeId(JNIEnv* env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getTypeId(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getTypeId()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     return msgArg->typeId;
 }
 
-JNIEXPORT jbyte JNICALL Java_org_alljoyn_bus_MsgArg_getByte(JNIEnv* env,
-                                                            jclass clazz,
-                                                            jlong jmsgArg)
+JNIEXPORT jbyte JNICALL Java_org_alljoyn_bus_MsgArg_getByte(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getByte()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BYTE == msgArg->typeId);
     return msgArg->v_byte;
 }
 
-JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getInt16(JNIEnv* env,
-                                                              jclass clazz,
-                                                              jlong jmsgArg)
+JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getInt16(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getInt16()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT16 == msgArg->typeId);
     return msgArg->v_int16;
 }
 
-JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getUint16(JNIEnv* env,
-                                                               jclass clazz,
-                                                               jlong jmsgArg)
+JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getUint16(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint16()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT16 == msgArg->typeId);
     return msgArg->v_uint16;
 }
 
-JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_MsgArg_getBool(JNIEnv* env,
-                                                               jclass clazz,
-                                                               jlong jmsgArg)
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_MsgArg_getBool(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getBool()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BOOLEAN == msgArg->typeId);
     return msgArg->v_bool;
 }
 
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getUint32(JNIEnv* env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getUint32(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint32()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT32 == msgArg->typeId);
     return msgArg->v_uint32;
 }
 
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getInt32(JNIEnv* env,
-                                                            jclass clazz,
-                                                            jlong jmsgArg)
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getInt32(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getInt32()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT32 == msgArg->typeId);
     return msgArg->v_int32;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getInt64(JNIEnv* env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getInt64(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getInt64()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT64 == msgArg->typeId);
     return msgArg->v_int64;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getUint64(JNIEnv* env,
-                                                              jclass clazz,
-                                                              jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getUint64(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getUint64()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT64 == msgArg->typeId);
     return msgArg->v_uint64;
 }
 
-JNIEXPORT jdouble JNICALL Java_org_alljoyn_bus_MsgArg_getDouble(JNIEnv* env,
-                                                                jclass clazz,
-                                                                jlong jmsgArg)
+JNIEXPORT jdouble JNICALL Java_org_alljoyn_bus_MsgArg_getDouble(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getDouble()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DOUBLE == msgArg->typeId);
     return msgArg->v_double;
 }
 
-JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getString(JNIEnv* env,
-                                                                jclass clazz,
-                                                                jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getString(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getString()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRING == msgArg->typeId);
+
     char* str = new char[msgArg->v_string.len + 1];
     if (!str) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return NULL;
     }
+
     memcpy(str, msgArg->v_string.str, msgArg->v_string.len);
     str[msgArg->v_string.len] = 0;
+
     jstring jstr = env->NewStringUTF(str);
     delete [] str;
     return jstr;
 }
 
-JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv* env,
-                                                                 jclass clazz,
-                                                                 jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getObjPath()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_OBJECT_PATH == msgArg->typeId);
+
     char* str = new char[msgArg->v_objPath.len + 1];
     if (!str) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return NULL;
     }
+
     memcpy(str, msgArg->v_objPath.str, msgArg->v_objPath.len);
     str[msgArg->v_objPath.len] = 0;
+
     jstring jstr = env->NewStringUTF(str);
     delete [] str;
     return jstr;
 }
 
-JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv* env,
-                                                                      jclass clazz,
-                                                                      jlong jmsgArg)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_getsignature__J()\n"));
+
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_SIGNATURE == msgArg->typeId);
+
     char* str = new char[msgArg->v_signature.len + 1];
     if (!str) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return NULL;
     }
+
     memcpy(str, msgArg->v_signature.sig, msgArg->v_signature.len);
     str[msgArg->v_signature.len] = 0;
+
     jstring jstr = env->NewStringUTF(str);
     delete [] str;
     return jstr;
 }
 
-JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv* env,
-                                                                        jclass clazz,
-                                                                        jlongArray jarray)
+JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv* env, jclass clazz, jlongArray jarray)
 {
-    size_t numValues = jarray ? env->GetArrayLength(jarray) : 0;
+    QCC_DbgPrintf(("MsgArg_getsignature___3J()\n"));
+
     MsgArg* values = NULL;
+    size_t numValues = jarray ? env->GetArrayLength(jarray) : 0;
     if (numValues) {
         values = new MsgArg[numValues];
         if (!values) {
             Throw("java/lang/OutOfMemoryError", NULL);
             return NULL;
         }
+
         jlong* jvalues = env->GetLongArrayElements(jarray, NULL);
         for (size_t i = 0; i < numValues; ++i) {
             values[i] = *(MsgArg*)(jvalues[i]);
         }
+
         env->ReleaseLongArrayElements(jarray, jvalues, JNI_ABORT);
     }
+
     jstring signature = env->NewStringUTF(MsgArg::Signature(values, numValues).c_str());
     delete [] values;
     return signature;
@@ -6319,11 +8068,10 @@ JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv* 
  * @return the @param arg passed in or NULL if an error occurred
  * @throws BusException if an error occurs
  */
-static MsgArg* Set(JNIEnv* env,
-                   MsgArg* arg,
-                   jstring jsignature,
-                   ...)
+static MsgArg* Set(JNIEnv* env, MsgArg* arg, jstring jsignature, ...)
 {
+    QCC_DbgPrintf(("Set()\n"));
+
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -6340,98 +8088,78 @@ static MsgArg* Set(JNIEnv* env,
     return arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2B(JNIEnv* env,
-                                                                               jclass clazz,
-                                                                               jlong jmsgArg,
-                                                                               jstring jsignature,
-                                                                               jbyte value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2B(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jbyte value)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2B()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Z(JNIEnv* env,
-                                                                               jclass clazz,
-                                                                               jlong jmsgArg,
-                                                                               jstring jsignature,
-                                                                               jboolean value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Z(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jboolean value)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2Z()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2S(JNIEnv* env,
-                                                                               jclass clazz,
-                                                                               jlong jmsgArg,
-                                                                               jstring jsignature,
-                                                                               jshort value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2S(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jshort value)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2S()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2I(JNIEnv* env,
-                                                                               jclass clazz,
-                                                                               jlong jmsgArg,
-                                                                               jstring jsignature,
-                                                                               jint value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2I(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jint value)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2I()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2J(JNIEnv* env,
-                                                                               jclass clazz,
-                                                                               jlong jmsgArg,
-                                                                               jstring jsignature,
-                                                                               jlong value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2J(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jlong value)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2J()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(JNIEnv* env,
-                                                                               jclass clazz,
-                                                                               jlong jmsgArg,
-                                                                               jstring jsignature,
-                                                                               jdouble value)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jdouble value)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2D()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2(JNIEnv* env,
-                                                                                                 jclass clazz,
-                                                                                                 jlong jmsgArg,
-                                                                                                 jstring jsignature,
-                                                                                                 jstring jvalue)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jstring jvalue)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2\n"));
+
     JString value(jvalue);
     if (env->ExceptionCheck()) {
         return 0;
     }
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, value.c_str());
     if (arg) {
         arg->Stabilize();
     }
+
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B(JNIEnv* env,
-                                                                                 jclass clazz,
-                                                                                 jlong jmsgArg,
-                                                                                 jstring jsignature,
-                                                                                 jbyteArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jbyteArray jarray)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3B\n"));
+
     jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
+
     env->ReleaseByteArrayElements(jarray, jelements, JNI_ABORT);
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv* env,
-                                                                                 jclass clazz,
-                                                                                 jlong jmsgArg,
-                                                                                 jstring jsignature,
-                                                                                 jbooleanArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jbooleanArray jarray)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3Z\n"));
+
     /* Booleans are different sizes in Java and MsgArg, so can't just do a straight copy. */
     jboolean* jelements = env->GetBooleanArrayElements(jarray, NULL);
     size_t numElements = env->GetArrayLength(jarray);
@@ -6440,117 +8168,123 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
     }
+
     for (size_t i = 0; i < numElements; ++i) {
         v_bool[i] = jelements[i];
     }
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, numElements, v_bool);
     if (arg) {
         arg->SetOwnershipFlags(MsgArg::OwnsData);
     } else {
         delete [] v_bool;
     }
+
     env->ReleaseBooleanArrayElements(jarray, jelements, JNI_ABORT);
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S(JNIEnv* env,
-                                                                                 jclass clazz,
-                                                                                 jlong jmsgArg,
-                                                                                 jstring jsignature,
-                                                                                 jshortArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jshortArray jarray)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3S\n"));
+
     jshort* jelements = env->GetShortArrayElements(jarray, NULL);
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
+
     env->ReleaseShortArrayElements(jarray, jelements, JNI_ABORT);
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I(JNIEnv* env,
-                                                                                 jclass clazz,
-                                                                                 jlong jmsgArg,
-                                                                                 jstring jsignature,
-                                                                                 jintArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jintArray jarray)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3I\n"));
+
     jint* jelements = env->GetIntArrayElements(jarray, NULL);
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
+
     env->ReleaseIntArrayElements(jarray, jelements, JNI_ABORT);
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J(JNIEnv* env,
-                                                                                 jclass clazz,
-                                                                                 jlong jmsgArg,
-                                                                                 jstring jsignature,
-                                                                                 jlongArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jlongArray jarray)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3J\n"));
+
     jlong* jelements = env->GetLongArrayElements(jarray, NULL);
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
+
     env->ReleaseLongArrayElements(jarray, jelements, JNI_ABORT);
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D(JNIEnv* env,
-                                                                                 jclass clazz,
-                                                                                 jlong jmsgArg,
-                                                                                 jstring jsignature,
-                                                                                 jdoubleArray jarray)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jdoubleArray jarray)
 {
+    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3D\n"));
+
     jdouble* jelements = env->GetDoubleArrayElements(jarray, NULL);
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, env->GetArrayLength(jarray), jelements);
     if (arg) {
         arg->Stabilize();
     }
+
     env->ReleaseDoubleArrayElements(jarray, jelements, JNI_ABORT);
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv* env,
-                                                             jclass clazz,
-                                                             jlong jmsgArg,
-                                                             jstring jelemSig,
-                                                             jint numElements)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jelemSig, jint numElements)
 {
+    QCC_DbgPrintf(("MsgArg_setArray\n"));
+
     JString elemSig(jelemSig);
     if (env->ExceptionCheck()) {
         return 0;
     }
+
     MsgArg* arg = (MsgArg*)jmsgArg;
+
     MsgArg* elements = new MsgArg[numElements];
     if (!elements) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
     }
+
     QStatus status = arg->v_array.SetElements(elemSig.c_str(), numElements, elements);
     if (ER_OK != status) {
         delete [] elements;
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         return 0;
     }
+
     arg->SetOwnershipFlags(MsgArg::OwnsArgs);
     arg->typeId = ALLJOYN_ARRAY;
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv* env,
-                                                              jclass clazz,
-                                                              jlong jmsgArg,
-                                                              jint numMembers)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv* env, jclass clazz, jlong jmsgArg, jint numMembers)
 {
+    QCC_DbgPrintf(("MsgArg_setStruct\n"));
+
     MsgArg* arg = (MsgArg*)jmsgArg;
+
     MsgArg* members = new MsgArg[numMembers];
     if (!members) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
     }
+
     arg->v_struct.numMembers = numMembers;
     arg->v_struct.members = members;
     arg->SetOwnershipFlags(MsgArg::OwnsArgs);
@@ -6558,10 +8292,10 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv* env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv* env,
-                                                                 jclass clazz,
-                                                                 jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_setDictEntry\n"));
+
     MsgArg* arg = (MsgArg*)jmsgArg;
     MsgArg* key = new MsgArg;
     MsgArg* val = new MsgArg;
@@ -6578,35 +8312,37 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv* env,
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_String_2J(JNIEnv* env,
-                                                                                      jclass clazz,
-                                                                                      jlong jmsgArg,
-                                                                                      jstring jsignature,
-                                                                                      jlong jvalue)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_String_2J(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jlong jvalue)
 {
+    QCC_DbgPrintf(("MsgArg_setVariant__JLjava_lang_String_2J\n"));
+
     MsgArg* value = new MsgArg(*(MsgArg*)jvalue);
     if (!value) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
     }
+
     MsgArg* arg = Set(env, (MsgArg*)jmsgArg, jsignature, value);
     if (arg) {
         arg->SetOwnershipFlags(MsgArg::OwnsArgs);
     }
+
     return (jlong)arg;
 }
 
-JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__J(JNIEnv* env,
-                                                                  jclass clazz,
-                                                                  jlong jmsgArg)
+JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__J(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
+    QCC_DbgPrintf(("MsgArg_setVariant__J\n"));
+
     MsgArg* arg = (MsgArg*)jmsgArg;
+
     MsgArg* val = new MsgArg;
     if (!val) {
         delete val;
         Throw("java/lang/OutOfMemoryError", NULL);
         return 0;
     }
+
     arg->v_variant.val = val;
     arg->SetOwnershipFlags(MsgArg::OwnsArgs);
     arg->typeId = ALLJOYN_VARIANT;

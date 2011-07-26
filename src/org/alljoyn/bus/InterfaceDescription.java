@@ -59,7 +59,16 @@ class InterfaceDescription {
         }
     }
 
-    /** The native interface description handle. */
+    /**
+     * The native interface description handle.
+     *
+     * This differs from most of the native bindings code in that the underlying
+     * object points directly to the corresponding AllJoyn object without a JNI
+     * intermediary.  The underlying AlljJoyn object is actually managed there,
+     * so we have a pointer but have no responsibility for deleting it.  You
+     * will see a create() method, but that method gets the pointer, it doesn't
+     * allocate an object.
+     */
     private long handle;
 
     /** The members of this interface. */

@@ -19,6 +19,32 @@ package org.alljoyn.bus;
 /**
  * Authentication listeners are responsible for handling AllJoyn authentication
  * requests.
+ *
+ * Listener objects are the Java objects that handle notification events and are
+ * called from AllJoyn in the context of one of its threads.  All listener
+ * objects are expected to be multithread safe (MT-Safe) between construction
+ * and destruction.  
+ *
+ * This rule extends to other objects accessed during processing of
+ * notifications.  For example, it is a programming error to allow a notifiation
+ * method to update a collection in another object without serializing access
+ * to the collection.
+ *
+ * The important consideration in this case is that as soon as one sets up a
+ * listener object to receive notifications from AllJoyn, one is implicitly
+ * dealing with multithreaded code.
+ *
+ * Since listener objects generally run in the context of the AllJoyn thread
+ * which manages reception of events, If a blocking AllJoyn call is made in 
+ * the context of a notification, the necessary and sufficient conditions for
+ * deadlock are established.
+ *
+ * The important consideration in this case is that when one receives a
+ * notification from AllJoyn, that notification is executing in the context of
+ * an AllJoyn thread.  If one makes a blocking call back into AllJoyn on that
+ * thread, a deadlock cycle is likely, and if this happens your bus attachment
+ * receive thread will deadlock (with itself).  The deadlock is typically broken
+ * after a bus timeout eventually happens.
  */
 public interface AuthListener {
 
@@ -179,6 +205,9 @@ public interface AuthListener {
      * A count allows the listener to decide whether to allow or reject mutiple
      * authentication attempts to the same peer.
      *
+     * Any implementation of this function must be multithread safe.  See the
+     * class documentation for details.
+     *
      * @param mechanism the name of the authentication mechanism issuing the
      *                  request
      * @param peerName  the name of the remote peer being authenticated.  On the
@@ -203,6 +232,9 @@ public interface AuthListener {
     /**
      * Called by the authentication engine when all authentication attempts are
      * completed.
+     *
+     * Any implementation of this function must be multithread safe.  See the
+     * class documentation for details.
      *
      * @param mechanism the name of the authentication mechanism that was used
      *                  or an empty string if the authentication failed

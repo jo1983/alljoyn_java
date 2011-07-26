@@ -678,6 +678,9 @@ public class BusAttachment {
      * data (i.e. passwords).  The native code must take care of scrubbing the
      * buffer when done.
      *
+     * This method can be called from a listener object and must therefore be
+     * MT-Safe.
+     *
      * @param charArray the sensitive string
      * @return the UTF-8 encoded version of the string
      */
@@ -1074,4 +1077,17 @@ public class BusAttachment {
      */
     public native MessageContext getMessageContext();
 
+    /**
+     * The maximum length of an AllJoyn packet.
+     *
+     * AllJoyn limits the total size of a packetized Message to 2^17 bytes.
+     */
+    public static final int ALLJOYN_MAX_PACKET_LEN = 131072;
+
+    /**
+     * The maximum length of an array sent in an AllJoyn Message.
+     *
+     * AllJoyn limits arrays to a maximum sze of 2^16
+     */
+    public static final int ALLJOYN_MAX_ARRAY_LEN = 131072;
 }
