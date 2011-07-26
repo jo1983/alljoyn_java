@@ -1686,13 +1686,14 @@ class JBusObject : public BusObject {
     };
     typedef map<String, jobject> JMethod;
     typedef map<String, Property> JProperty;
-    Mutex mapLock;
     jobject jbusObj;
     jmethodID MID_generateIntrospection;
     jmethodID MID_registered;
     jmethodID MID_unregistered;
+
     JMethod methods;
     JProperty properties;
+    Mutex mapLock;
 };
 
 /**
@@ -3374,6 +3375,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
      */
     QCC_DbgPrintf(("JBusListener::JBusListener(): Taking global Bus Object map lock\n"));
     gBusObjectMapLock.Lock();
+
     QCC_DbgPrintf(("JBusListener::JBusListener(): Taking Bus Attachment common lock\n"));
     baCommonLock.Lock();
 
@@ -3439,6 +3441,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     QCC_DbgPrintf(("JBusListener::JBusListener(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Unlock();
+
     QCC_DbgPrintf(("JBusListener::JBusListener(): Releasing global Bus Object map lock\n"));
     gBusObjectMapLock.Unlock();
 }
@@ -3572,6 +3575,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
      */
     QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Taking global Bus Object map lock\n"));
     gBusObjectMapLock.Lock();
+
     QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Taking Bus Attachment common lock\n"));
     baCommonLock.Lock();
 
@@ -3583,6 +3587,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
     if (i != busObjects.end()) {
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
+
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
         return ER_BUS_OBJ_ALREADY_EXISTS;
@@ -3599,6 +3604,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
     if (!jglobalref) {
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
+
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
         return ER_FAIL;
@@ -3632,6 +3638,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
             delete busObject;
             QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
             baCommonLock.Unlock();
+
             QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
             gBusObjectMapLock.Unlock();
             return ER_FAIL;
@@ -3673,6 +3680,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
      */
     QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Unlock();
+
     QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
     gBusObjectMapLock.Unlock();
     return ER_OK;
@@ -3693,6 +3701,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
      */
     QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Taking global Bus Object map lock\n"));
     gBusObjectMapLock.Lock();
+
     QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Lock();
 
@@ -3709,6 +3718,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
     if (i == busObjects.end()) {
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
+
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
         QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Java Bus Object.\n"));
@@ -3719,6 +3729,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
     if (cppObject == NULL) {
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
+
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
         QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Backing Object.\n"));
@@ -3767,6 +3778,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
      */
     QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Unlock();
+
     QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
     gBusObjectMapLock.Unlock();
     return;
@@ -3817,6 +3829,7 @@ QStatus JBusAttachment::RegisterSignalHandler(const char* ifaceName, const char*
 
     QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Unlock();
+
     return status;
 }
 
@@ -4019,7 +4032,9 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
 
     QCC_DbgPrintf(("BusAttachment_registerBusListener(): Taking Bus Attachment common lock\n"));
     busPtr->baCommonLock.Lock();
+
     busPtr->busListeners.push_back(jglobalref);
+
     QCC_DbgPrintf(("BusAttachment_registerBusListener(): Releasing Bus Attachment common lock\n"));
     busPtr->baCommonLock.Unlock();
 
@@ -4078,6 +4093,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
      */
     QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Taking Bus Attachment common lock\n"));
     busPtr->baCommonLock.Lock();
+
     for (list<jobject>::iterator i = busPtr->busListeners.begin(); i != busPtr->busListeners.end(); ++i) {
         if (env->IsSameObject(*i, jlistener)) {
             QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Releasing strong global reference to BusListener %p\n", jlistener));
@@ -4086,6 +4102,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
             break;
         }
     }
+
     QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Releasing Bus Attachment common lock\n"));
     busPtr->baCommonLock.Unlock();
 }
@@ -4612,9 +4629,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      */
     if (status == ER_OK) {
         QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Success\n"));
+
         QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Taking Bus Attachment common lock\n"));
         busPtr->baCommonLock.Lock();
+
         busPtr->sessionPortListenerMap[sessionPort] = jglobalref;
+
         QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
@@ -4710,8 +4730,10 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
          */
         QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Taking Bus Attachment common lock\n"));
         busPtr->baCommonLock.Lock();
+
         jobject jglobalref = busPtr->sessionPortListenerMap[jsessionPort];
         busPtr->sessionPortListenerMap[jsessionPort] = 0;
+
         QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
 
@@ -4894,9 +4916,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      */
     if (status == ER_OK) {
         QCC_DbgPrintf(("BusAttachment_joinSession(): Success\n"));
+
         QCC_DbgPrintf(("BusAttachment_joinSession(): Taking Bus Attachment common lock\n"));
         busPtr->baCommonLock.Lock();
+
         busPtr->sessionListenerMap[sessionId] = jglobalref;
+
         QCC_DbgPrintf(("BusAttachment_joinSession(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
@@ -5010,8 +5035,10 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
          */
         QCC_DbgPrintf(("BusAttachment_leaveSession(): Taking Bus Attachment common lock\n"));
         busPtr->baCommonLock.Lock();
+
         jobject jglobalref = busPtr->sessionListenerMap[jsessionId];
         busPtr->sessionListenerMap[jsessionId] = 0;
+
         QCC_DbgPrintf(("BusAttachment_leaveSession(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
 
@@ -5366,6 +5393,7 @@ exit:
      */
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Taking Bus Attachment common lock\n"));
     busPtr->baCommonLock.Lock();
+
     for (list<PendingAsyncJoin>::iterator i = busPtr->pendingAsyncJoins.begin(); i != busPtr->pendingAsyncJoins.end(); ++i) {
         if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
             if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
@@ -5417,6 +5445,7 @@ exit:
 
                 QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
                 env->DeleteGlobalRef(jcallback);
+
                 QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
                 busPtr->baCommonLock.Unlock();
                 return;
@@ -5426,6 +5455,7 @@ exit:
 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
     busPtr->baCommonLock.Unlock();
+
     QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
 }
 
@@ -6010,6 +6040,8 @@ JBusObject::~JBusObject()
 
     JNIEnv* env = GetEnv();
 
+    mapLock.Lock();
+
     for (JMethod::const_iterator method = methods.begin(); method != methods.end(); ++method) {
         env->DeleteGlobalRef(method->second);
     }
@@ -6018,6 +6050,8 @@ JBusObject::~JBusObject()
         env->DeleteGlobalRef(property->second.jget);
         env->DeleteGlobalRef(property->second.jset);
     }
+
+    mapLock.Unlock();
 
     if (jbusObj) {
         env->DeleteWeakGlobalRef(jbusObj);
@@ -6305,8 +6339,17 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
      * figure out the signature of each method to lookup.
      */
     String key = member->iface->GetName() + member->name;
+
+    /*
+     * We're going to wander into a list of methods and pick one.  Lock the
+     * mutex that protects this list for the entire time we'll be using the
+     * list and the found method.
+     */
+    mapLock.Lock();
+
     JMethod::const_iterator method = methods.find(key);
     if (methods.end() == method) {
+        mapLock.Unlock();
         MethodReply(member, msg, ER_BUS_OBJECT_NO_SUCH_MEMBER);
         return;
     }
@@ -6314,6 +6357,7 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
     JLocalRef<jobjectArray> jargs;
     QStatus status = Unmarshal(msg, method->second, jargs);
     if (ER_OK != status) {
+        mapLock.Unlock();
         MethodReply(member, msg, status);
         return;
     }
@@ -6321,6 +6365,7 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
     JLocalRef<jclass> clazz = env->GetObjectClass(method->second);
     jmethodID mid = env->GetMethodID(clazz, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
+        mapLock.Unlock();
         MethodReply(member, msg, ER_FAIL);
         return;
     }
@@ -6332,16 +6377,19 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
      */
     jobject jo = env->NewLocalRef(jbusObj);
     if (!jo) {
+        mapLock.Unlock();
         QCC_LogError(ER_FAIL, ("JBusObject::MethodHandler(): Can't get new local reference to BusObject\n"));
         return;
     }
 
     JLocalRef<jobject> jreply = env->CallObjectMethod(method->second, mid, jo, (jobjectArray)jargs);
     if (env->ExceptionCheck()) {
+        mapLock.Unlock();
         MethodReply(member, msg, ER_FAIL);
         return;
     }
 
+    mapLock.Unlock();
     MethodReply(member, msg, jreply);
 }
 
@@ -6444,17 +6492,28 @@ QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
     JScopedEnv env;
 
     String key = String(ifcName) + propName;
+
+    /*
+     * We're going to wander into a list of properties and pick one.  Lock the
+     * mutex that protects this list for the entire time we'll be using the list
+     * and the found method.
+     */   
+    mapLock.Lock();
+
     JProperty::const_iterator property = properties.find(key);
     if (properties.end() == property) {
+        mapLock.Unlock();
         return ER_BUS_NO_SUCH_PROPERTY;
     }
     if (!property->second.jget) {
+        mapLock.Unlock();
         return ER_BUS_PROPERTY_ACCESS_DENIED;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(property->second.jget);
     jmethodID mid = env->GetMethodID(clazz, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
+        mapLock.Unlock();
         return ER_FAIL;
     }
 
@@ -6465,19 +6524,23 @@ QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
      */
     jobject jo = env->NewLocalRef(jbusObj);
     if (!jo) {
+        mapLock.Unlock();
         QCC_LogError(ER_FAIL, ("JBusObject::Get(): Can't get new local reference to BusObject\n"));
         return ER_FAIL;
     }
 
     JLocalRef<jobject> jvalue = env->CallObjectMethod(property->second.jget, mid, jo, NULL);
     if (env->ExceptionCheck()) {
+        mapLock.Unlock();
         return ER_FAIL;
     }
 
     if (!Marshal(property->second.signature.c_str(), (jobject)jvalue, &val)) {
+        mapLock.Unlock();
         return ER_FAIL;
     }
 
+    mapLock.Unlock();
     return ER_OK;
 }
 
@@ -6492,23 +6555,35 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
     JScopedEnv env;
 
     String key = String(ifcName) + propName;
+
+    /*
+     * We're going to wander into a list of properties and pick one.  Lock the
+     * mutex that protects this list for the entire time we'll be using the list
+     * and the found method.
+     */   
+    mapLock.Lock();
+
     JProperty::const_iterator property = properties.find(key);
     if (properties.end() == property) {
+        mapLock.Unlock();
         return ER_BUS_NO_SUCH_PROPERTY;
     }
     if (!property->second.jset) {
+        mapLock.Unlock();
         return ER_BUS_PROPERTY_ACCESS_DENIED;
     }
 
     JLocalRef<jobjectArray> jvalue;
     QStatus status = Unmarshal(&val, 1, property->second.jset, jvalue);
     if (ER_OK != status) {
+        mapLock.Unlock();
         return status;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(property->second.jset);
     jmethodID mid = env->GetMethodID(clazz, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
     if (!mid) {
+        mapLock.Unlock();
         return ER_FAIL;
     }
 
@@ -6519,15 +6594,18 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
      */
     jobject jo = env->NewLocalRef(jbusObj);
     if (!jo) {
+        mapLock.Unlock();
         QCC_LogError(ER_FAIL, ("JBusObject::Set(): Can't get new local reference to BusObject\n"));
         return ER_FAIL;
     }
 
     env->CallObjectMethod(property->second.jset, mid, jbusObj, (jobjectArray)jvalue);
     if (env->ExceptionCheck()) {
+        mapLock.Unlock();
         return ER_FAIL;
     }
 
+    mapLock.Unlock();
     return ER_OK;
 }
 
