@@ -1630,13 +1630,17 @@ class PendingAsyncJoin {
  *
  * Objects of this class are expected to be MT-Safe between construction and
  * destruction.
+ *
+ * One minor abberation here is that the bus attachment pointer can't be a
+ * managed object since we don't have it when the listener is created, it is
+ * passed in later.
  */
 class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
   public:
     JOnJoinSessionListener(jobject jonJoinSessionListener);
     ~JOnJoinSessionListener();
 
-    void Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr busPtr);
+    void Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr* busPtr);
     void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
 
   private:
@@ -1644,7 +1648,7 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
     jweak jonJoinSessionListener;
     jweak jcontext;
     jmethodID MID_onJoinSession;
-    JBusAttachmentPtr busPtr;
+    JBusAttachmentPtr* busPtrPtr;
 };
 
 /**
@@ -3430,6 +3434,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     QCC_DbgPrintf(("JBusAttachment::Disconnect()\n"));
 
     if (IsConnected()) {
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): calling BusAttachment::Disconnect()\n"));
         QStatus status = BusAttachment::Disconnect(connectArgs);
         if (ER_OK != status) {
             QCC_LogError(status, ("Disconnect failed"));
@@ -3438,6 +3443,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     // TODO: DisablePeerSecurity
     // TODO: UnregisterKeyStoreListener
     if (IsStarted()) {
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): calling Stop()\n"));
         QStatus status = Stop();
         if (ER_OK != status) {
             QCC_LogError(status, ("Stop failed"));
@@ -4061,6 +4067,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jo
         return;
     }
 
+    QCC_DbgPrintf(("BusAttachment_create(): Remembering busPtrPtr as %p\n", busPtrPtr));
+    busPtrPtr->IncRef();
     SetHandle(thiz, busPtrPtr);
     if (env->ExceptionCheck()) {
         delete busPtrPtr;
@@ -4112,12 +4120,14 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
      * This looks a bit odd, but what we have done is to save a pointer to a
      * smart pointer to the JBusAttachment in our Java object as a "handle."
      */
-    JBusAttachmentPtr* busPtrPtr = GetHandle<JBusAttachmentPtr*>(thiz);
-    if (!busPtrPtr) {
-        return;
-    }
+    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
 
-    delete busPtrPtr;
+    /*
+     * We don't want to delete the smart pointer, we want to decrement the
+     * refererence count and let all of the other references to it do their
+     * think when they are released.
+     */
+    busPtr.DecRef();
     SetHandle(thiz, NULL);
 }
 
@@ -5361,7 +5371,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env,
 }
 
 JOnJoinSessionListener::JOnJoinSessionListener(jobject jonJoinSessionListener)
-    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), busPtr(NULL)
+    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), busPtrPtr(NULL)
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener()\n"));
 
@@ -5406,7 +5416,7 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
     }
 }
 
-void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr busPtr)
+void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr* busPtrPtr)
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::Setup()\n"));
     /*
@@ -5451,7 +5461,10 @@ void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, J
      * We need to be able to get back at the bus attachment in the callback to
      * release and/or reassign resources.
      */
-    this->busPtr = busPtr;
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Remembering busPtrPtr as %p\n", busPtrPtr));
+    this->busPtrPtr = busPtrPtr;
+    (*busPtrPtr)->baCommonLock.Lock();
+    (*busPtrPtr)->baCommonLock.Unlock();
 }
 
 void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
@@ -5536,9 +5549,9 @@ exit:
      * objects and come to a resolution about their lifetimes.
      */
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Taking Bus Attachment common lock\n"));
-    busPtr->baCommonLock.Lock();
+    (*busPtrPtr)->baCommonLock.Lock();
 
-    for (list<PendingAsyncJoin>::iterator i = busPtr->pendingAsyncJoins.begin(); i != busPtr->pendingAsyncJoins.end(); ++i) {
+    for (list<PendingAsyncJoin>::iterator i = (*busPtrPtr)->pendingAsyncJoins.begin(); i != (*busPtrPtr)->pendingAsyncJoins.end(); ++i) {
         if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
             if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
                 /*
@@ -5562,9 +5575,9 @@ exit:
                     env->DeleteGlobalRef(i->jcontext);
                     jcontext = NULL;
                 }
-
+                
                 if (status == ER_OK) {
-                    busPtr->sessionListenerMap[sessionId] = i->jlistener;
+                    (*busPtrPtr)->sessionListenerMap[sessionId] = i->jlistener;
                 } else {
                     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
                     env->DeleteGlobalRef(i->jlistener);
@@ -5585,20 +5598,20 @@ exit:
                  * Tell the bus to forget about the Java object references since
                  * we have dealt with them all.
                  */
-                busPtr->pendingAsyncJoins.erase(i);
+                (*busPtrPtr)->pendingAsyncJoins.erase(i);
 
                 QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
                 env->DeleteGlobalRef(jcallback);
 
                 QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
-                busPtr->baCommonLock.Unlock();
+                (*busPtrPtr)->baCommonLock.Unlock();
                 return;
             }
         }
     }
 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
-    busPtr->baCommonLock.Unlock();
+    (*busPtrPtr)->baCommonLock.Unlock();
 
     QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
 }
@@ -5648,7 +5661,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * This looks a bit odd, but what we have done is to save a pointer to a
      * smart pointer to the JBusAttachment in our Java object as a "handle."
      */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachmentPtr* busPtrPtr = GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachmentPtr busPtr = *busPtrPtr;
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
         return NULL;
@@ -5742,7 +5756,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * of the objects.  The original objects will be temporarily leaked.  This
      * is proabbly expected behavior, but we note it just in case.
      */
-    callback->Setup(jsessionListener, jcontext, busPtr);
+    callback->Setup(jsessionListener, jcontext, busPtrPtr);
 
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
                    sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
