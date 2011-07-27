@@ -3756,11 +3756,11 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
      * object to the global list of these objects (and their relationships with
      * associated Java objects).
      */
-    JBusObject* busObject = GetBackingObject(jbusObject);
+    JBusObject* busObject = GetBackingObject(jglobalref);
     if (busObject) {
-        IncRefBackingObject(jbusObject);
+        IncRefBackingObject(jglobalref);
     } else {
-        busObject = new JBusObject(this, objPath, jbusObject);
+        busObject = new JBusObject(this, objPath, jglobalref);
         busObject->AddInterfaces(jbusInterfaces);
         if (env->ExceptionCheck()) {
             delete busObject;
@@ -3787,10 +3787,10 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
          * need to have a hold on any of the objects we've acquired references
          * to or created.  If we created the C++ backing object, we'll get
          * responsibility for its disposition from DecRefBackingObject.
-         * release our global reference to taht as well.
+         * release our global reference to that as well.
          */
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): RegisterBusObject fails.  DecRefBackingObject on %p\n", jbusObject));
-        JBusObject* cppObject = DecRefBackingObject(jbusObject);
+        JBusObject* cppObject = DecRefBackingObject(jglobalref);
         if (cppObject) {
             delete cppObject;
             cppObject = NULL;
@@ -3888,7 +3888,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
     jobject jo = GetGlobalRefForObject(jbusObject);
 
     QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): DecRefBackingObject on %p\n", jbusObject));
-    JBusObject* cppObjectToDelete = DecRefBackingObject(jbusObject);
+    JBusObject* cppObjectToDelete = DecRefBackingObject(jo);
     if (cppObjectToDelete) {
         /*
          * The object we delete had better be the object we just told AllJoyn
@@ -3911,7 +3911,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
      * bus attachment.  We've now changed the structure of the busObjects list
      * so the iterator is invalid, so mark it as such.
      */
-    ForgetLocalBusObject(jbusObject);
+    ForgetLocalBusObject(jo);
 
     /*
      * We've successfully arranged for our AllJoyn Bus Attachment to stop using
@@ -4033,8 +4033,8 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jobject thiz, jstring japplicationName, jboolean allowRemoteMessages)
 {
     // TODO: Remove
-    QCC_UseOSLogging(true);
-    QCC_SetDebugLevel("ALLJOYN_JAVA", 7);
+    // QCC_UseOSLogging(true);
+    // QCC_SetDebugLevel("ALLJOYN_JAVA", 7);
 
     QCC_DbgPrintf(("BusAttachment_create()\n"));
 
