@@ -437,54 +437,66 @@ using namespace ajn;
  * accomodate us, this means that BusObject needs to be an interface.
  *
  * What this means to us here is that we cannot enforce that clients put a
- * "handle" in implementations.  This means that we must tread Bus Objects
+ * "handle" in implementations.  This means that we must treat Bus Objects
  * differently than objects which we have control over.
  *
- * Another complication is the ability to register bus objects with more than
- * one Bus Attachment.  For example, one might want to provide a simple core
- * service over multiple bus attachments in a program.  This makes Bus Objects
- * further different from the other objects in the system since there is no
- * one-to-one relationship with a Bus Attachment.  Signal Emitters are also
- * associated with a Java Object that implements given interfaces, but not
- * with anything else.  Since there is no state in the Bus Object, we need
- * to provide enough external scaffolding to make the connection to the
- * C++ Object that backs up the Java Bus Object.
+ * Another complication is that the Java part of the bindings make it seem like
+ * you should be able to register a bus object with multiple bus attachments
+ * since there is no reference to a bus attachment visible anywhere from that
+ * perspective.  The problem is that there is a hidden reference to the bus
+ * attachment way down in the AllJoyn C++ BusObject code.  We need to reference
+ * count the bus attachment as desribed in the memory management sidebar; so
+ * we need to be able to increment and decrement references as bus objects
+ * are created and destroyed.  This means there really is a reference to a
+ * single bus attachment in the bus object, and regitering bus objects with
+ * more than one bus attachment is not possible.
+ *
+ * Java Bus Objects do not have an explicit reference, nor is there a way to put
+ * them into an interface, so this makes them further different from the other
+ * objects in the system since there is no one-to-one relationship with a Bus
+ * Attachment in the Java Object.  Signal Emitters are also associated with a
+ * Java Object that implements given interfaces, but not with anything else.
+ * Since there is no state in the Bus Object, we need to provide enough external
+ * scaffolding to make the connection to the C++ Object that backs up the Java
+ * Bus Object.
  *
  * This all results in a rather intricate object relationship which deserves an
  * illustration of its own.
  *
- *              +--- Bindings Strong Reference (4) (6) (7)
- *              |
- *              +--- Bindings Strong Reference (3) (8)
+ *              +--- Bindings Strong Reference (7)
  *              |
  *              |              (1)                                               (2) (8)
  *      +-------------+   Java Weak Ref  +--------------+  C++ Object Ref  +----------------+
  *      | Java Object | <--------------- |  C++ Object  | <--------------- |    AllJoyn     |
- *      |             |                  |              |                  | Bus Attachment |
- *      |   Extends   |                  |  Implements  |                  +----------------+
- *      |  Bus Object |                  |  Bus Object  |
- *      |  Implements |                  | Methods from |  C++ Object Ref  +----------------+
- *      |  Interface  |                  |   C++ class  | <--------------- |    AllJoyn     |
- *      |  Interface  |                  +--------------+                  | Bus Attachment |
- *      |     ...     |                         ^                          +----------------+
- *      +-------------+                         |                              (4) (6) (7)
- *             ^                                |
- *             |                                |
- *     +----------------+                       |
- *     | Signal Emitter | (5)                   |
- *     +----------------+                       |
- *             |                                |
- *             v                                |
- *     [Java Object, Ref Count, C++ Object] ----+ (6) (7) (8)
- *     [Java Object, Ref Count, C++ Object]
- *             ^
- *             |
- *             +------------------------------------------------------------------+
- *                                                                                |
- *     +---------------------+     +--------------------+                         |
- *     | Java Bus Attachment | --> | C++ Bus Attachment | --> [Java Bus Object] --+ (9)
- *     +---------------------+     +--------------------+     [Java Bus Object]
-
+ *      |             |                  |              | --------+        | Bus Attachment |
+ *      |   Extends   |                  |  Implements  |         |        +----------------+
+ *      |  Bus Object |                  |  Bus Object  |         |                       ^
+ *      |  Implements |                  | Methods from |         |                       |
+ *      |  Interface  |                  |   C++ class  |         |                       |
+ *      |  Interface  |                  +--------------+         | (3) Pointer to        |
+ *      |     ...     |                         ^                 |     refcounted        |
+ *      +-------------+                         |                 |     object            |
+ *             ^                                |                 |                       |
+ *             |                                |                 |                       |
+ *     +----------------+                       |                 |                       |
+ *     | Signal Emitter | (5)                   |                 |                       |
+ *     +----------------+                       |                 |                       | (4) C++ Bus Attachment
+ *             |                                |                 |                       |     ISA AllJoyn Bus
+ *             v                                |                 |                       |     Attachment
+ *     [Java Object, Ref Count, C++ Object] ----+ (6) (7)         |                       |
+ *             ^                                                  |                       |
+ *             |                                                  |                       |
+ *             +-------------------------------------------------->---------------+       |
+ *                                                                |               |       |
+ *                                           +--------------------+               |       |
+ *                                           |                                    |       |
+ *                                           v                                    |       |
+ *     +---------------------+     +--------------------+                         |       |
+ *     | Java Bus Attachment | --> | C++ Bus Attachment | --> [Java Bus Object] --+ (8)   |
+ *     +---------------------+     +--------------------+     [Java Bus Object]           |
+ *                                           |                                            |
+ *                                           |                                            |
+ *                                           +--------------------------------------------
  * (1) As usual, there is a one-to-one relationship between the provided Java
  *     object and the associated C++ object, but the relationship is one-way
  *     since there is no bindings state in the Java Object.  The Java reference
@@ -497,53 +509,47 @@ using namespace ajn;
  *     is created, but must be created on-demand in the RegisterBusObject
  *     method.
  *
- * (3) Since there is no guarantee that the Java client will not forget its
- *     reference to the Java Bus Object, the bindings must hold one.
+ * (3) Because of finalizer ordering uncertainty, the AllJoyn Bus Attachment
+ *     must remain instantiated until all Bus Objects are completely destroyed.
+ *     Because of this, the C++ backing object for the AllJoyn Bus Attachment
+ *     is reference counted.  The backing C++ object for the Java Bus Object
+ *     holds a reference to the backing C++ Object to the Java Bus Attachment
+ *     which is in turn refers to the AllJoyn Bus Attachment.
  *
- * (4) If RegisterBusObject is called multiple times, a new strong reference
- *     is taken for each call.  Usually this is done on multiple Bus Attachments
- *     resulting in a new C++ object reference from the bus attachment back to
- *     the C++ object.
+ * (4) Although the relationship between the C++ Bus Attachment and the AllJoyn
+ *     Bus Attachment is illustrated with a pointer, the C++ Bus Attachment
+ *     actually inherits from the AllJoyn Bus Attachment.
  *
  * (5) Signal Emitters have a reference to the Java Bus Object with which they
  *     are associated.  In order to actually emit signals, the C++ object
  *     associated with the Java Bus Object must be looked up.  This is done
- *     by looking up the Java Object reference in a global map.
+ *     by looking up the Java Object reference in a global gBusObjectMap.
  *
- * (6) If a Bus Object is registered with multiple Bus Attachments, as mentioned
- *     above, an additional JNI strong global reference is taken to the Java
- *     bus object for each registration event.  This results in Alljoyn taking
- *     an additional C++ object reference to the C++ object that backs the Java
- *     object.
+ * (6) In the normal (not Bus Object) case, we use the Java garbage collector to
+ *     reference count our Java objects, and override the finalize() method of
+ *     the target object to drive the free of the underlying C++ object.  Since
+ *     we have no ability to affect the finalize() method of a Bus Object, we
+ *     can no longer rely on the Java GC and have to provide our own reference
+ *     count.  The reference count is interpreted as the number of times that
+ *     registerBusObject has been called.  This can currently be exactly once.
  *
- * (7) In the normal case, we use the Java garbage collector to reference count
- *     our Java objects, and override the finalize() method of the target object
- *     to drive the free of the underlying C++ object.  Since we have no ability
- *     to affect the finalize() method, we can no longer rely on the Java GC and
- *     have to provide our own reference count.  The reference count is
- *     interpreted as the number of times that registerBusObject has been called
- *     and therefore the number of references that the various AllJoyn Bus
- *     Attachments have to the underlying C++ object.
- *
- * (8) Whenever a Java Bus Object is registered with a Bus Attachment, one JNI
+ * (7) Whenever a Java Bus Object is registered with a Bus Attachment, one JNI
  *     strong global reference is taken to the object.  This ensures that the
  *     Java object is not released while the bindings are using it.  When a Bus
  *     Object is registered for the first time, there will be no entry in the
  *     global Bus Object to C++ Object map.  In this case,a new C++ Object is
- *     created and associated with the Java Object via the map.  If the same
- *     object is registered more than once, the reference count in the map entry
- *     is incremented.  When a Bus Object is unregistered, One JNI reference
- *     to the object is already released.  The mapping between Java object and
- *     C++ object is determined from the global object map and the reference
- *     count there is decremented.  If the reference count goes to zero, the
- *     C++ object is freed and the map entry removed.
+ *     created and associated with the Java Object via the global map.  If the
+ *     same object is registered more than once (currently not possible), the
+ *     reference count in the map entry is incremented.  When a Bus Object is
+ *     unregistered, One JNI reference to the object is released.  The mapping
+ *     between Java object and C++ object is determined from the global object
+ *     map and the reference count there is decremented.  If the reference count
+ *     goes to zero, the C++ object is freed and the map entry removed.
  *
- * (9) Whenever a Bus Attachent is destroyed, we want to be able to remove all
+ * (8) Whenever a Bus Attachent is destroyed, we want to be able to remove all
  *     of the bindings references to Java Bus Objects and delete any C++ objects
- *     that are no longer necessary.  Because there are no references to the
- *     associated Bus Attachment in any Java Bus Object or C++ Bus Object (recall
- *     that they can be associated with multiple Bus Attachments) we must have
- *     a list of Java Bus Objects in each Bus Attachment for cleanup purposes.
+ *     that are no longer necessary.  We must have a list of Java Bus Objects in
+ *     each Bus Attachment for cleanup purposes.
 
  * To summarize, this is quite a bit of complexity for this particular case,
  * but it supports a required API feature, which is that the BusObject be an
@@ -1279,7 +1285,7 @@ class JBusAttachment : public BusAttachment {
         return refCount;
     }
 
-private:
+  private:
     /*
      * An intrusive reference count
      */
@@ -3289,12 +3295,12 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
 }
 
 JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMessages)
-    : BusAttachment(applicationName, allowRemoteMessages), 
-      keyStoreListener(NULL), 
-      jkeyStoreListenerRef(NULL),
-      authListener(NULL),
-      jauthListenerRef(NULL),
-      refCount(1)
+    : BusAttachment(applicationName, allowRemoteMessages),
+    keyStoreListener(NULL),
+    jkeyStoreListenerRef(NULL),
+    authListener(NULL),
+    jauthListenerRef(NULL),
+    refCount(1)
 {
     QCC_DbgPrintf(("JBusAttachment::JBusAttachment()\n"));
 }
@@ -3388,7 +3394,7 @@ QStatus JBusAttachment::Connect(const char* connectArgs, jobject jkeyStoreListen
 
     status = BusAttachment::Connect(connectArgs);
 
-exit:
+    exit :
     if (ER_OK != status) {
         Disconnect(connectArgs);
 
@@ -3690,8 +3696,8 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
     baCommonLock.Lock();
 
     /*
-     * It is a programming error to register the same bus object with any given
-     * bus attachment multiple times.
+     * It is a programming error to register any bus object with a given bus
+     * attachment multiple times.
      */
     if (IsLocalBusObject(jbusObject)) {
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
@@ -3727,20 +3733,29 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
     busObjects.push_back(jglobalref);
 
     /*
-     * It not a programming error to register the same Java Bus Object with
-     * multiple bus attachments.  In this case, the C++ backing object will
-     * already exist.  If it does exist, we need to increment the reference
-     * count.
-     *
-     * If there is no existing backing C++ object, we need to create one and
-     * introspect the provided Bus Object to figure out what interfaces to add.
-     * Once we have the C++ object ready to go, we transfer ownership of the
-     * object to the global list of these objects (and their relationships with
-     * associated Java objects).
+     * It is a programming error to register the same Java Bus Object with
+     * multiple bus attachments.  It looks like it should be possible from
+     * the top, but that is not the case.
      */
     JBusObject* busObject = GetBackingObject(jglobalref);
     if (busObject) {
-        IncRefBackingObject(jglobalref);
+        /*
+         * If AllJoyn doesn't get a hold on the Java Bus Object, we shouldn't
+         * correspondingly have a hold on it.
+         */
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Forgetting jglobalref\n"));
+        env->DeleteGlobalRef(jglobalref);
+
+        /*
+         * Release our hold on the shared resources, remembering to reverse the
+         * lock order.
+         */
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+        baCommonLock.Unlock();
+
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing global Bus Object map lock\n"));
+        gBusObjectMapLock.Unlock();
+        return ER_BUS_OBJ_ALREADY_EXISTS;
     } else {
         busObject = new JBusObject(this, objPath, jglobalref);
         busObject->AddInterfaces(jbusInterfaces);
@@ -5501,7 +5516,7 @@ exit:
                     env->DeleteGlobalRef(i->jcontext);
                     jcontext = NULL;
                 }
-                
+
                 if (status == ER_OK) {
                     busPtr->sessionListenerMap[sessionId] = i->jlistener;
                 } else {
@@ -5633,7 +5648,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
         jglobalContextRef = env->NewGlobalRef(jcontext);
         if (!jglobalContextRef) {
             QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Forgetting jglobalListenerRef\n"));
-            env->DeleteGlobalRef(jglobalListenerRef); 
+            env->DeleteGlobalRef(jglobalListenerRef);
             QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Forgetting jglobalCallbackRef\n"));
             env->DeleteGlobalRef(jglobalCallbackRef);
             return NULL;
@@ -6182,7 +6197,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numMembs = intf->GetMembers(NULL);
-        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member*[numMembs];
+        const InterfaceDescription::Member** membs = new const InterfaceDescription::Member *[numMembs];
         if (!membs) {
             return ER_OUT_OF_MEMORY;
         }
@@ -6236,7 +6251,7 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
         }
 
         size_t numProps = intf->GetProperties(NULL);
-        const InterfaceDescription::Property** props = new const InterfaceDescription::Property*[numProps];
+        const InterfaceDescription::Property** props = new const InterfaceDescription::Property *[numProps];
         if (!props) {
             return ER_OUT_OF_MEMORY;
         }
@@ -6594,7 +6609,7 @@ QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
      * We're going to wander into a list of properties and pick one.  Lock the
      * mutex that protects this list for the entire time we'll be using the list
      * and the found method.
-     */   
+     */
     mapLock.Lock();
 
     JProperty::const_iterator property = properties.find(key);
@@ -6657,7 +6672,7 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
      * We're going to wander into a list of properties and pick one.  Lock the
      * mutex that protects this list for the entire time we'll be using the list
      * and the found method.
-     */   
+     */
     mapLock.Lock();
 
     JProperty::const_iterator property = properties.find(key);
