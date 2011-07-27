@@ -3310,7 +3310,11 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
 }
 
 JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMessages)
-    : BusAttachment(applicationName, allowRemoteMessages), keyStoreListener(NULL), authListener(NULL)
+    : BusAttachment(applicationName, allowRemoteMessages), 
+      keyStoreListener(NULL), 
+      jkeyStoreListenerRef(NULL),
+      authListener(NULL),
+      jauthListenerRef(NULL)
 {
     QCC_DbgPrintf(("JBusAttachment::JBusAttachment()\n"));
 }
@@ -3518,7 +3522,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing AuthListener\n"));
     delete authListener;
     authListener = NULL;
-    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Forgetting jauthListenerRef\n"));
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Forgetting jauthListenerRef %p\n", jauthListenerRef));
     env->DeleteGlobalRef(jauthListenerRef);
 
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing KeyStoreListener\n"));
@@ -3573,6 +3577,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
      */
     QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking strong global reference to AuthListener %p\n", jauthListener));
     jauthListenerRef = env->NewGlobalRef(jauthListener);
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Remembering %p\n", jauthListenerRef));
     if (!jauthListenerRef) {
         QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Unable to take strong global reference to AuthListener %p\n", jauthListener));
 
@@ -3591,7 +3596,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
     delete authListener;
     authListener = new JAuthListener(jauthListener);
     if (!authListener) {
-        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef\n"));
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef %p\n", jauthListenerRef));
         env->DeleteGlobalRef(jauthListenerRef);
         jauthListenerRef = NULL;
 
@@ -3638,7 +3643,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
         delete authListener;
         authListener = NULL;
 
-        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef\n"));
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef %p\n", jauthListenerRef));
         env->DeleteGlobalRef(jauthListenerRef);
         jauthListenerRef = NULL;
     }
@@ -3958,7 +3963,7 @@ QStatus JBusAttachment::RegisterSignalHandler(const char* ifaceName, const char*
      */
     QStatus status = signalHandler->Register(*this, ifaceName, signalName, srcPath);
     if (ER_OK == status) {
-        signalHandlers.push_back(make_pair(jsignalHandler, signalHandler));
+        signalHandlers.push_back(make_pair(jglobalref, signalHandler));
     } else {
         delete signalHandler;
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Forgetting jglobalref\n"));
@@ -3982,7 +3987,7 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
         if (i->second->IsSameObject(jsignalHandler, jmethod)) {
             i->second->Unregister(*this);
             delete (i->second);
-            QCC_DbgPrintf(("JBusAttachment::UnregisterSignalHandler(): Forgetting i->first\n"));
+            QCC_DbgPrintf(("JBusAttachment::UnregisterSignalHandler(): Forgetting %p\n", i->first));
             env->DeleteGlobalRef(i->first);
             signalHandlers.erase(i);
             break;
@@ -4875,7 +4880,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
         QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
 
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Releasing strong global reference to SessionPortListener %p\n", jglobalref));
+        QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Releasing strong global reference to SessionPortListener %p\n", jglobalref));
         env->DeleteGlobalRef(jglobalref);
     } else {
         QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
@@ -5810,12 +5815,14 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_create(JNIEnv*
 
     assert(GetHandle<JOnJoinSessionListener*>(thiz) == NULL);
 
+    QCC_DbgPrintf(("OnJoinSessionListener_create(): Create backing object\n"));
     JOnJoinSessionListener* jojsl = new JOnJoinSessionListener(thiz);
     if (jojsl == NULL) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
     }
 
+    QCC_DbgPrintf(("OnJoinSessionListener_create(): Set handle to %p\n", jojsl));
     SetHandle(thiz, jojsl);
     if (env->ExceptionCheck()) {
         delete jojsl;
