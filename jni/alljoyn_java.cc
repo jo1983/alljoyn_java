@@ -1174,6 +1174,8 @@ class PendingAsyncJoin;
 class JBusAttachment : public BusAttachment {
   public:
     JBusAttachment(const char* applicationName, bool allowRemoteMessages);
+    virtual ~JBusAttachment();
+
     QStatus Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
                     jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
     void Disconnect(const char* connectArgs);
@@ -1183,6 +1185,9 @@ class JBusAttachment : public BusAttachment {
     QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
                                   jobject jsignalHandler, jobject jmethod, const char* srcPath);
     void UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod);
+
+    bool IsLocalBusObject(jobject jbusObject);
+    void ForgetLocalBusObject(jobject jbusObject);
 
     /**
      * A mutex to serialize access to bus attachment critical sections.  It
@@ -1754,13 +1759,14 @@ Mutex gBusObjectMapLock;
  */
 void NewRefBackingObject(jobject javaObject, JBusObject* cppObject)
 {
-    QCC_DbgPrintf(("NewRefBackingObject()\n"));
+    QCC_DbgPrintf(("NewRefBackingObject(%p, %p)\n", javaObject, cppObject));
 
     map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
     if (i != gBusObjectMap.end()) {
-        QCC_LogError(ER_FAIL, ("NewRefBackingObject(): Mapping already established.\n"));
+        QCC_LogError(ER_FAIL, ("NewRefBackingObject(): Mapping already established for Bus Object %p.\n", javaObject));
         return;
     }
+
     gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(1, cppObject);
 }
 
@@ -1799,14 +1805,19 @@ void IncRefBackingObject(jobject javaObject)
 {
     QCC_DbgPrintf(("IncRefBackingObject()\n"));
 
-    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
-    if (i == gBusObjectMap.end()) {
-        QCC_LogError(ER_FAIL, ("NewBackingObject(): No mapping exists for Java Bus Object.\n"));
-        return;
+    JNIEnv* env = GetEnv();
+
+    for (map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.begin(); i != gBusObjectMap.end(); ++i) {
+        if (env->IsSameObject(javaObject, i->first)) {
+            QCC_DbgPrintf(("IncRefBackingObject(): Found mapping for Java Bus Object %p.\n", javaObject));
+            uint32_t refCount = i->second.first + 1;
+            JBusObject* cppObject = i->second.second;
+            gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(refCount, cppObject);
+            return;
+        }
     }
-    uint32_t refCount = i->second.first + 1;
-    JBusObject* cppObject = i->second.second;
-    gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(refCount, cppObject);
+
+    QCC_LogError(ER_FAIL, ("IncRefBackingObject(): No mapping exists for Java Bus Object %p.\n", javaObject));
 }
 
 /**
@@ -1845,24 +1856,30 @@ void IncRefBackingObject(jobject javaObject)
  */
 JBusObject* DecRefBackingObject(jobject javaObject)
 {
-    QCC_DbgPrintf(("DecRefBackingObject()\n"));
+    QCC_DbgPrintf(("DecRefBackingObject(%p)\n", javaObject));
 
-    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
-    if (i == gBusObjectMap.end()) {
-        QCC_LogError(ER_FAIL, ("NewBackingObject(): No mapping exists for Java Bus Object.\n"));
-        return NULL;
+    JNIEnv* env = GetEnv();
+
+    for (map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.begin(); i != gBusObjectMap.end(); ++i) {
+        QCC_DbgPrintf(("DecRefBackingObject(%p): trying %p\n", javaObject, i->first));
+        if (env->IsSameObject(javaObject, i->first)) {
+            QCC_DbgPrintf(("IncRefBackingObject(): Found mapping for Java Bus Object %p.\n", javaObject));
+            JBusObject* cppObject = i->second.second;
+            uint32_t refCount = i->second.first - 1;
+            if (refCount) {
+                QCC_DbgPrintf(("DecRefBackingObject(): More references to %p.\n", javaObject));
+                gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(refCount, cppObject);
+                cppObject = NULL;
+            } else {
+                QCC_DbgPrintf(("DecRefBackingObject(): Last reference to %p.\n", javaObject));
+                gBusObjectMap.erase(i);
+            }
+            return cppObject;
+        }
     }
-    uint32_t refCount = i->second.first - 1;
-    JBusObject* cppObject = i->second.second;
 
-    if (refCount) {
-        gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>(refCount, cppObject);
-        cppObject = NULL;
-    } else {
-        gBusObjectMap.erase(i);
-    }
-
-    return cppObject;
+    QCC_LogError(ER_FAIL, ("DecRefBackingObject(): No mapping exists for Java Bus Object %p.\n", javaObject));
+    return NULL;
 }
 
 /**
@@ -1879,14 +1896,41 @@ JBusObject* DecRefBackingObject(jobject javaObject)
  */
 JBusObject* GetBackingObject(jobject jbusObject)
 {
-    QCC_DbgPrintf(("GetBackingObject()\n"));
+    QCC_DbgPrintf(("GetBackingObject(%p)\n", jbusObject));
 
-    map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(jbusObject);
-    if (i == gBusObjectMap.end()) {
-        return NULL;
+    JNIEnv* env = GetEnv();
+
+    for (map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.begin(); i != gBusObjectMap.end(); ++i) {
+        if (env->IsSameObject(jbusObject, i->first)) {
+            QCC_DbgPrintf(("GetBackingObject(): Found mapping for Java Bus Object %p.\n", jbusObject));
+            return i->second.second;
+        }
     }
-    JBusObject* jbo = i->second.second;
-    return jbo;
+
+    QCC_DbgPrintf(("GetBackingObject(): No mapping exists for Java Bus Object %p.\n", jbusObject));
+    return NULL;
+}
+
+/**
+ * Given a Java object that someone is claiming has been registered as a bus
+ * object with a bus attachment; return the corresponding stron reference to it
+ * that we must have saved.
+ */
+jobject GetGlobalRefForObject(jobject jbusObject)
+{
+    QCC_DbgPrintf(("GetGlobalRefForObject(%p)\n", jbusObject));
+
+    JNIEnv* env = GetEnv();
+
+    for (map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.begin(); i != gBusObjectMap.end(); ++i) {
+        if (env->IsSameObject(jbusObject, i->first)) {
+            QCC_DbgPrintf(("GetBackingObject(): Found global reference for Java Bus Object %p.\n", jbusObject));
+            return i->first;
+        }
+    }
+
+    QCC_DbgPrintf(("GetBackingObject(): No mapping exists for Java Bus Object %p.\n", jbusObject));
+    return NULL;
 }
 
 /**
@@ -1937,6 +1981,7 @@ Mutex gMessageMapLock;
 
 Message MessageContext::GetMessage()
 {
+    QCC_DbgPrintf(("MessageContext::GetMessage()\n"));
     gMessageMapLock.Lock();
     map<Thread*, Message>::iterator it = gMessageMap.find(Thread::GetThread());
     assert(gMessageMap.end() != it);
@@ -1947,6 +1992,7 @@ Message MessageContext::GetMessage()
 
 MessageContext::MessageContext(const Message& msg)
 {
+    QCC_DbgPrintf(("MessageContext::MessageContext()\n"));
     gMessageMapLock.Lock();
     gMessageMap.insert(pair<Thread*, Message>(Thread::GetThread(), msg));
     gMessageMapLock.Unlock();
@@ -1954,6 +2000,7 @@ MessageContext::MessageContext(const Message& msg)
 
 MessageContext::~MessageContext()
 {
+    QCC_DbgPrintf(("MessageContext::~MessageContext()\n"));
     gMessageMapLock.Lock();
     map<Thread*, Message>::iterator it = gMessageMap.find(Thread::GetThread());
     gMessageMap.erase(it);
@@ -1978,6 +2025,8 @@ MessageContext::~MessageContext()
 JKeyStoreListener::JKeyStoreListener(jobject jlistener)
     : jkeyStoreListener(NULL)
 {
+    QCC_DbgPrintf(("JKeyStoreListener::JKeyStoreListener()\n"));
+
     JNIEnv* env = GetEnv();
     jkeyStoreListener = env->NewWeakGlobalRef(jlistener);
     if (!jkeyStoreListener) {
@@ -2023,6 +2072,7 @@ JKeyStoreListener::JKeyStoreListener(jobject jlistener)
  */
 JKeyStoreListener::~JKeyStoreListener()
 {
+    QCC_DbgPrintf(("JKeyStoreListener::~JKeyStoreListener()\n"));
     if (jkeyStoreListener) {
         GetEnv()->DeleteWeakGlobalRef(jkeyStoreListener);
         jkeyStoreListener = NULL;
@@ -2278,6 +2328,8 @@ JBusListener::JBusListener(jobject jlistener)
  */
 JBusListener::~JBusListener()
 {
+    QCC_DbgPrintf(("JBusListener::~JBusListener()\n"));
+
     if (jbusListener) {
         QCC_DbgPrintf(("JBusListener::~JBusListener(): Releasing weak global reference to BusListener %p\n", jbusListener));
         GetEnv()->DeleteWeakGlobalRef(jbusListener);
@@ -2584,6 +2636,8 @@ JSessionListener::JSessionListener(jobject jlistener)
  */
 JSessionListener::~JSessionListener()
 {
+    QCC_DbgPrintf(("JSessionListener::~JSessionListener()\n"));
+
     if (jsessionListener) {
         QCC_DbgPrintf(("JSessionListener::~JSessionListener(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
         GetEnv()->DeleteWeakGlobalRef(jsessionListener);
@@ -2697,6 +2751,7 @@ JSessionPortListener::JSessionPortListener(jobject jlistener)
  */
 JSessionPortListener::~JSessionPortListener()
 {
+    QCC_DbgPrintf(("JSessionPortListener::~JSessionPortListener()\n"));
     if (jsessionPortListener) {
         QCC_DbgPrintf(("JSessionPortListener::~JSessionPortListener(): Releasing weak global reference to SessionPortListener %p\n", jsessionPortListener));
         GetEnv()->DeleteWeakGlobalRef(jsessionPortListener);
@@ -2918,6 +2973,7 @@ JAuthListener::JAuthListener(jobject jlistener)
  */
 JAuthListener::~JAuthListener()
 {
+    QCC_DbgPrintf(("JAuthListener::~JAuthListener()\n"));
     if (jauthListener) {
         QCC_DbgPrintf(("JAuthListener::~JAuthListener(): Releasing weak global reference to AuthListener %p\n", jauthListener));
         GetEnv()->DeleteWeakGlobalRef(jauthListener);
@@ -3124,6 +3180,8 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
  */
 bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* authPeer, const Credentials& credentials)
 {
+    QCC_DbgPrintf(("JAuthListener::VerifyCredentials()\n"));
+
     /*
      * JScopedEnv will automagically attach the JVM to the current native
      * thread.
@@ -3180,6 +3238,8 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
  */
 void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
 {
+    QCC_DbgPrintf(("JAuthListener::SecurityViolation()\n"));
+
     /*
      * JScopedEnv will automagically attach the JVM to the current native
      * thread.
@@ -3219,6 +3279,8 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
  */
 void JAuthListener::AuthenticationComplete(const char* authMechanism, const char* authPeer,  bool success)
 {
+    QCC_DbgPrintf(("JAuthListener::AuthenticationComplete()\n"));
+
     /*
      * JScopedEnv will automagically attach the JVM to the current native
      * thread.
@@ -3250,6 +3312,37 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
 JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMessages)
     : BusAttachment(applicationName, allowRemoteMessages), keyStoreListener(NULL), authListener(NULL)
 {
+    QCC_DbgPrintf(("JBusAttachment::JBusAttachment()\n"));
+}
+
+JBusAttachment::~JBusAttachment()
+{
+    QCC_DbgPrintf(("JBusAttachment::~JBusAttachment()\n"));
+
+    JNIEnv* env = GetEnv();
+
+    /*
+     * We've got to release references to the Bus Objects that this particular Bus Attachment
+     * holds.
+     */
+    QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): Releasing BusObjects\n"));
+    for (list<jobject>::iterator i = busObjects.begin(); i != busObjects.end(); ++i) {
+        /*
+         * If we are the last BusAttachment to use this bus Object, we acquire
+         * the memory management responsibility for the associated C++ object.
+         */
+        QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): DecRefBackingObject on %p\n", *i));
+        JBusObject* cppObject = DecRefBackingObject(*i);
+        if (cppObject) {
+            QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): deleting cppObject %p\n", cppObject));
+            delete cppObject;
+            cppObject = NULL;
+        }
+
+        QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): Releasing strong global reference to Bus Object %p\n", *i));
+        env->DeleteGlobalRef(*i);
+    }
+    busObjects.clear();
 }
 
 /**
@@ -3258,6 +3351,8 @@ JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMess
 QStatus JBusAttachment::Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
                                 jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
 {
+    QCC_DbgPrintf(("JBusAttachment::Connect()\n"));
+
     JNIEnv* env = GetEnv();
 
     QStatus status = Start();
@@ -3283,11 +3378,11 @@ QStatus JBusAttachment::Connect(const char* connectArgs, jobject jkeyStoreListen
      * something completely strange and bizarre as calling registerAuthListener
      * at the same time as she is calling connect() on a different thread.
      */
-    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking Bus Attachment authentication listener change lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::Connect(): Taking Bus Attachment authentication listener change lock\n"));
     baAuthenticationChangeLock.Lock();
 
     if (jkeyStoreListener) {
-        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Taking strong global reference to KeyStoreListener %p\n", jkeyStoreListener));
+        QCC_DbgPrintf(("JBusAttachment::Connect(): Taking strong global reference to KeyStoreListener %p\n", jkeyStoreListener));
         jkeyStoreListenerRef = env->NewGlobalRef(jkeyStoreListener);
 
         keyStoreListener = new JKeyStoreListener(jkeyStoreListener);
@@ -3313,6 +3408,7 @@ exit:
     if (ER_OK != status) {
         Disconnect(connectArgs);
 
+        QCC_DbgPrintf(("JBusAttachment::Connect(): Forgetting jkeyStoreListenerRef\n"));
         env->DeleteGlobalRef(jkeyStoreListenerRef);
         jkeyStoreListenerRef = NULL;
 
@@ -3320,13 +3416,15 @@ exit:
         keyStoreListener = NULL;
     }
 
-    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment authentication listener change lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::Connect(): Releasing Bus Attachment authentication listener change lock\n"));
     baAuthenticationChangeLock.Unlock();
     return status;
 }
 
 void JBusAttachment::Disconnect(const char* connectArgs)
 {
+    QCC_DbgPrintf(("JBusAttachment::Disconnect()\n"));
+
     if (IsConnected()) {
         QStatus status = BusAttachment::Disconnect(connectArgs);
         if (ER_OK != status) {
@@ -3373,18 +3471,20 @@ void JBusAttachment::Disconnect(const char* connectArgs)
      * object lock.  This must be done wherever these two lock objects are used
      * to avoid deadlock.
      */
-    QCC_DbgPrintf(("JBusListener::JBusListener(): Taking global Bus Object map lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Taking global Bus Object map lock\n"));
     gBusObjectMapLock.Lock();
 
-    QCC_DbgPrintf(("JBusListener::JBusListener(): Taking Bus Attachment common lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Taking Bus Attachment common lock\n"));
     baCommonLock.Lock();
 
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing BusListeners\n"));
     for (list<jobject>::iterator i = busListeners.begin(); i != busListeners.end(); ++i) {
         QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to BusListener %p\n", *i));
         env->DeleteGlobalRef(*i);
     }
     busListeners.clear();
 
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing PendingAsyncJoins\n"));
     for (list<PendingAsyncJoin>::iterator i = pendingAsyncJoins.begin(); i != pendingAsyncJoins.end(); ++i) {
         QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->jlistener));
         env->DeleteGlobalRef(i->jlistener);
@@ -3397,6 +3497,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     }
     pendingAsyncJoins.clear();
 
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing SessionPortListeners\n"));
     for (map<SessionPort, jobject>::iterator i = sessionPortListenerMap.begin(); i != sessionPortListenerMap.end(); ++i) {
         if (i->second) {
             QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionPortListener %p\n", i->second));
@@ -3405,6 +3506,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     }
     sessionPortListenerMap.clear();
 
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing SessionListeners\n"));
     for (map<SessionId, jobject>::iterator i = sessionListenerMap.begin(); i != sessionListenerMap.end(); ++i) {
         if (i->second) {
             QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->second));
@@ -3413,41 +3515,29 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     }
     sessionListenerMap.clear();
 
-    /*
-     * We've got to release references to the Bus Objects that this particular Bus Attachment
-     * holds.
-     */
-    for (list<jobject>::iterator i = busObjects.begin(); i != busObjects.end(); ++i) {
-        /*
-         * If we are the last BusAttachment to use this bus Object, we acquire
-         * the memory management responsibility for the associated C++ object.
-         */
-        JBusObject* cppObject = DecRefBackingObject(*i);
-        if (cppObject) {
-            delete cppObject;
-            cppObject = NULL;
-        }
-
-        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to Bus Object %p\n", *i));
-        env->DeleteGlobalRef(*i);
-    }
-    busObjects.clear();
-
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing AuthListener\n"));
     delete authListener;
     authListener = NULL;
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Forgetting jauthListenerRef\n"));
+    env->DeleteGlobalRef(jauthListenerRef);
 
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing KeyStoreListener\n"));
     delete keyStoreListener;
     keyStoreListener = NULL;
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Forgetting jkeyStoreListenerRef\n"));
+    env->DeleteGlobalRef(jkeyStoreListenerRef);
 
-    QCC_DbgPrintf(("JBusListener::JBusListener(): Releasing Bus Attachment common lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Unlock();
 
-    QCC_DbgPrintf(("JBusListener::JBusListener(): Releasing global Bus Object map lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing global Bus Object map lock\n"));
     gBusObjectMapLock.Unlock();
 }
 
 QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared)
 {
+    QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity()\n"));
+
     JNIEnv* env = GetEnv();
     if (!authMechanisms || !IsStarted()) {
         return ER_OK;
@@ -3501,6 +3591,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
     delete authListener;
     authListener = new JAuthListener(jauthListener);
     if (!authListener) {
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef\n"));
         env->DeleteGlobalRef(jauthListenerRef);
         jauthListenerRef = NULL;
 
@@ -3547,6 +3638,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
         delete authListener;
         authListener = NULL;
 
+        QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef\n"));
         env->DeleteGlobalRef(jauthListenerRef);
         jauthListenerRef = NULL;
     }
@@ -3560,9 +3652,40 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
     return status;
 }
 
+bool JBusAttachment::IsLocalBusObject(jobject jbusObject)
+{
+    QCC_DbgPrintf(("JBusAttachment::IsLocalBusObject(%p)\n", jbusObject));
+
+    JNIEnv* env = GetEnv();
+
+    for (list<jobject>::iterator i = busObjects.begin(); i != busObjects.end(); ++i) {
+        if (env->IsSameObject(jbusObject, *i)) {
+            QCC_DbgPrintf(("JBusAttachment::IsLocalBusObject(): yes\n"));
+            return true;
+        }
+    }
+
+    QCC_DbgPrintf(("JBusAttachment::IsLocalBusObject(): no\n"));
+    return false;
+}
+
+void JBusAttachment::ForgetLocalBusObject(jobject jbusObject)
+{
+    QCC_DbgPrintf(("JBusAttachment::ForgetLocalBusObject(%p)\n", jbusObject));
+
+    JNIEnv* env = GetEnv();
+
+    for (list<jobject>::iterator i = busObjects.begin(); i != busObjects.end(); ++i) {
+        if (env->IsSameObject(jbusObject, *i)) {
+            busObjects.erase(i);
+            return;
+        }
+    }
+}
+
 QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces)
 {
-    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject()\n"));
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(%p)\n", jbusObject));
 
     /*
      * We need to be able to access objects in both the global bus object map
@@ -3583,8 +3706,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
      * It is a programming error to register the same bus object with any given
      * bus attachment multiple times.
      */
-    list<jobject>::iterator i = find(busObjects.begin(), busObjects.end(), jbusObject);
-    if (i != busObjects.end()) {
+    if (IsLocalBusObject(jbusObject)) {
         QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
 
@@ -3614,6 +3736,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
      * We need to remember that we have a hold on this bus object so we can
      * release it if we destruct without the user calling UnregisterBusObject
      */
+    QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Remembering strong global reference to BusObject %p\n", jglobalref));
     busObjects.push_back(jglobalref);
 
     /*
@@ -3644,7 +3767,8 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
             return ER_FAIL;
         }
 
-        NewRefBackingObject(jbusObject, busObject);
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Taking hold of Bus Object %p\n", jbusObject));
+        NewRefBackingObject(jglobalref, busObject);
     }
 
     /*
@@ -3660,7 +3784,8 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
          * responsibility for its disposition from DecRefBackingObject.
          * release our global reference to taht as well.
          */
-        JBusObject* cppObject = DecRefBackingObject(*i);
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): RegisterBusObject fails.  DecRefBackingObject on %p\n", jbusObject));
+        JBusObject* cppObject = DecRefBackingObject(jbusObject);
         if (cppObject) {
             delete cppObject;
             cppObject = NULL;
@@ -3670,6 +3795,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
          * If AllJoyn doesn't have a hold on the Java Bus Object, we shouldn't
          * correspondingly have a hold on it.
          */
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Forgetting jglobalref\n"));
         env->DeleteGlobalRef(jglobalref);
     }
 
@@ -3688,7 +3814,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
 
 void JBusAttachment::UnregisterBusObject(jobject jbusObject)
 {
-    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject()\n"));
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(%p)\n", jbusObject));
 
     /*
      * We need to be able to access objects in both the global bus object map
@@ -3714,8 +3840,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
      * currently in the list of Java Objects associated with this bus
      * Attachment.
      */
-    list<jobject>::iterator i = find(busObjects.begin(), busObjects.end(), jbusObject);
-    if (i == busObjects.end()) {
+    if (!IsLocalBusObject(jbusObject)) {
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
 
@@ -3754,7 +3879,11 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
      * reference counting mechanism.  If DecRefBackingObject returns a
      * pointer to the object, we
      */
-    JBusObject* cppObjectToDelete = DecRefBackingObject(*i);
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Getting global ref for jbusObject %p\n", jbusObject));
+    jobject jo = GetGlobalRefForObject(jbusObject);
+
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): DecRefBackingObject on %p\n", jbusObject));
+    JBusObject* cppObjectToDelete = DecRefBackingObject(jbusObject);
     if (cppObjectToDelete) {
         /*
          * The object we delete had better be the object we just told AllJoyn
@@ -3769,7 +3898,15 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
      * If AllJoyn doesn't have a hold on the Java Bus Object, we shouldn't
      * correspondingly have a hold on it.
      */
-    GetEnv()->DeleteGlobalRef(jbusObject);
+    QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Deleting global reference to  %p\n", jo));
+    GetEnv()->DeleteGlobalRef(jo);
+
+    /*
+     * And we shouldn't be remembering it as a bus object associated with this
+     * bus attachment.  We've now changed the structure of the busObjects list
+     * so the iterator is invalid, so mark it as such.
+     */
+    ForgetLocalBusObject(jbusObject);
 
     /*
      * We've successfully arranged for our AllJoyn Bus Attachment to stop using
@@ -3800,7 +3937,7 @@ QStatus JBusAttachment::RegisterSignalHandler(const char* ifaceName, const char*
     JNIEnv* env = GetEnv();
     jobject jglobalref = env->NewGlobalRef(jsignalHandler);
     if (!jglobalref) {
-        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Releasing Bus Attachment common lock\n"));
+        QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
         return ER_FAIL;
     }
@@ -3824,6 +3961,7 @@ QStatus JBusAttachment::RegisterSignalHandler(const char* ifaceName, const char*
         signalHandlers.push_back(make_pair(jsignalHandler, signalHandler));
     } else {
         delete signalHandler;
+        QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(): Forgetting jglobalref\n"));
         env->DeleteGlobalRef(jglobalref);
     }
 
@@ -3835,7 +3973,7 @@ QStatus JBusAttachment::RegisterSignalHandler(const char* ifaceName, const char*
 
 void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jmethod)
 {
-    QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Taking Bus Attachment common lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::UnregisterSignalHandler(): Taking Bus Attachment common lock\n"));
     baCommonLock.Lock();
 
     JNIEnv* env = GetEnv();
@@ -3844,13 +3982,14 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
         if (i->second->IsSameObject(jsignalHandler, jmethod)) {
             i->second->Unregister(*this);
             delete (i->second);
+            QCC_DbgPrintf(("JBusAttachment::UnregisterSignalHandler(): Forgetting i->first\n"));
             env->DeleteGlobalRef(i->first);
             signalHandlers.erase(i);
             break;
         }
     }
 
-    QCC_DbgPrintf(("JBusAttachment::RegisterSignalHandler(): Releasing Bus Attachment common lock\n"));
+    QCC_DbgPrintf(("JBusAttachment::UnregisterSignalHandler(): Releasing Bus Attachment common lock\n"));
     baCommonLock.Unlock();
 }
 
@@ -3889,7 +4028,6 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jobject thiz, jstring japplicationName, jboolean allowRemoteMessages)
 {
     // TODO: Remove
-
     QCC_UseOSLogging(true);
     QCC_SetDebugLevel("ALLJOYN_JAVA", 7);
 
@@ -4638,7 +4776,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
         QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error.  Forgetting jglobalref\n"));
         env->DeleteGlobalRef(jglobalref);
         return JStatus(status);
     }
@@ -4925,7 +5063,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
         QCC_DbgPrintf(("BusAttachment_joinSession(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
-        QCC_LogError(status, ("BusAttachment_joinSession(): Error\n"));
+        QCC_LogError(status, ("BusAttachment_joinSession(): Error.  Forgetting jglobalref\n"));
         env->DeleteGlobalRef(jglobalref);
         return JStatus(status);
     }
@@ -5265,6 +5403,7 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
 
 void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr busPtr)
 {
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup()\n"));
     /*
      * When an async join operation is started, we are provided three Java
      * object references: a session listener object, a callback listener object
@@ -5539,6 +5678,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
     jobject jglobalCallbackRef = env->NewGlobalRef(jonJoinSessionListener);
     if (!jglobalCallbackRef) {
+        QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Forgetting jglobalListenerRef\n"));
         env->DeleteGlobalRef(jglobalListenerRef);
         return NULL;
     }
@@ -5551,7 +5691,9 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to context Object %p\n", jcontext));
         jglobalContextRef = env->NewGlobalRef(jcontext);
         if (!jglobalContextRef) {
-            env->DeleteGlobalRef(jglobalListenerRef);
+            QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Forgetting jglobalListenerRef\n"));
+            env->DeleteGlobalRef(jglobalListenerRef); 
+            QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Forgetting jglobalCallbackRef\n"));
             env->DeleteGlobalRef(jglobalCallbackRef);
             return NULL;
         }
@@ -6005,10 +6147,12 @@ JBusObject::JBusObject(JBusAttachmentPtr jbap, const char* path, jobject jobj)
      * attachment to have a strong reference to keep it from being garbage
      * collected, but we need to get back to it without interfering with GC.
      */
+    QCC_DbgPrintf(("JBusObject::JBusObject():  Taking new weak global reference to BusObject %p\n", jobj));
     jbusObj = env->NewWeakGlobalRef(jobj);
     if (!jbusObj) {
         return;
     }
+    QCC_DbgPrintf(("JBusObject::JBusObject():  Remembering weak global reference %p\n", jbusObj));
 
     if (env->IsInstanceOf(jobj, CLS_IntrospectionListener)) {
         JLocalRef<jclass> clazz = env->GetObjectClass(jobj);
@@ -6042,19 +6186,27 @@ JBusObject::~JBusObject()
 
     mapLock.Lock();
 
+    QCC_DbgPrintf(("JBusObject::~JBusObject(): Deleting methods\n"));
     for (JMethod::const_iterator method = methods.begin(); method != methods.end(); ++method) {
+        QCC_DbgPrintf(("JBusObject::~JBusObject(): Deleting method %p\n", method->second));
         env->DeleteGlobalRef(method->second);
     }
 
+    QCC_DbgPrintf(("JBusObject::~JBusObject(): Deleting properties\n"));
     for (JProperty::const_iterator property = properties.begin(); property != properties.end(); ++property) {
+        QCC_DbgPrintf(("JBusObject::~JBusObject(): Deleting property getter %p\n", property->second.jget));
         env->DeleteGlobalRef(property->second.jget);
+
+        QCC_DbgPrintf(("JBusObject::~JBusObject(): Deleting property setter %p\n", property->second.jset));
         env->DeleteGlobalRef(property->second.jset);
     }
 
     mapLock.Unlock();
 
     if (jbusObj) {
+        QCC_DbgPrintf(("JBusObject::~JBusObject(): Deleting weak global reference to BusObject %p\n", jbusObj));
         env->DeleteWeakGlobalRef(jbusObj);
+        jbusObj = NULL;
     }
 }
 
@@ -6755,10 +6907,12 @@ JSignalHandler::~JSignalHandler()
 {
     JNIEnv* env = GetEnv();
     if (jmethod) {
+        QCC_DbgPrintf(("JSignalHandler::~JSignalHandler(): Forgetting jmethod\n"));
         env->DeleteGlobalRef(jmethod);
         jmethod = NULL;
     }
     if (jsignalHandler) {
+        QCC_DbgPrintf(("JSignalHandler::~JSignalHandler(): Forgetting jsignalHandler\n"));
         env->DeleteWeakGlobalRef(jsignalHandler);
         jsignalHandler = NULL;
     }
@@ -7372,6 +7526,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
     Message replyMsg(*busPtr);
 
     /*

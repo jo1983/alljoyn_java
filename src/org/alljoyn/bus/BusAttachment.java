@@ -738,8 +738,8 @@ public class BusAttachment {
      */
     public void disconnect() {
         if (address != null) {
-            unregisterSignalHandler(this, foundAdvertisedName);
-            unregisterSignalHandler(this, lostAdvertisedName);
+//            unregisterSignalHandler(this, foundAdvertisedName);
+//            unregisterSignalHandler(this, lostAdvertisedName);
             disconnect(address);
         }
     }
