@@ -302,14 +302,13 @@ using namespace ajn;
  * object is finalized, as mentioned above.  Clearly, in the picture above,
  * AllJoyn has more than one reference to the described C++ object, and it
  * cannot be deleted until all of those references are gone.  The obvious
- * approach is to reference count the C++ object, perhaps using a
- * qcc::ManagedObj smart pointer. A key observation is that we need to keep the
- * Java object around as well.  In the illustration above there are three
- * references to the Java listener object: one held by the client and two held
- * by the bindings.  This shows that the Java listener is also reference
- * counted, albeit in the Java garbage collector.  Note that the two bindings
- * strong global references (1) actually have exactly the same meaning as would
- * a reference count of two in the C++ object references (2).
+ * approach is to reference count the C++ object.  A key observation is that we
+ * need to keep the Java object around as well.  In the illustration above there
+ * are three references to the Java listener object: one held by the client and
+ * two held by the bindings.  This shows that the Java listener is also
+ * reference counted, albeit in the Java garbage collector.  Note that the two
+ * bindings strong global references (1) actually have exactly the same meaning
+ * as would a reference count of two in the C++ object references (2).
  *
  * It turns out that if we add global references to support the anonymous class
  * idiom and to protect ourselves generally, we end up reference counting the
@@ -336,64 +335,20 @@ using namespace ajn;
  * There are underlying C++ objects, the Java bus objects may expect the C++
  * backing object for the bus attachment to exist when they are executed.  We
  * must therefore keep the bus attachment around until all of the bus objects
- * are destroyed before deleting the it.  In this case, we do use a
- * qcc::ManagedObj to reference count the underlying bus attachemnt C++ object
- * to keep it around until all of its pieces are destructed.  This is a
- * duplication, but it is more for language difference reasons than memory
- * management per se.
+ * are destroyed before deleting the it.  This is the perfect use for a
+ * reference counted smart pointer.  It is tempting to use qcc::ManagedObj to
+ * reference count the underlying bus attachemnt C++ object, but it really isn't
+ * a smart pointer.  It is subtly different.  The major complication is that
+ * there is no such thing as a NULL Managed object that doesn't point to a live
+ * object.
  *
- * So we do use qcc::ManagedObj for reference counting.  Despite its name, a
- * ManagedObj is just a smart pointer.  If you don't understand smart pointers,
- * you really need to review them before going any further in that area.  It
- * will also be worthwhile to read the documentation for qcc::ManagedObj before
- * trying to understand what is happening.
- *
- * We want to store the C++ smart pointer in a Java object, but since Java has
- * no clue about C++ constructs, we have to somehow reference our smart pointer
- * through an appropriate primitive data type in the Java language.  We use a
- * long in Java, which we then treat as void* in the C++ language pieces.  The
- * qcc::ManagedObj class implements a non-intrusive smart pointer, and so is not
- * the same size as a C++ pointer.  This means we must allocate a smart pointer
- * on the heap and store a pointer to it into the Java object.  This results in
- * some unusual-looking use-cases of our smart pointer.
- *
- * In a "normal" use of the ManagedObj smart pointer, you might expect to see
- * it used something like:
- *
- *   //
- *   // Create an object on the heap, and assign management to a smart pointer
- *   // on the stack.
- *   //
- *   {
- *       ManagedObj<Blah> mo = ManagedObj<Blah>(arg);
- *       mo->method();     // Call a method on the underlying object
- *       mo.IncRef();      // Change the reference count (in the smart pointer itself).
- *       Blah& b = *mo;    // Get a reference to the underlying object
- *       Blah* p = &(*mo); // Get a pointer to the underlying object
- *       //
- *       // When the managed object goes out of context at the following closing
- *       // brace, the underlying object is automatically destroyed
- *       //
- *   }
- *
- * Instead, we need to talk to the ManagedObj indirectly:
- *
- *   //
- *   // Create an object on the heap, assign management to a smart pointer
- *   // also allocated on the heap and assign a pointer to the smart pointer
- *   // to a pointer on the stack.
- *   //
- *   ManagedObj<Blah> *mo = new ManagedObj<Blah>(arg);
- *   (*mo)->method();      // Call a method on the underlying object
- *   mo->IncRef();         // Change the reference count (in the smart pointer itself).
- *   Blah& b = *(*mo);     // Get a reference to the underlying object
- *   Blah* p = &(*(*mo));  // Get a pointer to the underlying object
- *   delete mo;            // We have to delete the ManagedObj explicity since it was newed.
- *
- * This may all be a little surprising if you see it without context.  At first
- * glance, we don't use C++ smart pointers when it seems like we could really
- * benefit from them; and we do use smart pointers in a strange way when it
- * seems like we don't have to.  Hopefully it does make some sense now.
+ * Even if we do work around the problems and shoehorn in a qcc::ManagedObj one
+ * is always tempted to think of those ManagedObj things as smart pointers and
+ * even typedef and them that way.  This can introduce some hard to find and
+ * very subtle bugs.  Because of this, we just build an intrusive reference
+ * count into our C++ bus attachment object and be done with it.  It's very
+ * simple and straightforward that way, and you can think of your reference
+ * counted bus attachment as a reference counted bus attachment without worry.
  *
  * Bus objects sidebar
  * -------------------
@@ -1174,8 +1129,6 @@ class PendingAsyncJoin;
 class JBusAttachment : public BusAttachment {
   public:
     JBusAttachment(const char* applicationName, bool allowRemoteMessages);
-    virtual ~JBusAttachment();
-
     QStatus Connect(const char* connectArgs, jobject jkeyStoreListener, const char* authMechanisms,
                     jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
     void Disconnect(const char* connectArgs);
@@ -1306,19 +1259,38 @@ class JBusAttachment : public BusAttachment {
      * native binding we wrote will usse it correctly.
      */
     list<PendingAsyncJoin> pendingAsyncJoins;
-};
 
-/*
- * The Java garbage collector may queue and call finalizers in any order, so we
- * have to ensure that an underlying BusAttachment stays around until all of its
- * attached ProxyBusObjects are deleted. The easiest way to do this is to
- * reference count the underlying C++ BusAttachment.  This way, the C++ object
- * is kept around until the last of the ProxyBusObjects or the BusAttachemnt is
- * destroyed.  The last one to go triggers the delete of the actual
- * BusAttachment.  The AllJoyn version of a reference counted smart pointer is
- * the ManagedObj.
- */
-typedef ManagedObj<JBusAttachment> JBusAttachmentPtr;
+    int32_t IncRef(void)
+    {
+        return IncrementAndFetch(&refCount);
+    }
+
+    int32_t DecRef(void)
+    {
+        uint32_t refs = DecrementAndFetch(&refCount);
+        if (refs == 0) {
+            delete this;
+        }
+        return refs;
+    }
+
+    int32_t GetRef(void)
+    {
+        return refCount;
+    }
+
+private:
+    /*
+     * An intrusive reference count
+     */
+    int32_t refCount;
+
+    /*
+     * Destructor is marked private since it should only be called from DecRef.
+     */
+    virtual ~JBusAttachment();
+
+};
 
 /**
  * The C++ class that implements the BusListener functionality.
@@ -1640,7 +1612,7 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
     JOnJoinSessionListener(jobject jonJoinSessionListener);
     ~JOnJoinSessionListener();
 
-    void Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr* busPtr);
+    void Setup(jobject jsessionListener, jobject jcontext, JBusAttachment* jbap);
     void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
 
   private:
@@ -1648,7 +1620,7 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
     jweak jonJoinSessionListener;
     jweak jcontext;
     jmethodID MID_onJoinSession;
-    JBusAttachmentPtr* busPtrPtr;
+    JBusAttachment* busPtr;
 };
 
 /**
@@ -1674,7 +1646,7 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
  */
 class JBusObject : public BusObject {
   public:
-    JBusObject(JBusAttachmentPtr jbap, const char* path, jobject jobj);
+    JBusObject(JBusAttachment* jbap, const char* path, jobject jobj);
     ~JBusObject();
     QStatus AddInterfaces(jobjectArray jbusInterfaces);
     void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
@@ -1703,6 +1675,8 @@ class JBusObject : public BusObject {
     JMethod methods;
     JProperty properties;
     Mutex mapLock;
+
+    JBusAttachment* busPtr;
 };
 
 /**
@@ -1721,9 +1695,9 @@ class JBusObject : public BusObject {
  * scaffolding outside of the object to allow us to locate the C++ object
  * associated with the Java object and to reference count that C++ object.
  *
- * This is a different use case than a smart pointer, so instead of (mis)
- * using the ManagedObj in another strange way, we just provide a reference
- * count here.
+ * This is a different use case than a smart pointer, so once again, instead of
+ * (mis) using the ManagedObj in another strange way, we just provide a
+ * non-intrusive reference count here.
  */
 map<jobject, pair<uint32_t, JBusObject*> > gBusObjectMap;
 Mutex gBusObjectMapLock;
@@ -1942,8 +1916,9 @@ jobject GetGlobalRefForObject(jobject jbusObject)
  */
 class JProxyBusObject : public ProxyBusObject {
   public:
-    JProxyBusObject(JBusAttachmentPtr p, const char* endpoint, const char* path, SessionId sessionId);
-    JBusAttachmentPtr busPtr;
+    JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId);
+    ~JProxyBusObject();
+    JBusAttachment* busPtr;
 };
 
 class JSignalHandler : public MessageReceiver {
@@ -3318,7 +3293,8 @@ JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMess
       keyStoreListener(NULL), 
       jkeyStoreListenerRef(NULL),
       authListener(NULL),
-      jauthListenerRef(NULL)
+      jauthListenerRef(NULL),
+      refCount(1)
 {
     QCC_DbgPrintf(("JBusAttachment::JBusAttachment()\n"));
 }
@@ -4020,13 +3996,6 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
  * weak object reference to get at the Java objects.  The opaque handle in this
  * case is that managed object pointer.
  *
- * This method news up a JBusAttachmentPtr which is a really just a typedef for
- * ManagedObj<JBusAttachment>.  Despite the name, this is a actaully a smart
- * pointer.  We need to save this smart pointer into the handle of the Java
- * object, and since it is a non-intrusive smart pointer we must allocate it on
- * the heap.  It is then a pointer to a smart pointer, which explains the
- * unusual busPtrPtr name below.
- *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
  * @param thiz The Java object reference back to the BusAttachment.  Like a
@@ -4038,7 +4007,7 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jobject thiz, jstring japplicationName, jboolean allowRemoteMessages)
 {
-    // TODO: Remove
+    // TODO:  Temporary debugging use
     // QCC_UseOSLogging(true);
     // QCC_SetDebugLevel("ALLJOYN_JAVA", 7);
 
@@ -4052,26 +4021,25 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jo
     const char* name = applicationName.c_str();
 
     /*
-     * This looks a bit odd, but what we are doing is saving a smart pointer
-     * into a Java object as a native type.  The smart pointer (AKA a
-     * ManagedObj<T>) is a non-intrusive smart pointer so it does not fit into
-     * the 32-bit "handle" into which we store it (because it contains the
-     * reference count).  This means we need to allocate the smart pointer on
-     * the heap and store a pointer to the smart pointer in the Java object.
-     * When we allocate the smart pointer, it arranges to have the constructor
-     * for the underlying object to be called.
+     * Create a new C++ backing object for the Java BusAttachment.  This is
+     * an intrusively reference counted object.
      */
-    JBusAttachmentPtr* busPtrPtr = new JBusAttachmentPtr(name, allowRemoteMessages);
-    if (!busPtrPtr) {
+    JBusAttachment* busPtr = new JBusAttachment(name, allowRemoteMessages);
+    if (!busPtr) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
     }
 
-    QCC_DbgPrintf(("BusAttachment_create(): Remembering busPtrPtr as %p\n", busPtrPtr));
-    busPtrPtr->IncRef();
-    SetHandle(thiz, busPtrPtr);
+    QCC_DbgPrintf(("BusAttachment_create(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+    QCC_DbgPrintf(("BusAttachment_create(): Remembering busPtr as %p\n", busPtr));
+    SetHandle(thiz, busPtr);
     if (env->ExceptionCheck()) {
-        delete busPtrPtr;
+        /*
+         * can't directly delete the JBusAttachment since it is refcounted.
+         */
+        QCC_DbgPrintf(("BusAttachment_create(): Refcount on busPtr before decrement is %d\n", busPtr->GetRef()));
+        busPtr->DecRef();
+        busPtr = NULL;
     }
 }
 
@@ -4097,15 +4065,6 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jo
  * object is stored in the "handle" field of the BusAttachment.  We get at it
  * using GetHandle.
  *
- * When we delete the object pointed to by this handle, we are actually calling
- * a ManagedObj destructor.  This is conceptually the same thing as a reference
- * counted smart pointer going out of scope, and it decrements the reference
- * count on the managed object, which is the C++ bus attachment.  If this delete
- * causes the ref count to drop to zero, the underlying object is deleted; but
- * if there are existing proxy bus objects that may be queued for finalizing
- * after us, the managed object will still hold references to them and so will
- * stay around until all of those objects are collected.
- *
  * @param env  The environment pointer used to get access to the JNI helper
  *             functions.
  * @param thiz The Java object reference back to the BusAttachment.  Like a
@@ -4116,18 +4075,16 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
 {
     QCC_DbgPrintf(("BusAttachment_destroy()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
 
     /*
-     * We don't want to delete the smart pointer, we want to decrement the
-     * refererence count and let all of the other references to it do their
-     * think when they are released.
+     * We don't want to directly delete a reference counted object, we want to
+     * decrement the refererence count.  As soon as this refcount goes to zero
+     * the object on the heap will be deallocated via a delete this, so we must
+     * forget it now and forever.
      */
-    busPtr.DecRef();
+    QCC_DbgPrintf(("BusAttachment_destroy(): Refcount on busPtr is %d before decrement\n", busPtr->GetRef()));
+    busPtr->DecRef();
     SetHandle(thiz, NULL);
 }
 
@@ -4164,15 +4121,12 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
 {
     QCC_DbgPrintf(("BusAttachment_registerBusListener()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception\n"));
         return;
     }
+    QCC_DbgPrintf(("BusAttachment_registerBusListener(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * We always take a strong global reference to the listener object.
@@ -4218,15 +4172,12 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
 {
     QCC_DbgPrintf(("BusAttachment_unregisterBusListener()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception\n"));
         return;
     }
+    QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Get the C++ object that must be there backing the Java object
@@ -4308,15 +4259,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv*
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_requestName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4350,15 +4298,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv*
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_releaseName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4393,15 +4338,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_addMatch(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4435,15 +4377,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_removeMatch(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4477,15 +4416,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEn
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_advertiseName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4519,15 +4455,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4561,15 +4494,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4603,15 +4533,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -4705,15 +4632,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
     assert(fid);
     sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * We always take a strong global reference to the listener object.  We
@@ -4824,15 +4748,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
 {
     QCC_DbgPrintf(("BusAttachment_unbindSessionPort()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -5000,15 +4921,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
     assert(fid);
     sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_joinSession(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * We always take a strong global reference to the listener object and hold
@@ -5131,14 +5049,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
 {
     QCC_DbgPrintf(("BusAttachment_leaveSession()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_leaveSession(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -5235,15 +5150,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
 {
     QCC_DbgPrintf(("BusAttachment_setSessionListener()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_setSessionListener(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * We always take a strong global reference to the listener object and hold
@@ -5371,7 +5283,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env,
 }
 
 JOnJoinSessionListener::JOnJoinSessionListener(jobject jonJoinSessionListener)
-    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), busPtrPtr(NULL)
+    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), busPtr(NULL)
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener()\n"));
 
@@ -5397,6 +5309,18 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
 
     JNIEnv* env = GetEnv();
 
+    /*
+     * In our Setup method we are passed a pointer to the reference counted bus
+     * attachment.  We don't want to delete the object directly so we need to
+     * DecRef() it.  Once we do this the underlying object can be deleted at any
+     * time, so we need to forget about this pointer immediately.
+     */
+    if (busPtr) {
+        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Refcount on busPtr beore decrement is %d\n", busPtr->GetRef()));
+        busPtr->DecRef();
+        busPtr = NULL;
+    }
+
     if (jsessionListener) {
         QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
         env->DeleteWeakGlobalRef(jsessionListener);
@@ -5416,9 +5340,10 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
     }
 }
 
-void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachmentPtr* busPtrPtr)
+void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachment* jbap)
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::Setup()\n"));
+
     /*
      * When an async join operation is started, we are provided three Java
      * object references: a session listener object, a callback listener object
@@ -5459,12 +5384,13 @@ void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, J
 
     /*
      * We need to be able to get back at the bus attachment in the callback to
-     * release and/or reassign resources.
+     * release and/or reassign resources.  We are going to keep a pointer to the
+     * reference counted bus attachment, so we need to IncRef() it.
      */
-    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Remembering busPtrPtr as %p\n", busPtrPtr));
-    this->busPtrPtr = busPtrPtr;
-    (*busPtrPtr)->baCommonLock.Lock();
-    (*busPtrPtr)->baCommonLock.Unlock();
+    busPtr = jbap;
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Refcount on busPtr before is %d\n", busPtr->GetRef()));
+    busPtr->IncRef();
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Refcount on busPtr after %d\n", busPtr->GetRef()));
 }
 
 void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
@@ -5549,9 +5475,9 @@ exit:
      * objects and come to a resolution about their lifetimes.
      */
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Taking Bus Attachment common lock\n"));
-    (*busPtrPtr)->baCommonLock.Lock();
+    busPtr->baCommonLock.Lock();
 
-    for (list<PendingAsyncJoin>::iterator i = (*busPtrPtr)->pendingAsyncJoins.begin(); i != (*busPtrPtr)->pendingAsyncJoins.end(); ++i) {
+    for (list<PendingAsyncJoin>::iterator i = busPtr->pendingAsyncJoins.begin(); i != busPtr->pendingAsyncJoins.end(); ++i) {
         if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
             if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
                 /*
@@ -5577,7 +5503,7 @@ exit:
                 }
                 
                 if (status == ER_OK) {
-                    (*busPtrPtr)->sessionListenerMap[sessionId] = i->jlistener;
+                    busPtr->sessionListenerMap[sessionId] = i->jlistener;
                 } else {
                     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
                     env->DeleteGlobalRef(i->jlistener);
@@ -5598,20 +5524,20 @@ exit:
                  * Tell the bus to forget about the Java object references since
                  * we have dealt with them all.
                  */
-                (*busPtrPtr)->pendingAsyncJoins.erase(i);
+                busPtr->pendingAsyncJoins.erase(i);
 
                 QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
                 env->DeleteGlobalRef(jcallback);
 
                 QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
-                (*busPtrPtr)->baCommonLock.Unlock();
+                busPtr->baCommonLock.Unlock();
                 return;
             }
         }
     }
 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
-    (*busPtrPtr)->baCommonLock.Unlock();
+    busPtr->baCommonLock.Unlock();
 
     QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
 }
@@ -5657,16 +5583,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
     assert(fid);
     sessionOpts.transports = env->GetShortField(jsessionOpts, fid);
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr* busPtrPtr = GetHandle<JBusAttachmentPtr*>(thiz);
-    JBusAttachmentPtr busPtr = *busPtrPtr;
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * This method is unusual in that there are three objects passed which have
@@ -5756,7 +5678,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * of the objects.  The original objects will be temporarily leaked.  This
      * is proabbly expected behavior, but we note it just in case.
      */
-    callback->Setup(jsessionListener, jcontext, busPtrPtr);
+    callback->Setup(jsessionListener, jcontext, busPtr);
 
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
                    sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
@@ -5865,15 +5787,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv
 {
     QCC_DbgPrintf(("BusAttachment_getSessionFd()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_getSessionFd(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -5919,14 +5838,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv*
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -5977,15 +5893,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIE
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_setDaemonDebug(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Make the AllJoyn call.
@@ -6082,14 +5995,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_connect(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QStatus status = busPtr->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
                                      jauthListener, keyStoreFileName.c_str(), isShared);
@@ -6109,14 +6019,12 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env
         return;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
+    QCC_DbgPrintf(("BusAttachment_disconnect(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
     busPtr->Disconnect(connectArgs.c_str());
 }
 
@@ -6135,14 +6043,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_enablePeerSecurity(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QStatus status = busPtr->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str(), isShared);
     if (env->ExceptionCheck()) {
@@ -6156,10 +6061,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(
  * Create a new JBusObject to serve as the C++ half of a Java BusObject and C++
  * JBusObject pair.
  */
-JBusObject::JBusObject(JBusAttachmentPtr jbap, const char* path, jobject jobj)
+JBusObject::JBusObject(JBusAttachment* jbap, const char* path, jobject jobj)
     : BusObject(*jbap, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_unregistered(NULL)
 {
     QCC_DbgPrintf(("JBusObject::JBusObject()\n"));
+
+    /*
+     * Note the sneaky case here where we get a JBusAttachmentPtr* and we give a
+     * reference to the underlying BusAttachment to the constructing BusObject.
+     * Since the uderlying BusObject takes a reference to the provided
+     * JBusAttachment, we must take a reference to the bus attachment even
+     * though we never actually use it.  Because we take a reference here, we
+     * need to give one in the destructor, which means that we have to save a
+     * a copy of the JBusAttachment* in the JBusObject and therefore a given
+     * bus object cannot be shared among bus attachments.
+     */
+    busPtr = jbap;
+    QCC_DbgPrintf(("JBusObject::JBusObject(): Refcount on busPtr before is %d\n", busPtr->GetRef()));
+    busPtr->IncRef();
+    QCC_DbgPrintf(("JBusObject::JBusObject(): Refcount on busPtr after is %d\n", busPtr->GetRef()));
 
     JNIEnv* env = GetEnv();
 
@@ -6229,6 +6149,10 @@ JBusObject::~JBusObject()
         env->DeleteWeakGlobalRef(jbusObj);
         jbusObj = NULL;
     }
+
+    QCC_DbgPrintf(("JBusObject::~JBusObject(): Refcount on busPtr before decrement is %d\n", busPtr->GetRef()));
+    busPtr->DecRef();
+    busPtr = NULL;
 }
 
 QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
@@ -6883,14 +6807,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(J
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_registerBusObject(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QStatus status = busPtr->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces);
     if (env->ExceptionCheck()) {
@@ -6904,11 +6825,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject(JN
 {
     QCC_DbgPrintf(("BusAttachment_unregisterBusObject()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    QCC_DbgPrintf(("BusAttachment_unregisterBusObject(): Refcount on busPtr is %d\n", busPtr->GetRef()));
     if (env->ExceptionCheck()) {
         return;
     }
@@ -7062,11 +6980,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
         srcPath = source.c_str();
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    QCC_DbgPrintf(("BusAttachment_registerNativeSignalHandler(): Refcount on busPtr is %d\n", busPtr->GetRef()));
     if (env->ExceptionCheck()) {
         return NULL;
     }
@@ -7083,14 +6998,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterSignalHandle
 {
     QCC_DbgPrintf(("BusAttachment_unregisterSignalHandler()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
+    QCC_DbgPrintf(("BusAttachment_unregisterNativeSignalHandler(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     busPtr->UnregisterSignalHandler(jsignalHandler, jmethod);
 }
@@ -7099,14 +7011,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEn
 {
     QCC_DbgPrintf(("BusAttachment_getUniqueName()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_getUniqueName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     return env->NewStringUTF(busPtr->GetUniqueName().c_str());
 }
@@ -7115,14 +7024,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getGlobalGUIDString
 {
     QCC_DbgPrintf(("BusAttachment_getGlobalGUIDString()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_getGlobalGUIDString(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     return env->NewStringUTF(busPtr->GetGlobalGUIDString().c_str());
 }
@@ -7131,14 +7037,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* 
 {
     QCC_DbgPrintf(("BusAttachment_clearKeyStore()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return;
     }
+    QCC_DbgPrintf(("BusAttachment_clearKeyStore(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     busPtr->ClearKeyStore();
 }
@@ -7156,14 +7059,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_clearKeys(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QCC_DbgPrintf(("BusAttachment_clearKeys(): Call ClearKeys(%s)\n", guid.c_str()));
 
@@ -7180,14 +7080,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIE
 {
     QCC_DbgPrintf(("BusAttachment_reloadKeyStore()\n"));
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in our Java object as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(thiz);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("BusAttachment_reloadKeyStore(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QCC_DbgPrintf(("BusAttachment_reloadKeyStore(): Call ReloadKeyStore()\n"));
 
@@ -7263,14 +7160,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to the JBusAttachment in the bus attachment as a "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("InterfaceDescription_create(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     InterfaceDescription* intf;
     QStatus status = busPtr->CreateInterface(name.c_str(), intf, secure);
@@ -7397,9 +7291,35 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv
     intf->Activate();
 }
 
-JProxyBusObject::JProxyBusObject(JBusAttachmentPtr p, const char* endpoint, const char* path, SessionId sessionId)
-    : ProxyBusObject(*p, endpoint, path, sessionId), busPtr(p)
+JProxyBusObject::JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId)
+    : ProxyBusObject(*jbap, endpoint, path, sessionId)
 {
+    QCC_DbgPrintf(("JProxyBusObject::JProxyBusObject()\n"));
+
+    /*
+     * We need to ensure that the underlying Bus Attachment is alive as long
+     * as we are.  We do this by bumping the reference count there.
+     */
+    busPtr = jbap;
+    assert(busPtr);
+    QCC_DbgPrintf(("JProxyBusObject::JProxyBusObject(): Refcount on busPtr before is %d\n", busPtr->GetRef()));
+    busPtr->IncRef();
+    QCC_DbgPrintf(("JProxyBusObject::JProxyBusObject(): Refcount on busPtr after is %d\n", busPtr->GetRef()));
+
+}
+
+JProxyBusObject::~JProxyBusObject()
+{
+    QCC_DbgPrintf(("JProxyBusObject::~JProxyBusObject()\n"));
+
+    /*
+     * We have a hold on the underlying Bus Attachment, but we need it until the BusObject destructor
+     * has been run.  We inherit from it, so it will run after our destructor.  This means we can't
+     * drop the reference count ourselves, but we have to rely on the object that called delete on
+     * us.
+     */
+    assert(busPtr);
+    QCC_DbgPrintf(("JProxyBusObject::~JProxyBusObject(): Refcount on busPtr at destruction is %d\n", busPtr->GetRef()));
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, jobject thiz, jobject jbus,
@@ -7417,26 +7337,23 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, j
         return;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to a JBusAttachment in the Java BusAttachment object as a
-     * "handle."  We're going to grab a reference to that JBusAttachment and
-     * stash it in our own "handle."
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
         return;
     }
+    QCC_DbgPrintf(("ProxyBusObject_create(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
      * Create a C++ proxy bus object to back the Java bus object and stash the
-     * pointer to it in our "handle"
+     * pointer to it in our "handle"  Note that we are giving the busPtr to the
+     * new JProxyBusObject, so it must bump the reference count
      */
     JProxyBusObject* jpbo = new JProxyBusObject(busPtr, busName.c_str(), objPath.c_str(), sessionId);
     if (!jpbo) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
     }
+    QCC_DbgPrintf(("ProxyBusObject_create(): Refcount on busPtr now %d\n", busPtr->GetRef()));
 
     SetHandle(thiz, jpbo);
     if (env->ExceptionCheck()) {
@@ -7453,7 +7370,22 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env, 
         return;
     }
 
+    QCC_DbgPrintf(("ProxyBusObject_destroy(): Refcount on busPtr now %d\n", proxyBusObj->busPtr->GetRef()));
+
+    /*
+     * We need to delete the JProxyBusObject.  It is holding pointer to the
+     * reference counted bus attachment so one would think that when it is
+     * destroyed, the destructor should call DecRef() on it.  The problem is
+     * taht it is a base class that is actually using the reference to the bus
+     * attachment, so if we delete it in the destructor, the base class crashes
+     * when it doesn't have it.  So we have to help the JProxyBusObject
+     * destructor out and delete what should be its reference for it after the
+     * base class (BusObject) finishes its destruction process.
+     */
+    JBusAttachment* busPtr = proxyBusObj->busPtr;
+    QCC_DbgPrintf(("ProxyBusObject_destroy(): Refcount on busPtr before decrement is %d\n", busPtr->GetRef()));
     delete proxyBusObj;
+    busPtr->DecRef();
     SetHandle(thiz, NULL);
 }
 
@@ -7489,16 +7421,11 @@ static void AddInterface(jobject thiz, jobject jbus, jstring jinterfaceName)
         return;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to a JBusAttachment in the Java BusAttachment object as a
-     * "handle."  We're going to grab a reference to that JBusAttachment so
-     * we can make our AllJoyn call.
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
         return;
     }
+    QCC_DbgPrintf(("AddInterface(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     const InterfaceDescription* intf = busPtr->GetInterface(interfaceName.c_str());
     assert(intf);
@@ -7537,23 +7464,14 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         return NULL;
     }
 
-    /*
-     * This looks a bit odd, but what we have done is to save a pointer to a
-     * smart pointer to a JBusAttachment in the Java BusAttachment object as a
-     * "handle."  We're going to grab a reference to that JBusAttachment so
-     * we can refer to it when creating the Message that will be sent.
-     */
-    JBusAttachmentPtr busPtr = *GetHandle<JBusAttachmentPtr*>(jbus);
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
         return NULL;
     }
+    QCC_DbgPrintf(("ProxybusObject_methodCall(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     Message replyMsg(*busPtr);
 
-    /*
-     * Get the pointer to the underlying C++ proxy bus object that we have stashed
-     * in our "handle."
-     */
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -7650,10 +7568,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
         return NULL;
     }
 
-    /*
-     * Get the pointer to the underlying C++ proxy bus object that we have stashed
-     * in our "handle."
-     */
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
         return NULL;
@@ -7702,10 +7616,6 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
         return;
     }
 
-    /*
-     * Get the pointer to the underlying C++ proxy bus object that we have stashed
-     * in our "handle."
-     */
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
         return;
@@ -7798,7 +7708,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jo
 
 JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env, jclass clazz, jstring jsignature)
 {
-    QCC_DbgPrintf(("Signature_split()\n"));
+    // QCC_DbgPrintf(("Signature_split()\n"));
 
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
@@ -7839,7 +7749,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env,
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env, jobject thiz)
 {
-    QCC_DbgPrintf(("Variant_destroy()\n"));
+    // QCC_DbgPrintf(("Variant_destroy()\n"));
 
     MsgArg* arg = GetHandle<MsgArg*>(thiz);
     if (!arg) {
@@ -7851,7 +7761,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env, jobject
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_setMsgArg(JNIEnv* env, jobject thiz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("Variant_setMsgArg()\n"));
+    // QCC_DbgPrintf(("Variant_setMsgArg()\n"));
 
     MsgArg* arg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_VARIANT == arg->typeId);
@@ -7877,7 +7787,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusException_logln(JNIEnv* env, jcla
 
 JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumElements(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getNumElements()\n"));
+    // QCC_DbgPrintf(("MsgArg_getNumElements()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
@@ -7886,7 +7796,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumElements(JNIEnv* env, j
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getElement(JNIEnv* env, jclass clazz, jlong jmsgArg, jint index)
 {
-    QCC_DbgPrintf(("MsgArg_getElement()\n"));
+    // QCC_DbgPrintf(("MsgArg_getElement()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
@@ -7896,7 +7806,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getElement(JNIEnv* env, jcla
 
 JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getElemSig(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getElementSig()\n"));
+    // QCC_DbgPrintf(("MsgArg_getElementSig()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_ARRAY == msgArg->typeId);
@@ -7905,7 +7815,7 @@ JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getElemSig(JNIEnv* env, jc
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getVal(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getVal()\n"));
+    // QCC_DbgPrintf(("MsgArg_getVal()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     switch (msgArg->typeId) {
@@ -7923,7 +7833,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getVal(JNIEnv* env, jclass c
 
 JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumMembers(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getNumMembers()\n"));
+    // QCC_DbgPrintf(("MsgArg_getNumMembers()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRUCT == msgArg->typeId);
@@ -7932,7 +7842,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getNumMembers(JNIEnv* env, jc
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getMember(JNIEnv* env, jclass clazz, jlong jmsgArg, jint index)
 {
-    QCC_DbgPrintf(("MsgArg_getMember()\n"));
+    // QCC_DbgPrintf(("MsgArg_getMember()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRUCT == msgArg->typeId);
@@ -7942,7 +7852,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getMember(JNIEnv* env, jclas
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getKey(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getKey()\n"));
+    // QCC_DbgPrintf(("MsgArg_getKey()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DICT_ENTRY == msgArg->typeId);
@@ -7951,7 +7861,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getKey(JNIEnv* env, jclass c
 
 JNIEXPORT jbyteArray JNICALL Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getKey()\n"));
+    // QCC_DbgPrintf(("MsgArg_getKey()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BYTE_ARRAY == msgArg->typeId);
@@ -7969,7 +7879,7 @@ JNIEXPORT jbyteArray JNICALL Java_org_alljoyn_bus_MsgArg_getByteArray(JNIEnv* en
 
 JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getInt16Array()\n"));
+    // QCC_DbgPrintf(("MsgArg_getInt16Array()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT16_ARRAY == msgArg->typeId);
@@ -7990,7 +7900,7 @@ JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt16Array(JNIEnv* 
 
 JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint16Array()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint16Array()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT16_ARRAY == msgArg->typeId);
@@ -8011,7 +7921,7 @@ JNIEXPORT jshortArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint16Array(JNIEnv*
 
 JNIEXPORT jbooleanArray JNICALL Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getBoolArray()\n"));
+    // QCC_DbgPrintf(("MsgArg_getBoolArray()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BOOLEAN_ARRAY == msgArg->typeId);
@@ -8032,7 +7942,7 @@ JNIEXPORT jbooleanArray JNICALL Java_org_alljoyn_bus_MsgArg_getBoolArray(JNIEnv*
 
 JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint32Array()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint32Array()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT32_ARRAY == msgArg->typeId);
@@ -8053,7 +7963,7 @@ JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint32Array(JNIEnv* e
 
 JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint32Array()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint32Array()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT32_ARRAY == msgArg->typeId);
@@ -8074,7 +7984,7 @@ JNIEXPORT jintArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt32Array(JNIEnv* en
 
 JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getInt64Array()\n"));
+    // QCC_DbgPrintf(("MsgArg_getInt64Array()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT64_ARRAY == msgArg->typeId);
@@ -8095,7 +8005,7 @@ JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getInt64Array(JNIEnv* e
 
 JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint64Array()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint64Array()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT64_ARRAY == msgArg->typeId);
@@ -8116,7 +8026,7 @@ JNIEXPORT jlongArray JNICALL Java_org_alljoyn_bus_MsgArg_getUint64Array(JNIEnv* 
 
 JNIEXPORT jdoubleArray JNICALL Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getDoubleArray()\n"));
+    // QCC_DbgPrintf(("MsgArg_getDoubleArray()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DOUBLE_ARRAY == msgArg->typeId);
@@ -8137,7 +8047,7 @@ JNIEXPORT jdoubleArray JNICALL Java_org_alljoyn_bus_MsgArg_getDoubleArray(JNIEnv
 
 JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getTypeId(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getTypeId()\n"));
+    // QCC_DbgPrintf(("MsgArg_getTypeId()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     return msgArg->typeId;
@@ -8145,7 +8055,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getTypeId(JNIEnv* env, jclass
 
 JNIEXPORT jbyte JNICALL Java_org_alljoyn_bus_MsgArg_getByte(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getByte()\n"));
+    // QCC_DbgPrintf(("MsgArg_getByte()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BYTE == msgArg->typeId);
@@ -8154,7 +8064,7 @@ JNIEXPORT jbyte JNICALL Java_org_alljoyn_bus_MsgArg_getByte(JNIEnv* env, jclass 
 
 JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getInt16(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getInt16()\n"));
+    // QCC_DbgPrintf(("MsgArg_getInt16()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT16 == msgArg->typeId);
@@ -8163,7 +8073,7 @@ JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getInt16(JNIEnv* env, jclas
 
 JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getUint16(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint16()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint16()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT16 == msgArg->typeId);
@@ -8172,7 +8082,7 @@ JNIEXPORT jshort JNICALL Java_org_alljoyn_bus_MsgArg_getUint16(JNIEnv* env, jcla
 
 JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_MsgArg_getBool(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getBool()\n"));
+    // QCC_DbgPrintf(("MsgArg_getBool()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_BOOLEAN == msgArg->typeId);
@@ -8181,7 +8091,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_MsgArg_getBool(JNIEnv* env, jcla
 
 JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getUint32(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint32()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint32()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT32 == msgArg->typeId);
@@ -8190,7 +8100,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getUint32(JNIEnv* env, jclass
 
 JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getInt32(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getInt32()\n"));
+    // QCC_DbgPrintf(("MsgArg_getInt32()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT32 == msgArg->typeId);
@@ -8199,7 +8109,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_MsgArg_getInt32(JNIEnv* env, jclass 
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getInt64(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getInt64()\n"));
+    // QCC_DbgPrintf(("MsgArg_getInt64()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_INT64 == msgArg->typeId);
@@ -8208,7 +8118,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getInt64(JNIEnv* env, jclass
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getUint64(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getUint64()\n"));
+    // QCC_DbgPrintf(("MsgArg_getUint64()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_UINT64 == msgArg->typeId);
@@ -8217,7 +8127,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_getUint64(JNIEnv* env, jclas
 
 JNIEXPORT jdouble JNICALL Java_org_alljoyn_bus_MsgArg_getDouble(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getDouble()\n"));
+    // QCC_DbgPrintf(("MsgArg_getDouble()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_DOUBLE == msgArg->typeId);
@@ -8226,7 +8136,7 @@ JNIEXPORT jdouble JNICALL Java_org_alljoyn_bus_MsgArg_getDouble(JNIEnv* env, jcl
 
 JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getString(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getString()\n"));
+    // QCC_DbgPrintf(("MsgArg_getString()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_STRING == msgArg->typeId);
@@ -8247,7 +8157,7 @@ JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getString(JNIEnv* env, jcl
 
 JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getObjPath()\n"));
+    // QCC_DbgPrintf(("MsgArg_getObjPath()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_OBJECT_PATH == msgArg->typeId);
@@ -8268,7 +8178,7 @@ JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getObjPath(JNIEnv* env, jc
 
 JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_getsignature__J()\n"));
+    // QCC_DbgPrintf(("MsgArg_getsignature__J()\n"));
 
     MsgArg* msgArg = (MsgArg*)jmsgArg;
     assert(ALLJOYN_SIGNATURE == msgArg->typeId);
@@ -8289,7 +8199,7 @@ JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature__J(JNIEnv* en
 
 JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv* env, jclass clazz, jlongArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_getsignature___3J()\n"));
+    // QCC_DbgPrintf(("MsgArg_getsignature___3J()\n"));
 
     MsgArg* values = NULL;
     size_t numValues = jarray ? env->GetArrayLength(jarray) : 0;
@@ -8324,7 +8234,7 @@ JNIEXPORT jstring JNICALL Java_org_alljoyn_bus_MsgArg_getSignature___3J(JNIEnv* 
  */
 static MsgArg* Set(JNIEnv* env, MsgArg* arg, jstring jsignature, ...)
 {
-    QCC_DbgPrintf(("Set()\n"));
+    // QCC_DbgPrintf(("Set()\n"));
 
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
@@ -8344,43 +8254,43 @@ static MsgArg* Set(JNIEnv* env, MsgArg* arg, jstring jsignature, ...)
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2B(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jbyte value)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2B()\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2B()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Z(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jboolean value)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2Z()\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2Z()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2S(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jshort value)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2S()\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2S()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2I(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jint value)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2I()\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2I()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2J(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jlong value)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2J()\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2J()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2D(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jdouble value)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2D()\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2D()\n"));
     return (jlong)Set(env, (MsgArg*)jmsgArg, jsignature, value);
 }
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jstring jvalue)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2Ljava_lang_String_2\n"));
 
     JString value(jvalue);
     if (env->ExceptionCheck()) {
@@ -8397,7 +8307,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2Lja
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jbyteArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3B\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3B\n"));
 
     jbyte* jelements = env->GetByteArrayElements(jarray, NULL);
 
@@ -8412,7 +8322,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3B
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jbooleanArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3Z\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3Z\n"));
 
     /* Booleans are different sizes in Java and MsgArg, so can't just do a straight copy. */
     jboolean* jelements = env->GetBooleanArrayElements(jarray, NULL);
@@ -8440,7 +8350,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3Z
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jshortArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3S\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3S\n"));
 
     jshort* jelements = env->GetShortArrayElements(jarray, NULL);
 
@@ -8455,7 +8365,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3S
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jintArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3I\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3I\n"));
 
     jint* jelements = env->GetIntArrayElements(jarray, NULL);
 
@@ -8470,7 +8380,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3I
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jlongArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3J\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3J\n"));
 
     jlong* jelements = env->GetLongArrayElements(jarray, NULL);
 
@@ -8485,7 +8395,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3J
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jdoubleArray jarray)
 {
-    QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3D\n"));
+    // QCC_DbgPrintf(("MsgArg_set__JLjava_lang_String_2_3D\n"));
 
     jdouble* jelements = env->GetDoubleArrayElements(jarray, NULL);
 
@@ -8500,7 +8410,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_set__JLjava_lang_String_2_3D
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jelemSig, jint numElements)
 {
-    QCC_DbgPrintf(("MsgArg_setArray\n"));
+    // QCC_DbgPrintf(("MsgArg_setArray\n"));
 
     JString elemSig(jelemSig);
     if (env->ExceptionCheck()) {
@@ -8529,7 +8439,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setArray(JNIEnv* env, jclass
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv* env, jclass clazz, jlong jmsgArg, jint numMembers)
 {
-    QCC_DbgPrintf(("MsgArg_setStruct\n"));
+    // QCC_DbgPrintf(("MsgArg_setStruct\n"));
 
     MsgArg* arg = (MsgArg*)jmsgArg;
 
@@ -8548,7 +8458,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setStruct(JNIEnv* env, jclas
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_setDictEntry\n"));
+    // QCC_DbgPrintf(("MsgArg_setDictEntry\n"));
 
     MsgArg* arg = (MsgArg*)jmsgArg;
     MsgArg* key = new MsgArg;
@@ -8568,7 +8478,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setDictEntry(JNIEnv* env, jc
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_String_2J(JNIEnv* env, jclass clazz, jlong jmsgArg, jstring jsignature, jlong jvalue)
 {
-    QCC_DbgPrintf(("MsgArg_setVariant__JLjava_lang_String_2J\n"));
+    // QCC_DbgPrintf(("MsgArg_setVariant__JLjava_lang_String_2J\n"));
 
     MsgArg* value = new MsgArg(*(MsgArg*)jvalue);
     if (!value) {
@@ -8586,7 +8496,7 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_Stri
 
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__J(JNIEnv* env, jclass clazz, jlong jmsgArg)
 {
-    QCC_DbgPrintf(("MsgArg_setVariant__J\n"));
+    // QCC_DbgPrintf(("MsgArg_setVariant__J\n"));
 
     MsgArg* arg = (MsgArg*)jmsgArg;
 
