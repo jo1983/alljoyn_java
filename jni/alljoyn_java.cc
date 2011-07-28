@@ -6713,7 +6713,7 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
         return ER_FAIL;
     }
 
-    env->CallObjectMethod(property->second.jset, mid, jbusObj, (jobjectArray)jvalue);
+    env->CallObjectMethod(property->second.jset, mid, jo, (jobjectArray)jvalue);
     if (env->ExceptionCheck()) {
         mapLock.Unlock();
         return ER_FAIL;
