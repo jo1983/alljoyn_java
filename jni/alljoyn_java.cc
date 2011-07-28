@@ -3345,9 +3345,10 @@ QStatus JBusAttachment::Connect(const char* connectArgs, jobject jkeyStoreListen
 
     JNIEnv* env = GetEnv();
 
+    QCC_DbgPrintf(("JBusAttachment::Connect(): Starting the underlying bus attachment\n"));
     QStatus status = Start();
     if (ER_OK != status) {
-        goto exit;
+        return status;
     }
 
     /*
@@ -3402,6 +3403,7 @@ QStatus JBusAttachment::Connect(const char* connectArgs, jobject jkeyStoreListen
         env->DeleteGlobalRef(jkeyStoreListenerRef);
         jkeyStoreListenerRef = NULL;
 
+        QCC_DbgPrintf(("JBusAttachment::Connect(): Deleting keyStoreListener\n"));
         delete keyStoreListener;
         keyStoreListener = NULL;
     }
