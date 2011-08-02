@@ -1546,7 +1546,7 @@ class JKeyStoreListener : public KeyStoreListener {
  */
 class JAuthListener : public AuthListener {
   public:
-    JAuthListener(jobject jlistener);
+    JAuthListener(JBusAttachment* ba, jobject jlistener);
     ~JAuthListener();
     bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount,
                             const char* userName, uint16_t credMask, Credentials& credentials);
@@ -1554,6 +1554,7 @@ class JAuthListener : public AuthListener {
     void SecurityViolation(QStatus status, const Message& msg);
     void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
   private:
+    JBusAttachment* busPtr;
     jweak jauthListener;
     jmethodID MID_requestCredentials;
     jmethodID MID_verifyCredentials;
@@ -2905,10 +2906,16 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
  *
  * @param jlistener The corresponding java object.
  */
-JAuthListener::JAuthListener(jobject jlistener)
-    : jauthListener(NULL)
+JAuthListener::JAuthListener(JBusAttachment* ba, jobject jlistener)
+    : busPtr(ba), jauthListener(NULL)
 {
     QCC_DbgPrintf(("JAuthListener::JAuthListener()\n"));
+
+    /*
+     * We have a reference to the underlying bus attachment, so we have to
+     * increment its reference count.
+     */
+    busPtr->IncRef();
 
     JNIEnv* env = GetEnv();
 
@@ -2959,6 +2966,15 @@ JAuthListener::JAuthListener(jobject jlistener)
 JAuthListener::~JAuthListener()
 {
     QCC_DbgPrintf(("JAuthListener::~JAuthListener()\n"));
+
+    /*
+     * We have a reference to the underlying bus attachment, so we have to
+     * decrement its reference count.  Once we decrement it, the object can
+     * go away at any time, so we must immediately forget it.
+     */
+    busPtr->DecRef();
+    busPtr = NULL;
+
     if (jauthListener) {
         QCC_DbgPrintf(("JAuthListener::~JAuthListener(): Releasing weak global reference to AuthListener %p\n", jauthListener));
         GetEnv()->DeleteWeakGlobalRef(jauthListener);
@@ -3018,12 +3034,19 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     }
 
     /*
+     * Take the authentication changed lock to prevent clients from changing the
+     * authListener out from under us while we are calling out into it.
+     */
+    busPtr->baAuthenticationChangeLock.Lock();
+
+    /*
      * The weak global reference jauthListener cannot be directly used.  We have
      * to get a "hard" reference to it and then use that.  If you try to use a
      * weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
+        busPtr->baAuthenticationChangeLock.Unlock();
         QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new local reference to AuthListener\n"));
         return false;
     }
@@ -3038,6 +3061,12 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
                                                             authCount,
                                                             (jstring)juserName,
                                                             credMask);
+    /*
+     * Once we have made our call, the client can go ahead and make any changes
+     * to the authListener it sees fit.
+     */
+    busPtr->baAuthenticationChangeLock.Unlock();
+
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Exception calling out to Java method\n"));
         return false;
@@ -3177,20 +3206,29 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
     if (env->ExceptionCheck()) {
         return false;
     }
+
     JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
     if (env->ExceptionCheck()) {
         return false;
     }
+
     JLocalRef<jstring> juserName = credentials.IsSet(AuthListener::CRED_USER_NAME) ?
                                    env->NewStringUTF(credentials.GetUserName().c_str()) : NULL;
     if (env->ExceptionCheck()) {
         return false;
     }
+
     JLocalRef<jstring> jcert = credentials.IsSet(AuthListener::CRED_CERT_CHAIN) ?
                                env->NewStringUTF(credentials.GetCertChain().c_str()) : NULL;
     if (env->ExceptionCheck()) {
         return false;
     }
+
+    /*
+     * Take the authentication changed lock to prevent clients from changing the
+     * authListener out from under us while we are calling out into it.
+     */
+    busPtr->baAuthenticationChangeLock.Lock();
 
     /*
      * The weak global reference jauthListener cannot be directly used.  We have
@@ -3199,10 +3237,19 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
      */
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
+        busPtr->baAuthenticationChangeLock.Unlock();
+        QCC_LogError(ER_FAIL, ("JAuthListener::Verifyredentials(): Can't get new local reference to AuthListener\n"));
         return false;
     }
 
     jboolean acceptable = env->CallBooleanMethod(jo, MID_verifyCredentials, (jstring)jauthMechanism, (jstring)jauthPeer, (jstring)juserName, (jstring)jcert);
+
+    /*
+     * Once we have made our call, the client can go ahead and make any changes
+     * to the authListener it sees fit.
+     */
+    busPtr->baAuthenticationChangeLock.Unlock();
+
     if (env->ExceptionCheck()) {
         return false;
     }
@@ -3238,16 +3285,31 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
     }
 
     /*
+     * Take the authentication changed lock to prevent clients from changing the
+     * authListener out from under us while we are calling out into it.
+     */
+    busPtr->baAuthenticationChangeLock.Lock();
+
+    /*
      * The weak global reference jauthListener cannot be directly used.  We have
      * to get a "hard" reference to it and then use that.  If you try to use a
      * weak reference directly you will crash and burn.
      */
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
+        busPtr->baAuthenticationChangeLock.Unlock();
+        QCC_LogError(ER_FAIL, ("JAuthListener::SecurityViolation(): Can't get new local reference to AuthListener\n"));
         return;
     }
 
     env->CallVoidMethod(jo, MID_securityViolation, (jobject)jstatus);
+
+    /*
+     * Once we have made our call, the client can go ahead and make any changes
+     * to the authListener it sees fit.
+     */
+    busPtr->baAuthenticationChangeLock.Unlock();
+
 }
 
 /**
@@ -3276,10 +3338,17 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
     if (env->ExceptionCheck()) {
         return;
     }
+
     JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
     if (env->ExceptionCheck()) {
         return;
     }
+
+    /*
+     * Take the authentication changed lock to prevent clients from changing the
+     * authListener out from under us while we are calling out into it.
+     */
+    busPtr->baAuthenticationChangeLock.Lock();
 
     /*
      * The weak global reference jauthListener cannot be directly used.  We have
@@ -3288,12 +3357,25 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
      */
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
+        busPtr->baAuthenticationChangeLock.Unlock();
+        QCC_LogError(ER_FAIL, ("JAuthListener::AuthenticationComplete(): Can't get new local reference to AuthListener\n"));
         return;
     }
 
     env->CallVoidMethod(jo, MID_authenticationComplete, (jstring)jauthMechanism, (jstring)jauthPeer, success);
+
+    /*
+     * Once we have made our call, the client can go ahead and make any changes
+     * to the authListener it sees fit.
+     */
+    busPtr->baAuthenticationChangeLock.Unlock();
 }
 
+/**
+ * Create a new C++ backing object for the Java Bus Attachment object.  This is
+ * an intrusively reference counted object so the destructor should never be
+ * called directly.
+ */
 JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMessages)
     : BusAttachment(applicationName, allowRemoteMessages),
     keyStoreListener(NULL),
@@ -3305,6 +3387,11 @@ JBusAttachment::JBusAttachment(const char* applicationName, bool allowRemoteMess
     QCC_DbgPrintf(("JBusAttachment::JBusAttachment()\n"));
 }
 
+/**
+ * Destroy the C++ backing object for the Java Bus Attachment object.  This is
+ * an intrusively reference counted object so the destructor should never be
+ * called directly.
+ */
 JBusAttachment::~JBusAttachment()
 {
     QCC_DbgPrintf(("JBusAttachment::~JBusAttachment()\n"));
@@ -3581,10 +3668,10 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
 
     /*
      * Whenever a new listener is provided, we need to associate a new C++ listener with
-     * it.
+     * it.  The listener needs to get back to the bus attachment to access the MT locks.
      */
     delete authListener;
-    authListener = new JAuthListener(jauthListener);
+    authListener = new JAuthListener(this, jauthListener);
     if (!authListener) {
         QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Forgetting jauthListenerRef %p\n", jauthListenerRef));
         env->DeleteGlobalRef(jauthListenerRef);
