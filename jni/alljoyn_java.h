@@ -252,7 +252,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd
  * Method:    getPeerGUID
  * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$StringValue;)Lorg/alljoyn/bus/Status;
  */
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_geetPeerGUID
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID
   (JNIEnv *, jobject, jstring, jobject);
 
 /*
@@ -394,7 +394,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore
  * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys
-  (JNIEnv *, jobject, jobject);
+  (JNIEnv *, jobject, jstring);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
