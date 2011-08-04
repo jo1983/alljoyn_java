@@ -2351,8 +2351,8 @@ public class MarshalTest extends TestCase {
         {
             InferredTypesInterface proxy = remoteObj.getInterface(InferredTypesInterface.class);
 
-            // There exists a hard-coded limit of k bytes in an array
-            int k = 65536;
+            // There exists a hard-coded limit of 128k bytes in an array
+            int k = 131072;
 
             byte[] ay = new byte[k];
             assertArrayEquals(ay, proxy.ByteArray(ay));
@@ -2372,18 +2372,18 @@ public class MarshalTest extends TestCase {
         {
             InferredTypesInterface proxy = remoteObj.getInterface(InferredTypesInterface.class);
 
-            // There exists a hard-coded limit of k bytes in an array
-            int k = 65536;
-
+            // There exists a soft limit of 128k-132k bytes in a total message
+            int k = 131072;
+            
             InferredTypesInterface.TwoByteArrays rayay = new InferredTypesInterface.TwoByteArrays();
             rayay.ay0 = new byte[k];
             rayay.ay1 = new byte[k];
-
+            
             boolean thrown = false;
             try {
-              proxy.TwoByteArrays(rayay);
+                proxy.TwoByteArrays(rayay);
             } catch (BusException ex) {
-            thrown = true;
+                thrown = true;
             }
             assertEquals(true, thrown);
         }
