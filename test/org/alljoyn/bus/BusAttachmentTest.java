@@ -1049,6 +1049,18 @@ public class BusAttachmentTest extends TestCase {
             		joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
                     		sessionOpts, new LeaveSessionSessionListener());
             		otherBusSessionId = sessionId.value;
+
+                    // Set a link timeout
+                    if (joinSessionStatus == Status.OK) {
+                        Mutable.IntegerValue timeout = new Mutable.IntegerValue(60);
+                        joinSessionStatus = otherBus.setLinkTimeout(sessionId.value, timeout);
+                        if (joinSessionStatus == Status.OK) {
+                            if ((timeout.value < 60) && (timeout.value != 0)) {
+                                joinSessionStatus = Status.FAIL;
+                            }
+                        }
+                    }
+                    
             		stopWait();
             	}
         });

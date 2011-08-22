@@ -249,6 +249,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    setLinkTimeout
+ * Signature: (ILorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setLinkTimeout
+  (JNIEnv *, jobject, 
+   jint, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    getPeerGUID
  * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$StringValue;)Lorg/alljoyn/bus/Status;
  */

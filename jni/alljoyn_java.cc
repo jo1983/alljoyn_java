@@ -5926,6 +5926,46 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setLinkTimeout(JNIEnv* env, jobject thiz,
+                                                                            jint jsessionId,
+                                                                            jobject jLinkTimeout)
+{
+    QCC_DbgPrintf(("BusAttachment_setLinkTimeout()\n"));
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): Exception\n"));
+        return NULL;
+    }
+    QCC_DbgPrintf(("BusAttachment_setLinkTimeout(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    /*
+     * Make the AllJoyn call.
+     */
+    JLocalRef<jclass> clazz = env->GetObjectClass(jLinkTimeout);
+    jfieldID fid = env->GetFieldID(clazz, "value", "I");
+    assert(fid);
+    uint32_t linkTimeout = env->GetIntField(jLinkTimeout, fid);
+    QCC_DbgPrintf(("BusAttachment_setLinkTimeout(): Call SetLinkTimeout(%d, %d)\n", jsessionId, linkTimeout));
+
+    QStatus status = busPtr->SetLinkTimeout(jsessionId, linkTimeout);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): Exception\n"));
+        return NULL;
+    }
+
+    /*
+     * Store the linkTimeout in its corresponding out parameter.
+     */
+    if (status == ER_OK) {
+        env->SetIntField(jLinkTimeout, fid, linkTimeout);
+    } else {
+        QCC_LogError(status, ("BusAttachment_setLinkTimeout(): SetLinkTimeout() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv* env,
                                                                          jobject thiz,
                                                                          jstring jname,
