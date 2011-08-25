@@ -287,7 +287,85 @@ public class DBusProxyObjTest extends TestCase {
                 assertTrue("timed out waiting for name signals", (System.currentTimeMillis() - start) < 1000);
             }
         }
-
         bus.unregisterSignalHandlers(this);
+    }
+    
+    public void testListQueuedOwners() throws Exception {
+        String name = "org.alljoyn.bus.ifaces.testListQueuedOwners";
+        String[] queuedNames; 
+        Status status = Status.OK;
+        
+        BusAttachment bus2;
+        bus2 = new BusAttachment(getClass().getName());
+        status = bus2.connect();
+        assertEquals(Status.OK, status);
+        
+        BusAttachment bus3;
+        bus3 = new BusAttachment(getClass().getName());
+        status = bus3.connect();
+        assertEquals(Status.OK, status);
+        
+        BusAttachment bus4;
+        bus4 = new BusAttachment(getClass().getName());
+        status = bus4.connect();
+        assertEquals(Status.OK, status);
+        
+        /*
+         * Test that no errors are returned when calling ListQueuedOwners when
+         * there are no name owners
+         */
+        queuedNames = dbus.ListQueuedOwners(name);
+        
+        assertEquals(queuedNames.length, 0);
+        
+        /*
+         * Test that no names are returned when only the primary owner has the 
+         * name.
+         */
+        int flags = BusAttachment.ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT;
+        status = bus.requestName(name, flags);
+        assertEquals(Status.OK, status);
+        
+        queuedNames = dbus.ListQueuedOwners(name);
+        
+        assertEquals(queuedNames.length, 0);
+        
+        
+        /*
+         * Test that names that already have a primary owner are being queued
+         */
+        flags = 0;
+        status = bus2.requestName(name, flags);
+        assertEquals(Status.DBUS_REQUEST_NAME_REPLY_IN_QUEUE, status);
+        
+        flags = 0;
+        status = bus3.requestName(name, flags);
+        assertEquals(Status.DBUS_REQUEST_NAME_REPLY_IN_QUEUE, status);
+        
+        queuedNames = dbus.ListQueuedOwners(name);
+        
+        assertEquals(queuedNames.length, 2);
+        assertEquals(queuedNames[0], bus2.getUniqueName());
+        assertEquals(queuedNames[1], bus3.getUniqueName());
+        
+        /*
+         * Test that the ALLJOYN_NAME_FLAG_ALLOW_REPLACEMENT affecting the queue
+         * as it should
+         */
+        flags = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING;
+        status = bus4.requestName(name, flags);
+        assertEquals(Status.OK, status);
+        
+        queuedNames = dbus.ListQueuedOwners(name);
+        
+        assertEquals(queuedNames.length, 3);
+        assertEquals(queuedNames[0], bus.getUniqueName());
+        assertEquals(queuedNames[1], bus2.getUniqueName());
+        assertEquals(queuedNames[2], bus3.getUniqueName());
+        
+        //cleanup
+        bus2.releaseName(name);
+        bus3.releaseName(name);
+        bus4.releaseName(name);
     }
 }
