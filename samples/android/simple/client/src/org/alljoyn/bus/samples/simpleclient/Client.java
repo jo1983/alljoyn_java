@@ -26,6 +26,7 @@ import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -52,6 +53,8 @@ public class Client extends Activity {
     private static final int MESSAGE_PING = 1;
     private static final int MESSAGE_PING_REPLY = 2;
     private static final int MESSAGE_POST_TOAST = 3;
+    private static final int MESSAGE_START_PROGRESS_DIALOG = 4;
+    private static final int MESSAGE_STOP_PROGRESS_DIALOG = 5;
 
     private static final String TAG = "SimpleClient";
 
@@ -62,6 +65,8 @@ public class Client extends Activity {
     
     /* Handler used to make calls to AllJoyn methods. See onCreate(). */
     private BusHandler mBusHandler;
+    
+    private ProgressDialog mDialog;
     
     private Handler mHandler = new Handler() {
             @Override
@@ -79,6 +84,16 @@ public class Client extends Activity {
                 case MESSAGE_POST_TOAST:
                 	Toast.makeText(getApplicationContext(), (String) msg.obj, Toast.LENGTH_LONG).show();
                 	break;
+                case MESSAGE_START_PROGRESS_DIALOG:
+                    mDialog = ProgressDialog.show(Client.this, 
+                                                  "", 
+                                                  "Finding Simple Service.\nPlease wait...", 
+                                                  true,
+                                                  true);
+                    break;
+                case MESSAGE_STOP_PROGRESS_DIALOG:
+                    mDialog.dismiss();
+                    break;
                 default:
                     break;
                 }
@@ -115,6 +130,7 @@ public class Client extends Activity {
 
         /* Connect to an AllJoyn object. */
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
     }
     
     @Override
@@ -254,6 +270,7 @@ public class Client extends Activity {
                     @Override
                     public void sessionLost(int sessionId) {
                         logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+                        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
                     }
                 });
                 logStatus("BusAttachment.joinSession() - sessionId: " + sessionId.value, status);
@@ -276,6 +293,7 @@ public class Client extends Activity {
                 	
                 	mSessionId = sessionId.value;
                 	mIsConnected = true;
+                	mHandler.sendEmptyMessage(MESSAGE_STOP_PROGRESS_DIALOG);
                 }
                 break;
             }
