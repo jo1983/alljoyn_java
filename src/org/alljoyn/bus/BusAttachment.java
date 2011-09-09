@@ -323,6 +323,8 @@ public class BusAttachment {
      * @param listener      Listener to be called when session related asynchronous 
      *                      events occur.
      * @param onJoinSession Listener to be called when joinSession completes.
+     * @param context       User-defined context object.  Passed through to {@link
+     *                      OnJoinSessionListener#onJoinSession(Status, int, SessionOpts, Object)}.
      *
      * @return
      * <ul> 

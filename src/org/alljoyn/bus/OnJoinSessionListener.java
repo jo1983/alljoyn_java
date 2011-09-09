@@ -99,7 +99,9 @@ public class OnJoinSessionListener {
      *                   <li>other error status codes indicating a failure.</li></ul>
      * @param sessionId Set to the unique identifier for session.
      * @param opts      Set to the actual session options of the joined session.
-     * @param context   User-defined context object.  Users can provide anything they want.
+     * @param context   The user-defined context object supplied in the call to {@link 
+     *                  BusAttachment#joinSession(String, short, SessionOpts, SessionListener, 
+     *                  OnJoinSessionListener, Object)}.
      */
     public void onJoinSession(Status status, int sessionId, SessionOpts opts, Object context) {
     }
