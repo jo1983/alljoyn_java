@@ -17,5 +17,5 @@ Import('env')
 
 if env['OS'] == 'android':
     env.SConscript('android/SConscript')
-elif env['OS'] == 'linux' or env['OS'] == 'windows':
+elif env['OS'] == 'linux' or env['OS_GROUP'] == 'windows':
     env.SConscript('java/SConscript')
