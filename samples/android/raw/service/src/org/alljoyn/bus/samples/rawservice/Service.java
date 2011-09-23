@@ -291,7 +291,7 @@ public class Service extends Activity {
                  * physically remote bus attachments.  The second argument must
                  * be set to Receive to enable this communication.
                  */ 
-                mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+                mBus = new BusAttachment(getPackageName(), BusAttachment.RemoteMessage.Receive);
                 
                 /*
                  * If using the debug version of the AllJoyn libraries, tell

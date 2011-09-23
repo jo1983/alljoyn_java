@@ -332,7 +332,7 @@ public class PropertiesService extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case CONNECT: {
-                mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+                mBus = new BusAttachment(getPackageName(), BusAttachment.RemoteMessage.Receive);
                 
                 mBus.registerBusListener(new BusListener());
                 

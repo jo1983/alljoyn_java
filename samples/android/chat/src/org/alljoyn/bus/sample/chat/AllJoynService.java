@@ -614,7 +614,7 @@ public class AllJoynService extends Service implements Observer {
      * clients.  Pretty much all communiation with AllJoyn is going to go through
      * this obejct.
      */
-    private BusAttachment mBus  = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+    private BusAttachment mBus  = new BusAttachment(getPackageName(), BusAttachment.RemoteMessage.Receive);
     
     /**
      * The well-known name prefix which all bus attachments hosting a channel

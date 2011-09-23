@@ -303,7 +303,7 @@ public class Client extends Activity {
         public void handleMessage(Message msg) {
             switch(msg.what) {
             case CONNECT: {
-                mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+                mBus = new BusAttachment(getPackageName(), BusAttachment.RemoteMessage.Receive);
 
                 /*
                  * Register the AuthListener before calling connect() to ensure that everything is

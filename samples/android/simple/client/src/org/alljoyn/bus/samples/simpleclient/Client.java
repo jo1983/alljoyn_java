@@ -211,7 +211,7 @@ public class Client extends Activity {
                  * communication). The second argument must be set to Receive to allow communication
                  * between devices.
                  */
-                mBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+                mBus = new BusAttachment(getPackageName(), BusAttachment.RemoteMessage.Receive);
                 
                 /*
                  * Create a bus listener class
