@@ -91,7 +91,7 @@ public class Client extends Activity {
                 case MESSAGE_START_PROGRESS_DIALOG:
                     mDialog = ProgressDialog.show(Client.this, 
                                                   "", 
-                                                  "Finding Security Service.\nPlease wait...", 
+                                                  "Finding Service.\nPlease wait...", 
                                                   true,
                                                   true);
                     break;
@@ -262,7 +262,17 @@ public class Client extends Activity {
                 			mHaveRawServiceName = true;
                 		}
                 		if (mHaveServiceName == true && mHaveRawServiceName == true) {
-                    		mBusHandler.sendEmptyMessage(BusHandler.JOIN_SESSION);
+                		    /*
+                             * This client will only join the first service that it sees advertising
+                             * the indicated well-known names.  If the program is already a member of 
+                             * a session (i.e. connected to a service) we will not attempt to join 
+                             * another session.
+                             * It is possible to join multiple session however joining multiple 
+                             * sessions is not shown in this sample. 
+                             */
+                            if(!mIsConnected){
+                                mBusHandler.sendEmptyMessage(BusHandler.JOIN_SESSION);
+                            }
                 		}
                 	}
                 });
@@ -316,7 +326,14 @@ public class Client extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession(SERVICE_NAME, contactPort, sessionId, sessionOpts, new SessionListener());
+                Status status = mBus.joinSession(SERVICE_NAME, contactPort, sessionId, sessionOpts, new SessionListener(){
+                    @Override
+                    public void sessionLost(int sessionId) {
+                        mIsConnected = false;
+                        logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+                        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
+                    }
+                });
                 logStatus("BusAttachment.joinSession()", status);
                 if (Status.OK != status) {
                  	break;

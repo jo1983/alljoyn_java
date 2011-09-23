@@ -358,8 +358,18 @@ public class PropertiesClient extends Activity {
                     @Override
                     public void foundAdvertisedName(String name, short transport, String namePrefix) {
                     	logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-                    	Message msg = obtainMessage(JOIN_SESSION, name);
-                    	sendMessage(msg);
+                    	/*
+                         * This client will only join the first service that it sees advertising
+                         * the indicated well-known name.  If the program is already a member of 
+                         * a session (i.e. connected to a service) we will not attempt to join 
+                         * another session.
+                         * It is possible to join multiple session however joining multiple 
+                         * sessions is not shown in this sample. 
+                         */
+                    	if(!mIsConnected){
+                    	    Message msg = obtainMessage(JOIN_SESSION, name);
+                    	    sendMessage(msg);
+                    	}
                     }
                 });
                 
@@ -399,7 +409,14 @@ public class PropertiesClient extends Activity {
                 SessionOpts sessionOpts = new SessionOpts();
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
-                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener());
+                Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener(){
+                    @Override
+                    public void sessionLost(int sessionId) {
+                        mIsConnected = false;
+                        logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+                        mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
+                    }
+                });
                 logStatus("BusAttachment.joinSession()", status);
                 if (status == Status.OK) {
                 	mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME,
