@@ -80,7 +80,7 @@ import java.text.SimpleDateFormat;
  */
 public class ChatApplication extends Application implements Observable {
     private static final String TAG = "chat.ChatApplication";
-    
+    public static String PACKAGE_NAME;
 	/**
 	 * When created, the application fires an intent to create the AllJoyn 
 	 * service.  This acts as sort of a combined view/controller in the 
@@ -88,6 +88,7 @@ public class ChatApplication extends Application implements Observable {
 	 */
     public void onCreate() {
         Log.i(TAG, "onCreate()");
+        PACKAGE_NAME = getApplicationContext().getPackageName();
         Intent intent = new Intent(this, AllJoynService.class);
         mRunningService = startService(intent);
         if (mRunningService == null) {
