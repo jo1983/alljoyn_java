@@ -1383,9 +1383,15 @@ class JSessionListener : public SessionListener {
 
     void SessionLost(SessionId sessionId);
 
+    void SessionMemberAdded(SessionId sessionId, const char* uniqueName);
+
+    void SessionMemberRemoved(SessionId sessionId, const char* uniqueName);
+
   private:
     jweak jsessionListener;
     jmethodID MID_sessionLost;
+    jmethodID MID_sessionMemberAdded;
+    jmethodID MID_sessionMemberRemoved;
 };
 
 /**
@@ -2612,6 +2618,16 @@ JSessionListener::JSessionListener(jobject jlistener)
     if (!MID_sessionLost) {
         QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionLost() in SessionListener\n"));
     }
+
+    MID_sessionMemberAdded = env->GetMethodID(clazz, "sessionMemberAdded", "(ILjava/lang/String;)V");
+    if (!MID_sessionMemberAdded) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionMemberAdded() in SessionListener\n"));
+    }
+
+    MID_sessionMemberRemoved = env->GetMethodID(clazz, "sessionMemberRemoved", "(ILjava/lang/String;)V");
+    if (!MID_sessionMemberRemoved) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionMemberRemoved() in SessionListener\n"));
+    }
 }
 
 /**
@@ -2681,6 +2697,115 @@ void JSessionListener::SessionLost(SessionId sessionId)
     }
 
     QCC_DbgPrintf(("JSessionListener::SessionLost(): Return\n"));
+}
+
+/**
+ * Handle the C++ SessionMemberAdded callback from the AllJoyn system.
+ *
+ * Called by the bus when a new member joins an existing multipoint session.
+ *
+ * This is a callback returning void, so we just need to translate the C++
+ * formal parameters we got from AllJoyn into their Java counterparts; call the
+ * corresponding Java method in the listener object using the helper method
+ * env->CallVoidMethod().
+ *
+ * @param sessionId     Id of session that whose members changed.
+ * @param uniqueName    Unique name that joined the multipoint session.
+ */
+void JSessionListener::SessionMemberAdded(SessionId sessionId, const char* uniqueName)
+{
+    QCC_DbgPrintf(("JSessionListener::SessionMemberAdded()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    /*
+     * Translate the C++ formal parameters into their JNI counterparts.
+     */
+    jint jsessionId = sessionId;
+    JLocalRef<jstring> juniqueName = env->NewStringUTF(uniqueName);
+
+
+    /*
+     * The weak global reference jsessionListener cannot be directly used.  We have to get
+     * a "hard" reference to it and then use that.  If you try to use a weak reference
+     * directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jsessionListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberAdded(): Can't get new local reference to SessionListener\n"));
+        return;
+    }
+
+    /*
+     * This call out to the listener means that the sessionMemberAdded method must
+     * be MT-Safe.  This is implied by the definition of the listener.
+     */
+    QCC_DbgPrintf(("JSessionListener::SessionMemberAdded(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jo, MID_sessionMemberAdded, jsessionId, (jstring)juniqueName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberAdded(): Exception\n"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JSessionListener::SessionMemberAdded(): Return\n"));
+}
+
+/**
+ * Handle the C++ SessionMemberRemoved callback from the AllJoyn system.
+ *
+ * Called by the bus when an existing member leaves a multipoint session.
+ *
+ * This is a callback returning void, so we just need to translate the C++
+ * formal parameters we got from AllJoyn into their Java counterparts; call the
+ * corresponding Java method in the listener object using the helper method
+ * env->CallVoidMethod().
+ *
+ * @param sessionId     Id of session that whose members changed.
+ * @param uniqueName    Unique name that left the multipoint session.
+ */
+void JSessionListener::SessionMemberRemoved(SessionId sessionId, const char* uniqueName)
+{
+    QCC_DbgPrintf(("JSessionListener::SessionMemberRemoved()\n"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    /*
+     * Translate the C++ formal parameters into their JNI counterparts.
+     */
+    jint jsessionId = sessionId;
+    JLocalRef<jstring> juniqueName = env->NewStringUTF(uniqueName);
+
+    /*
+     * The weak global reference jsessionListener cannot be directly used.  We have to get
+     * a "hard" reference to it and then use that.  If you try to use a weak reference
+     * directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jsessionListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberRemoved(): Can't get new local reference to SessionListener\n"));
+        return;
+    }
+
+    /*
+     * This call out to the listener means that the sessionMemberRemoved method must
+     * be MT-Safe.  This is implied by the definition of the listener.
+     */
+    QCC_DbgPrintf(("JSessionListener::SessionMemberRemoved(): Call out to listener object and method\n"));
+    env->CallVoidMethod(jo, MID_sessionMemberRemoved, jsessionId, (jstring)juniqueName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberRemoved(): Exception\n"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JSessionListener::SessionMemberRemoved(): Return\n"));
 }
 
 /**

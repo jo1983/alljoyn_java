@@ -97,6 +97,22 @@ public class SessionListener {
     public void sessionLost(int sessionId) {}
 
     /**
+     * Called by the bus for multipoint sessions when another node joins the session.
+     *
+     * @param sessionId     Id of multipoint session whose members have changed.
+     * @param uniqueName    Unique name of member who joined the session.
+     */
+    public void sessionMemberAdded(int sessionId, String uniqueName) {}
+
+    /**
+     * Called by the bus for multipoint sessions when another node leaves the session.
+     *
+     * @param sessionId     Id of multipoint session whose members have changed.
+     * @param uniqueName    Unique name of member who left the session.
+     */
+    public void sessionMemberRemoved(int sessionId, String uniqueName) {}
+
+    /**
      * The opaque pointer to the underlying C++ object which is actually tied
      * to the AllJoyn code.
      */
