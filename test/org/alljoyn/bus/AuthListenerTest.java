@@ -176,6 +176,10 @@ public class AuthListenerTest extends TestCase {
             /* Bail out if we get stuck in a loop. */
             assertTrue(count < 10);
 
+            boolean succeeded = true;
+            boolean expirationRequested = false;
+            boolean verifyRequested = false;
+
             this.mechanism = mechanism;
             for (AuthRequest request : requests) {
                 authRequests.add(request);
@@ -228,11 +232,23 @@ public class AuthListenerTest extends TestCase {
                     }
                 } else if (request instanceof VerifyRequest) {
                     assertEquals("", userName);
+                    verifyRequested = true;
+                } else if (request instanceof ExpirationRequest) {
+                    expirationRequested = true;
+                    ((ExpirationRequest) request).setExpiration(60 * 60 * 24 * 356); /* 1 year */
                 } else {
-                    return false;
+                    succeeded = false;
+                    break;
                 }
             }
-            return true;
+            
+            /*
+             * If verify is not requested then the expiration should have been requested,
+             * and vice-versa.
+             */
+            assertTrue(verifyRequested != expirationRequested);
+
+            return succeeded;
         }
 
         public void completed(String mechanism, String authPeer, boolean authenticated) {

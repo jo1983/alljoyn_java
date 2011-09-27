@@ -55,6 +55,7 @@ public interface AuthListener {
         String certificateChain;
         String privateKey;
         byte[] logonEntry;
+        Integer expiration;
 
         Credentials() {}
     }
@@ -176,6 +177,29 @@ public interface AuthListener {
          */
         public void setLogonEntry(char[] logonEntry) {
             credentials.logonEntry = BusAttachment.encode(logonEntry);
+        }
+    }
+
+    /** Authentication request to set an expiration time for the credentials. */
+    class ExpirationRequest extends AuthRequest {
+
+        ExpirationRequest(Credentials credentials) {
+            this.credentials = credentials;
+        }
+
+        /**
+         * Sets an expiration time in seconds relative to the current time for
+         * the credentials. This value is optional and can be set on any
+         * response to a credentials request. After the specified expiration
+         * time has elapsed any secret keys based on the provided credentials
+         * are invalidated and a new authentication exchange will be
+         * required. If an expiration is not set the default expiration time for
+         * the requested authentication mechanism is used.
+         *
+         * @param expiration the expiration time in seconds
+         */
+        public void setExpiration(int expiration) { 
+            credentials.expiration = expiration;
         }
     }
 

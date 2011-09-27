@@ -55,6 +55,7 @@ public class MultipleAuthListenersTest extends TestCase {
                 } else if (request instanceof CertificateRequest) {
                 } else if (request instanceof PrivateKeyRequest) {
                 } else if (request instanceof VerifyRequest) {
+                } else if (request instanceof ExpirationRequest) {
                 } else {
                     return false;
                 }

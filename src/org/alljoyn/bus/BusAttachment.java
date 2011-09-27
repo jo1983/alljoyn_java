@@ -22,6 +22,7 @@ import org.alljoyn.bus.OnJoinSessionListener;
 import org.alljoyn.bus.AuthListener.AuthRequest;
 import org.alljoyn.bus.AuthListener.CertificateRequest;
 import org.alljoyn.bus.AuthListener.Credentials;
+import org.alljoyn.bus.AuthListener.ExpirationRequest;
 import org.alljoyn.bus.AuthListener.LogonEntryRequest;
 import org.alljoyn.bus.AuthListener.PasswordRequest;
 import org.alljoyn.bus.AuthListener.PrivateKeyRequest;
@@ -533,6 +534,7 @@ public class BusAttachment {
         private static final int CERT_CHAIN     = 0x0004;
         private static final int PRIVATE_KEY    = 0x0008;
         private static final int LOGON_ENTRY    = 0x0010;
+        private static final int EXPIRATION     = 0x0020;
         private static final int NEW_PASSWORD   = 0x1001;
         private static final int ONE_TIME_PWD   = 0x2001;
 
@@ -572,6 +574,10 @@ public class BusAttachment {
             if ((credMask & LOGON_ENTRY) == LOGON_ENTRY) {
                 requests.add(new LogonEntryRequest(credentials));
             }
+            /*
+             * Always add this as it doesn't show up in credMask, but can be set by the application.
+             */
+            requests.add(new ExpirationRequest(credentials));
 
             if (authListener.requested(authMechanism, authPeer, authCount, userName, 
                                        requests.toArray(new AuthRequest[0]))) {

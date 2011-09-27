@@ -710,6 +710,7 @@ using namespace ajn;
 static JavaVM* jvm = NULL;
 
 /** java/lang cached items - these are guaranteed to be loaded at all times. */
+static jclass CLS_Integer = NULL;
 static jclass CLS_Object = NULL;
 static jclass CLS_String = NULL;
 
@@ -726,6 +727,7 @@ static jclass CLS_Variant = NULL;
 static jclass CLS_BusAttachment = NULL;
 static jclass CLS_SessionOpts = NULL;
 
+static jmethodID MID_Integer_intValue = NULL;
 static jmethodID MID_Object_equals = NULL;
 static jmethodID MID_BusException_log = NULL;
 static jmethodID MID_MsgArg_marshal = NULL;
@@ -790,6 +792,17 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         return JNI_ERR;
     } else {
         jclass clazz;
+
+        clazz = env->FindClass("java/lang/Integer");
+        if (!clazz) {
+            return JNI_ERR;
+        }
+        CLS_Integer = (jclass)env->NewGlobalRef(clazz);
+
+        MID_Integer_intValue = env->GetMethodID(CLS_Integer, "intValue", "()I");
+        if (!MID_Integer_intValue) {
+            return JNI_ERR;
+        }
 
         clazz = env->FindClass("java/lang/Object");
         if (!clazz) {
@@ -3296,6 +3309,24 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
         env->ReleaseByteArrayElements(jlogonEntry, logonEntry, 0);
     }
 
+    fid = env->GetFieldID(clazz, "expiration", "Ljava/lang/Integer;");
+    if (!fid) {
+        return false;
+    }
+
+    JLocalRef<jobject> jexpiration = (jobject)env->GetObjectField(jcredentials, fid);
+    if (env->ExceptionCheck()) {
+        return false;
+    }
+
+    if (jexpiration) {
+        jint seconds = env->CallIntMethod(jexpiration, MID_Integer_intValue);
+        if (env->ExceptionCheck()) {
+            return false;
+        }
+        credentials.SetExpiration(seconds);
+    }
+
     if (env->ExceptionCheck()) {
         return false;
     }
@@ -3367,7 +3398,8 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
         return false;
     }
 
-    jboolean acceptable = env->CallBooleanMethod(jo, MID_verifyCredentials, (jstring)jauthMechanism, (jstring)jauthPeer, (jstring)juserName, (jstring)jcert);
+    jboolean acceptable = env->CallBooleanMethod(jo, MID_verifyCredentials, (jstring)jauthMechanism,
+                                                 (jstring)jauthPeer, (jstring)juserName, (jstring)jcert);
 
     /*
      * Once we have made our call, the client can go ahead and make any changes
