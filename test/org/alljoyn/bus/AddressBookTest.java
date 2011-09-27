@@ -76,6 +76,7 @@ public class AddressBookTest extends TestCase {
             for (AuthRequest request : requests) {
                 if (request instanceof PasswordRequest) {
                     ((PasswordRequest) request).setPassword("123456".toCharArray());
+                } else if (request instanceof ExpirationRequest) {
                 } else {
                     return false;
                 }
