@@ -14,16 +14,4 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>alljoyn.jar</name>
-			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/build/linux/x86-64/debug/dist/java/jar/alljoyn.jar</locationURI>
-		</link>
-		<link>
-			<name>lib</name>
-			<type>2</type>
-			<locationURI>PARENT-5-PROJECT_LOC/build/linux/x86-64/debug/dist/java/lib</locationURI>
-		</link>
-	</linkedResources>
 </projectDescription>
