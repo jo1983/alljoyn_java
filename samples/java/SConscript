@@ -17,7 +17,8 @@ Import('env')
 
 samples = ['addressbook', 'game', 'props', 'simple']
 
-sample_classes = env.Java('$CLASSDIR' ,samples ,JAVACLASSPATH=env.GetBuildPath(env.subst('$JARDIR/alljoyn.jar')))
+sample_classes = env.Java('$CLASSDIR' ,samples ,
+                          JAVACLASSPATH=env.GetBuildPath(env.subst('$JARDIR/alljoyn.jar')))
 
 env.Jar('$JARDIR/alljoyn_samples.jar', sample_classes)
 env.Requires(sample_classes, '$JARDIR/alljoyn.jar')
@@ -26,3 +27,5 @@ for sample in samples:
     env.Install('$JAVA_DISTDIR/samples', sample)
 
 env.Install('$JAVA_DISTDIR/samples', 'README.txt')
+
+env.SConscript('JavaSDKDoc/SConscript')

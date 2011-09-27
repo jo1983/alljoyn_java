@@ -1,0 +1,43 @@
+# Copyright 2011, Qualcomm Innovation Center, Inc.
+# 
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+# 
+#        http://www.apache.org/licenses/LICENSE-2.0
+# 
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+# 
+import os.path
+Import('env')
+
+sdk_methodsService_sample = env.Java('$CLASSDIR' , 'src'  ,
+                                     JAVACLASSPATH=env.GetBuildPath(env.subst('$JARDIR/alljoyn.jar')))
+
+#if the manifest file does not yet exist create it unless clean has be specified.
+if not env.GetOption('clean'):
+    if not os.path.isfile('MANIFEST.MF'):
+        manifest = ("Manifest-Version: 1.0\n" +
+                    "Class-Path: alljoyn.jar\n" +
+                    "Main-Class: org.alljoyn.bus.samples.Service\n")
+        file = open('MANIFEST.MF', 'w')
+        file.write(manifest)
+        file.close()
+
+#add the manifest to the list of files used to build the *.jar file    
+sdk_methodsService_sample.append('MANIFEST.MF')
+
+env.Jar('$JARDIR/JavaSDKDocMethodsService.jar', sdk_methodsService_sample)
+env.Requires(sdk_methodsService_sample, '$JARDIR/alljoyn.jar')
+
+#add the sample to the dist with out adding the build files.
+env.Install('$JAVA_DISTDIR/samples/JavaSDKDoc/JavaSDKDocMethodsService', ['src', '.classpath', '.project'])
+
+#clean up the created manifest file
+env.Clean('.', sdk_methodsService_sample)
+#clean the build folder that remains after cleaning all other files.
+env.Clean('.', 'build')
