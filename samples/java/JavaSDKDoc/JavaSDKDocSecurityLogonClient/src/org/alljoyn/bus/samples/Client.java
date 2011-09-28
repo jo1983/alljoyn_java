@@ -28,67 +28,67 @@ import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
 public class Client {
-	static { 
-		System.loadLibrary("alljoyn_java");
-	}
-	private static final short CONTACT_PORT=42;
-	static BusAttachment mBus;
-	
-	private static ProxyBusObject mProxyObj;
-	private static SecureInterface mSecureInterface;
-	
-	private static boolean isJoined = false;
-	
-	static class MyBusListener extends BusListener {
-		public void foundAdvertisedName(String name, short transport, String namePrefix) {
-			System.out.println(String.format("BusListener.foundAdvertisedName(%s, %d, %s)", name, transport, namePrefix));
-			short contactPort = CONTACT_PORT;
-			SessionOpts sessionOpts = new SessionOpts();
-			sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-			sessionOpts.isMultipoint = false;
-			sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-			sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
-			
-			Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
-			
-			Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener(){
-				public void sessionLost(int sessionId) {
-            		System.out.println("Session Lost : " + sessionId);
-            	}
-			});
-			if (status != Status.OK) {
-				System.exit(0);
-			}
-			System.out.println(String.format("BusAttachement.joinSession successful sessionId = %d", sessionId.value));
-			
-			mProxyObj =  mBus.getProxyBusObject("com.my.well.known.name",
-					"/testLogonSecurity",
-					sessionId.value,
-					new Class<?>[] { SecureInterface.class});
+    static { 
+        System.loadLibrary("alljoyn_java");
+    }
+    private static final short CONTACT_PORT=42;
+    static BusAttachment mBus;
 
-			mSecureInterface = mProxyObj.getInterface(SecureInterface.class);
-			isJoined = true;
-			
-		}
-		public void nameOwnerChanged(String busName, String previousOwner, String newOwner){
-			if ("com.my.well.known.name".equals(busName)) {
-				System.out.println("BusAttachement.nameOwnerChagned(" + busName + ", " + previousOwner + ", " + newOwner);
-			}
-		}
-		
-	}
-	
+    private static ProxyBusObject mProxyObj;
+    private static SecureInterface mSecureInterface;
+
+    private static boolean isJoined = false;
+
+    static class MyBusListener extends BusListener {
+        public void foundAdvertisedName(String name, short transport, String namePrefix) {
+            System.out.println(String.format("BusListener.foundAdvertisedName(%s, %d, %s)", name, transport, namePrefix));
+            short contactPort = CONTACT_PORT;
+            SessionOpts sessionOpts = new SessionOpts();
+            sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+            sessionOpts.isMultipoint = false;
+            sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+            sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+            Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+
+            Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,    new SessionListener(){
+                public void sessionLost(int sessionId) {
+                    System.out.println("Session Lost : " + sessionId);
+                }
+            });
+            if (status != Status.OK) {
+                System.exit(0);
+            }
+            System.out.println(String.format("BusAttachement.joinSession successful sessionId = %d", sessionId.value));
+
+            mProxyObj =  mBus.getProxyBusObject("com.my.well.known.name",
+                    "/testLogonSecurity",
+                    sessionId.value,
+                    new Class<?>[] { SecureInterface.class});
+
+            mSecureInterface = mProxyObj.getInterface(SecureInterface.class);
+            isJoined = true;
+
+        }
+        public void nameOwnerChanged(String busName, String previousOwner, String newOwner){
+            if ("com.my.well.known.name".equals(busName)) {
+                System.out.println("BusAttachement.nameOwnerChagned(" + busName + ", " + previousOwner + ", " + newOwner);
+            }
+        }
+
+    }
+
     static class SrpLogonListener implements AuthListener {
         public boolean requested(String mechanism, String peerName, int count, String userName,
-                                 AuthRequest[] requests) {
-        	System.out.println(String.format("AuthListener.requested(%s, %s, %d, %s, %s);", 
-        			mechanism ,
-        			peerName,
-        			count,
-        			userName,
-        			AuthRequestsToString(requests)));
-        			
-        	/* Collect the requests we're interested in to simplify processing below. */
+                AuthRequest[] requests) {
+            System.out.println(String.format("AuthListener.requested(%s, %s, %d, %s, %s);", 
+                    mechanism ,
+                    peerName,
+                    count,
+                    userName,
+                    AuthRequestsToString(requests)));
+
+            /* Collect the requests we're interested in to simplify processing below. */
             PasswordRequest passwordRequest = null;
             UserNameRequest userNameRequest = null;
             for (AuthRequest request : requests) {
@@ -98,35 +98,37 @@ public class Client {
                     userNameRequest = (UserNameRequest) request;
                 }
             }
-            
+
             if (count <= 3) {
 
-            	System.out.print("Please enter user name [user1]: ");
-        		Scanner in = new Scanner(System.in);
-        		String user = in.nextLine();
-        		if(user.isEmpty()) {
-        			user = "user1";
-        		}
-        		
-            	System.out.print("Please enter password [password1]: ");
-        		String password = in.nextLine();
-        		if(password.isEmpty()) {
-        			password = "password1";
-        		}
-        		
-            	userNameRequest.setUserName(user);
-            	passwordRequest.setPassword(password.toCharArray());
-            	return true;
+                System.out.print("Please enter user name [user1]: ");
+                Scanner in = new Scanner(System.in);
+                String user = in.nextLine();
+                //check if the string is empty if so use a default user name
+                if(user !=null && user.length() == 0) {
+                    user = "user1";
+                }
+
+                System.out.print("Please enter password [password1]: ");
+                String password = in.nextLine();
+                //check if the string is empty if so use a default password
+                if(user != null && password.length() == 0) {
+                    password = "password1";
+                }
+
+                userNameRequest.setUserName(user);
+                passwordRequest.setPassword(password.toCharArray());
+                return true;
             }
             return false;
         }
 
         public void completed(String authMechanism, String authPeer, boolean authenticated) {
             if (!authenticated) {
-            	System.out.println("Authentication failed.");
+                System.out.println("Authentication failed.");
             }
         }
-        
+
         private String AuthRequestsToString(AuthListener.AuthRequest[] requests) {
             String str;
             str = "[";
@@ -154,49 +156,49 @@ public class Client {
             return str;
         }
     }
-	
-	public static void main(String[] args) {
-		mBus = new BusAttachment("SRPLogonClient", BusAttachment.RemoteMessage.Receive);
-		
-		SrpLogonListener authListener = new SrpLogonListener();
-		Status status = mBus.registerAuthListener("ALLJOYN_SRP_LOGON", authListener);
-		if (status != Status.OK) {
-			System.exit(0);
-		}
-		
-		BusListener listener = new MyBusListener();
-		mBus.registerBusListener(listener);
 
-		status = mBus.connect();
-		if (status != Status.OK) {
-			System.exit(0);
-		}
-		
-		
-		System.out.println("BusAttachment.connect successful");
-		
-		status = mBus.findAdvertisedName("com.my.well.known.name");
-		if (status != Status.OK) {
-			System.exit(0);
-		}
-		System.out.println("BusAttachment.findAdvertisedName successful " + "com.my.well.known.name");
-		
-		while(!isJoined) {
-			try {
-				Thread.sleep(10);
-			} catch (InterruptedException e) {
-				System.out.println("Program interupted");
-			}
-		}
-		
-//		mBus.useOSLogging(true);
-//		mBus.setDebugLevel("ALLJOYN", 7);
-		
-		try {
-			System.out.println("Ping = " + mSecureInterface.Ping("Hello AllJoyn"));
-		} catch (BusException e1) {
-			System.out.println("-----BusException-----");
-			e1.printStackTrace();
-		}
-	}
+    public static void main(String[] args) {
+        mBus = new BusAttachment("SRPLogonClient", BusAttachment.RemoteMessage.Receive);
+
+        SrpLogonListener authListener = new SrpLogonListener();
+        Status status = mBus.registerAuthListener("ALLJOYN_SRP_LOGON", authListener);
+        if (status != Status.OK) {
+            System.exit(0);
+        }
+
+        BusListener listener = new MyBusListener();
+        mBus.registerBusListener(listener);
+
+        status = mBus.connect();
+        if (status != Status.OK) {
+            System.exit(0);
+        }
+
+
+        System.out.println("BusAttachment.connect successful");
+
+        status = mBus.findAdvertisedName("com.my.well.known.name");
+        if (status != Status.OK) {
+            System.exit(0);
+        }
+        System.out.println("BusAttachment.findAdvertisedName successful " + "com.my.well.known.name");
+
+        while(!isJoined) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                System.out.println("Program interupted");
+            }
+        }
+
+        //        mBus.useOSLogging(true);
+        //        mBus.setDebugLevel("ALLJOYN", 7);
+
+        try {
+            System.out.println("Ping = " + mSecureInterface.Ping("Hello AllJoyn"));
+        } catch (BusException e1) {
+            System.out.println("-----BusException-----");
+            e1.printStackTrace();
+        }
+    }
 }

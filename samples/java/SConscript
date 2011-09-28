@@ -28,4 +28,4 @@ for sample in samples:
 
 env.Install('$JAVA_DISTDIR/samples', 'README.txt')
 
-#env.SConscript('JavaSDKDoc/SConscript')
+env.SConscript('JavaSDKDoc/SConscript')
