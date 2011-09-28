@@ -18,6 +18,16 @@ import sys
 
 Import('env')
 
+vars = Variables();
+
+vars.Add(EnumVariable('JAVAVERSION', '''The version of Java pointed to by the JAVA_HOME
+    environment variable. This is not used to select one version of
+    the Java comiler vs. another.''', '1.6', allowed_values=('1.5', '1.6')))
+
+vars.Update(env)
+
+Help(vars.GenerateHelpText(env))
+
 sys.path.append('../build_core/tools/scons')
 from configurejni import ConfigureJNI
 
