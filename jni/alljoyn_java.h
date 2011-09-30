@@ -407,11 +407,28 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    setKeyExpiration
+ * Signature: (Ljava/lang/String;I)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setKeyExpiration
+  (JNIEnv *, jobject, jstring, jint);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    getKeyExpiration
+ * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$StringValue;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getKeyExpiration
+  (JNIEnv *, jobject, jstring, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    reloadKeyStore
  * Signature: ()Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore
   (JNIEnv *, jobject);
+
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    getMessageContext

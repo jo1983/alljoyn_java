@@ -191,4 +191,23 @@ public class KeyStoreListenerTest extends TestCase {
         assertEquals("ALLJOYN_SRP_KEYX", authListener.authMechanismRequested);
         assertEquals("ALLJOYN_SRP_KEYX", otherAuthListener.authMechanismRequested);
     }
+
+    public void testGetSetKeyExpiration() throws Exception {
+        InMemoryKeyStoreListener keyStoreListener = new InMemoryKeyStoreListener();
+        bus.registerKeyStoreListener(keyStoreListener);
+        InMemoryKeyStoreListener otherKeyStoreListener = new InMemoryKeyStoreListener();
+        otherBus.registerKeyStoreListener(otherKeyStoreListener);
+        setUp2();
+
+        proxy.Ping("hello");
+        assertEquals("ALLJOYN_SRP_KEYX", authListener.authMechanismRequested);
+        assertEquals("ALLJOYN_SRP_KEYX", otherAuthListener.authMechanismRequested);
+
+        Mutable.StringValue peerGUID = new Mutable.StringValue();
+        assertEquals(Status.OK, bus.getPeerGUID(otherBus.getUniqueName(), peerGUID));
+        assertEquals(Status.OK, bus.setKeyExpiration(peerGUID.value, 1000));
+        Mutable.IntegerValue expiration = new Mutable.IntegerValue();
+        assertEquals(Status.OK, bus.getKeyExpiration(peerGUID.value, expiration));
+        assertTrue(expiration.value <= 1000);
+    }
 }

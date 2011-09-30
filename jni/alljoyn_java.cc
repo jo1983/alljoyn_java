@@ -7377,6 +7377,83 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setKeyExpiration(JNIEnv* env, jobject thiz, jstring jguid, jint jtimeout)
+{
+    QCC_DbgPrintf(("BusAttachment::setKeyExpiration()\n"));
+
+    /*
+     * Load the C++ guid string from the java parameter
+     */
+    JString guid(jguid);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setKeyExpiration(): Exception\n"));
+        return NULL;
+    }
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Call SetKeyExpiration(%s, %d)\n", guid.c_str(), jtimeout));
+
+    QStatus status = busPtr->SetKeyExpiration(guid.c_str(), jtimeout);
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_setKeyExpiration(): SetKeyExpiration() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getKeyExpiration(JNIEnv* env, jobject thiz, jstring jguid, jobject jtimeout)
+{
+    QCC_DbgPrintf(("BusAttachment::getKeyExpiration()\n"));
+
+    /*
+     * Load the C++ guid string from the java parameter.
+     */
+    JString guid(jguid);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getKeyExpiration(): Exception\n"));
+        return NULL;
+    }
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+    QCC_DbgPrintf(("BusAttachment_getKeyExpiration(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    /*
+     * Make the AllJoyn call.
+     */
+    uint32_t timeout;
+    QCC_DbgPrintf(("BusAttachment_getKeyExpiration(): Call GetKeyExpiration(%s)\n", guid.c_str()));
+
+    QStatus status = busPtr->GetKeyExpiration(guid.c_str(), timeout);
+
+    QCC_DbgPrintf(("BusAttachment_getKeyExpiration(): Back from GetKeyExpiration(%s, %u)\n", guid.c_str(), timeout));
+
+    /*
+     * Locate the C++ timeout.  Note that the reference to the timeout is
+     * passed in as an [out] parameter using a mutable object, so we are really
+     * finding the field which we will write our found timeout reference into.
+     */
+    JLocalRef<jclass> clazz = env->GetObjectClass(jtimeout);
+    jfieldID timeoutValueFid = env->GetFieldID(clazz, "value", "I");
+    assert(timeoutValueFid);
+
+    env->SetIntField(jtimeout, timeoutValueFid, timeout);
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_getKeyExpiration(): GetKeyExpiration() fails\n"));
+    }
+
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIEnv* env, jobject thiz)
 {
     QCC_DbgPrintf(("BusAttachment_reloadKeyStore()\n"));

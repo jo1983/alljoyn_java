@@ -1014,6 +1014,39 @@ public class BusAttachment {
     public native Status clearKeys(String guid);
 
     /**
+     * Sets the expiration time on keys associated with a specific remote peer as identified by its
+     * peer GUID. The peer GUID associated with a bus name can be obtained by calling
+     * getPeerGUID(String, Mutable.StringValue).  If the timeout is 0 this is equivalent to calling
+     * clearKeys(String).
+     *
+     * @param guid the GUID of a remote authenticated peer
+     * @param timeout the time in seconds relative to the current time to expire the keys
+     *
+     * @return
+     * <ul>
+     * <li>OK if the expiration time was succesfully set</li>
+     * <li>UNKNOWN_GUID if there is no authenticated peer with the specified GUID</li>
+     * </ul>
+     */
+    public native Status setKeyExpiration(String guid, int timeout);
+
+    /**
+     * Gets the expiration time on keys associated with a specific authenticated remote peer as
+     * identified by its peer GUID. The peer GUID associated with a bus name can be obtained by
+     * calling getPeerGUID(String, Mutable.StringValue).
+     *
+     * @param guid the GUID of a remote authenticated peer
+     * @param timeout the time in seconds relative to the current time when the keys will expire
+     *
+     * @return  
+     * <ul>
+     * <li>OK if the expiration time was succesfully set</li>
+     * <li>UNKNOWN_GUID if there is no authenticated peer with the specified GUID</li>
+     * </ul>
+     */
+    public native Status getKeyExpiration(String guid, Mutable.IntegerValue timeout);
+
+    /**
      * Reloads the key store for this bus attachment. This function would normally only be called in
      * the case where a single key store is shared between multiple bus attachments, possibly by different
      * applications. It is up to the applications to coordinate how and when the shared key store is
