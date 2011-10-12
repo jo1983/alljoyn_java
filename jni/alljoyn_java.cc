@@ -1639,7 +1639,7 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
     ~JOnJoinSessionListener();
 
     void Setup(jobject jsessionListener, jobject jcontext, JBusAttachment* jbap);
-    void JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts sessionOpts, void* context);
+    void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& sessionOpts, void* context);
 
   private:
     jweak jsessionListener;
@@ -5654,7 +5654,7 @@ void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, J
     QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Refcount on busPtr after %d\n", busPtr->GetRef()));
 }
 
-void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, SessionOpts opts, void* context)
+void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& opts, void* context)
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(%s, %d,  <0x%02x, %d, 0x%02x, 0x%04x>, %p)\n",
                    QCC_StatusText(status), sessionId, opts.traffic, opts.isMultipoint,
