@@ -519,7 +519,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create
  * Signature: (ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember
-  (JNIEnv *, jobject, jint, jstring, jstring, jstring, jint);
+  (JNIEnv *, jobject, jint, jstring, jstring, jstring, jint, jstring);
 
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription

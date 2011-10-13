@@ -21,6 +21,7 @@ import org.alljoyn.bus.annotation.BusMethod;
 import org.alljoyn.bus.annotation.BusProperty;
 import org.alljoyn.bus.annotation.BusSignal;
 import org.alljoyn.bus.annotation.Secure;
+import org.alljoyn.bus.annotation.AccessPermission;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -88,7 +89,7 @@ class InterfaceDescription {
 
     /** Add a member to the native interface description. */
     private native Status addMember(int type, String name, String inputSig, String outSig,
-                                    int annotation);
+                                    int annotation,  String accessPerm);
 
     /** Add a property to the native interface description. */
     private native Status addProperty(String name, String signature, int access);
@@ -206,8 +207,10 @@ class InterfaceDescription {
         for (Method member : members) {
             int type = INVALID;
             int annotation = 0;
+            String accessPerm = null;
             BusMethod m = member.getAnnotation(BusMethod.class);
             BusSignal s = member.getAnnotation(BusSignal.class);
+            AccessPermission ap = member.getAnnotation(AccessPermission.class);
             if (m != null) {
                 type = METHOD_CALL;
                 annotation = m.annotation();
@@ -216,8 +219,11 @@ class InterfaceDescription {
                 annotation = s.annotation();
             }
             if (type != INVALID) {
+                if(ap != null) {
+                   accessPerm = ap.value();
+                }
                 Status status = addMember(type, getName(member), getInputSig(member),
-                                          getOutSig(member), annotation);
+                                          getOutSig(member), annotation, accessPerm);
                 if (status != Status.OK) {
                     return status;
                 }

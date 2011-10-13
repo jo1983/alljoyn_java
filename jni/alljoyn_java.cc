@@ -7574,7 +7574,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JNIEnv* env, jobject thiz, jint type, jstring jname,
-                                                                              jstring jinputSig, jstring joutSig, jint annotation)
+                                                                              jstring jinputSig, jstring joutSig, jint annotation, jstring jaccessPerm)
 {
     QCC_DbgPrintf(("InterfaceDescription_addMember()\n"));
 
@@ -7599,7 +7599,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
         return NULL;
     }
 
-    QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(), inputSig.c_str(), outSig.c_str(), NULL, annotation);
+    JString accessPerm(jaccessPerm);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
+    QStatus status = intf->AddMember((AllJoynMessageType)type, name.c_str(), inputSig.c_str(), outSig.c_str(), NULL, annotation, accessPerm.c_str());
     if (ER_BUS_MEMBER_ALREADY_EXISTS == status || ER_BUS_INTERFACE_ACTIVATED == status) {
         /*
          * We know that a member exists with the same name, but check that the other parameters
