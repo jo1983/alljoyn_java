@@ -24,6 +24,7 @@ import org.alljoyn.bus.ifaces.DBusProxyObj;
 
 import static junit.framework.Assert.*;
 
+import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.TreeMap;
 import junit.framework.TestCase;
@@ -133,6 +134,8 @@ public class MarshalStressTest extends TestCase {
 
     private BusAttachment bus;
     private BusAttachment serviceBus;
+    private WeakReference busRef = new WeakReference<BusAttachment>(bus);
+    private WeakReference serviceBusRef = new WeakReference<BusAttachment>(serviceBus);
 
     private Service service;
 
@@ -178,6 +181,17 @@ public class MarshalStressTest extends TestCase {
         
         bus.disconnect();
         bus = null;
+        
+        /*
+         * Each BusAttachment is a very heavy object that creates many file 
+         * descripters for each BusAttachment.  This will force Java's Garbage
+         * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
+         * continuing on to the next test.
+         */
+        while (busRef.get() != null && serviceBusRef.get() != null) {
+            System.gc();
+            Thread.sleep(5);
+        }
     }
 
     public void testInvalidPropy() throws Exception {

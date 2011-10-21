@@ -25,6 +25,7 @@ import org.alljoyn.bus.ifaces.DBusProxyObj;
 
 import java.io.ByteArrayInputStream;
 import java.io.BufferedInputStream;
+import java.lang.ref.WeakReference;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertPath;
@@ -53,7 +54,9 @@ public class AuthListenerTest extends TestCase {
     }
 
     private BusAttachment bus;
+    private WeakReference busRef = new WeakReference<BusAttachment>(bus);
     private BusAttachment serviceBus;
+    private WeakReference serviceBusRef = new WeakReference<BusAttachment>(serviceBus);
     private SecureService service;
     private SecureInterface proxy;
     private InsecureInterface insecureProxy;
@@ -506,10 +509,12 @@ public class AuthListenerTest extends TestCase {
         insecureProxy = proxyObj.getInterface(InsecureInterface.class);
         abortCount = 3;
     }
-
-    public void tearDown() throws Exception {
+    
+    public void partTearDown() throws Exception {
         logonEntry = null;
         proxy = null;
+        insecureProxy = null;
+        
         bus.disconnect();
         bus = null;
 
@@ -518,7 +523,23 @@ public class AuthListenerTest extends TestCase {
                      control.ReleaseName("org.alljoyn.bus.BusAttachmentTest"));
         serviceBus.disconnect();
         serviceBus.unregisterBusObject(service);
+
         serviceBus = null;
+        /*
+         * Each BusAttachment is a very heavy object that creates many file 
+         * descripters for each BusAttachment.  This will force Java's Garbage
+         * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
+         * continuing on to the next test.
+         */
+        while (busRef.get() != null && serviceBusRef.get() != null) {
+            System.gc();
+            Thread.sleep(5);
+        }
+    }
+    public void tearDown() throws Exception {
+        partTearDown();
+        keyStoreListener = null;
+        serviceKeyStoreListener = null;
     }
     
     public void doPing(String mechanism) throws Exception {
@@ -744,7 +765,7 @@ public class AuthListenerTest extends TestCase {
         authListener = new BusAuthListener("client");
         authListener.x509cert.clear();
         doPing("ALLJOYN_RSA_KEYX");
-        tearDown();
+        partTearDown();
 
         /* Now test the auth request */
         setUp(serviceKeyStoreListener, keyStoreListener);
@@ -767,7 +788,7 @@ public class AuthListenerTest extends TestCase {
         serviceAuthListener.x509cert.clear();
         authListener = new BusAuthListener("client");
         doPing("ALLJOYN_RSA_KEYX");
-        tearDown();
+        partTearDown();
 
         /* Now test the auth request */
         setUp(serviceKeyStoreListener, keyStoreListener);
@@ -783,7 +804,7 @@ public class AuthListenerTest extends TestCase {
         serviceAuthListener.privKey.clear();
         authListener = new BusAuthListener("client");
         doPing("ALLJOYN_RSA_KEYX");
-        tearDown();
+        partTearDown();
 
         /* Now re-authenticate and supply only password - mechanism should not ask for password twice. */
         setUp(serviceKeyStoreListener, keyStoreListener);
@@ -799,7 +820,7 @@ public class AuthListenerTest extends TestCase {
         serviceAuthListener.x509cert.clear();
         authListener = new BusAuthListener("client");
         doPing("ALLJOYN_RSA_KEYX");
-        tearDown();
+        partTearDown();
 
         /* Now re-authenticate and supply only private key and password. */
         setUp(serviceKeyStoreListener, keyStoreListener);

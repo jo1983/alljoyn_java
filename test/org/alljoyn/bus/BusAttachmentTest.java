@@ -17,7 +17,9 @@
 package org.alljoyn.bus;
 
 import junit.framework.TestCase;
+import java.lang.ref.WeakReference;
 
+import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
 import org.alljoyn.bus.ifaces.Introspectable;
@@ -72,7 +74,9 @@ public class BusAttachmentTest extends TestCase {
     }
 
     private BusAttachment bus;
+    private WeakReference busRef = new WeakReference<BusAttachment>(bus);
     private BusAttachment otherBus;
+    private WeakReference otherBusRef = new WeakReference<BusAttachment>(otherBus);
     private int handledSignals1;
     private int handledSignals2;
     private int handledSignals3;
@@ -110,6 +114,16 @@ public class BusAttachmentTest extends TestCase {
         	}
         	otherBus.disconnect();
         	otherBus = null;
+        }
+        /*
+         * Each BusAttachment is a very heavy object that creates many file 
+         * descripters for each BusAttachment.  This will force Java's Garbage
+         * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
+         * continuing on to the next test.
+         */
+        while (busRef.get() != null || otherBusRef.get() != null) {
+            System.gc();
+            Thread.sleep(5);
         }
     }
     
