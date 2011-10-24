@@ -1277,7 +1277,7 @@ class JBusAttachment : public BusAttachment {
      * the operation. Note that this member is public since we trust that the
      * native binding we wrote will usse it correctly.
      */
-    list<PendingAsyncJoin> pendingAsyncJoins;
+    list<PendingAsyncJoin*> pendingAsyncJoins;
 
     int32_t IncRef(void)
     {
@@ -1582,19 +1582,29 @@ class JAuthListener : public AuthListener {
 };
 
 /**
- * A class to hold the Java object references required for an asynchronous
- * join operation while AllJoyn mulls over what it can do about the
- * operation.
+ * A C++ class to hold the Java object references required for an asynchronous
+ * join operation while AllJoyn mulls over what it can do about the operation.
+ *
+ * An instance of this class is given to the C++ JoinSessionAsync method as the
+ * context object.  Note well that the context object passed around in the C++
+ * side of things is *not* the same as the Java context object passed into
+ * joinSessionAsync.
+ *
+ * Another thing to keep in mind is that since the Java objects have been taken
+ * into the JNI fold, they are referenced by JNI global references to the
+ * objects provided by Java which may be different than the references seen by
+ * the Java code.  Compare using JNI IsSameObject() to see if they are really
+ * referencing the same object..
  */
 class PendingAsyncJoin {
   public:
-    PendingAsyncJoin(jobject jlistener, jobject jcallback, jobject jcontext) {
-        this->jlistener = jlistener;
-        this->jcallback = jcallback;
+    PendingAsyncJoin(jobject jsessionListener, jobject jonJoinSessionListener, jobject jcontext) {
+        this->jsessionListener = jsessionListener;
+        this->jonJoinSessionListener = jonJoinSessionListener;
         this->jcontext = jcontext;
     }
-    jobject jlistener;
-    jobject jcallback;
+    jobject jsessionListener;
+    jobject jonJoinSessionListener;
     jobject jcontext;
 };
 
@@ -1638,13 +1648,10 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
     JOnJoinSessionListener(jobject jonJoinSessionListener);
     ~JOnJoinSessionListener();
 
-    void Setup(jobject jsessionListener, jobject jcontext, JBusAttachment* jbap);
+    void Setup(JBusAttachment* jbap);
     void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& sessionOpts, void* context);
 
   private:
-    jweak jsessionListener;
-    jweak jonJoinSessionListener;
-    jweak jcontext;
     jmethodID MID_onJoinSession;
     JBusAttachment* busPtr;
 };
@@ -3668,6 +3675,7 @@ void JBusAttachment::Disconnect(const char* connectArgs)
             QCC_LogError(status, ("Disconnect failed"));
         }
     }
+
     // TODO: DisablePeerSecurity
     // TODO: UnregisterKeyStoreListener
     if (IsStarted()) {
@@ -3715,6 +3723,12 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Taking Bus Attachment common lock\n"));
     baCommonLock.Lock();
 
+
+    /*
+     * Release any strong references we may hold to Java bus listener objects.
+     * We assume that since we have done a disconnect, there will never be
+     * a callback firing that expects to call out into one of these puppies.
+     */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing BusListeners\n"));
     for (list<jobject>::iterator i = busListeners.begin(); i != busListeners.end(); ++i) {
         QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to BusListener %p\n", *i));
@@ -3722,19 +3736,30 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     }
     busListeners.clear();
 
+    /*
+     * Release any strong references we may hold to objects passed in through an
+     * async join.  We assume that since we have done a disconnect, there will
+     * never be a callback firing that expects to call out into one of these
+     * puppies.
+     */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing PendingAsyncJoins\n"));
-    for (list<PendingAsyncJoin>::iterator i = pendingAsyncJoins.begin(); i != pendingAsyncJoins.end(); ++i) {
-        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p\n", i->jlistener));
-        env->DeleteGlobalRef(i->jlistener);
-        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to OnJoinSessionListener %p\n", i->jcallback));
-        env->DeleteGlobalRef(i->jcallback);
-        if (i->jcontext) {
-            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to context Object %p\n", i->jcontext));
-            env->DeleteGlobalRef(i->jcontext);
+    for (list<PendingAsyncJoin*>::iterator i = pendingAsyncJoins.begin(); i != pendingAsyncJoins.end(); ++i) {
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p\n", (*i)->jsessionListener));
+        env->DeleteGlobalRef((*i)->jsessionListener);
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to OnJoinSessionListener %p\n", (*i)->jonJoinSessionListener));
+        env->DeleteGlobalRef((*i)->jonJoinSessionListener);
+        if ((*i)->jcontext) {
+            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to context Object %p\n", (*i)->jcontext));
+            env->DeleteGlobalRef((*i)->jcontext);
         }
     }
     pendingAsyncJoins.clear();
 
+    /*
+     * Release any strong references we may hold to objects passed in through a
+     * bind.  We assume that since we have done a disconnect, there will never
+     * be a callback firing that expects to call out into one of these puppies.
+     */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing SessionPortListeners\n"));
     for (map<SessionPort, jobject>::iterator i = sessionPortListenerMap.begin(); i != sessionPortListenerMap.end(); ++i) {
         if (i->second) {
@@ -3744,6 +3769,12 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     }
     sessionPortListenerMap.clear();
 
+    /*
+     * Release any strong references we may hold to objects passed in through a
+     * join session.  We assume that since we have done a disconnect, there will
+     * never be a callback firing that expects to call out into one of these
+     * puppies.
+     */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing SessionListeners\n"));
     for (map<SessionId, jobject>::iterator i = sessionListenerMap.begin(); i != sessionListenerMap.end(); ++i) {
         if (i->second) {
@@ -3753,6 +3784,12 @@ void JBusAttachment::Disconnect(const char* connectArgs)
     }
     sessionListenerMap.clear();
 
+    /*
+     * Release any strong references we may hold to objects passed in through a
+     * security API.  We assume that since we have done a disconnect, there will
+     * never be a callback firing that expects to call out into one of these
+     * puppies.
+     */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing AuthListener\n"));
     delete authListener;
     authListener = NULL;
@@ -5544,18 +5581,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env,
 }
 
 JOnJoinSessionListener::JOnJoinSessionListener(jobject jonJoinSessionListener)
-    : jsessionListener(NULL), jonJoinSessionListener(NULL), jcontext(NULL), busPtr(NULL)
+    : busPtr(NULL)
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener()\n"));
 
     JNIEnv* env = GetEnv();
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::JOnJoinSessionListener(): Taking weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-    this->jonJoinSessionListener = env->NewWeakGlobalRef(jonJoinSessionListener);
-    if (!this->jonJoinSessionListener) {
-        return;
-    }
-
     JLocalRef<jclass> clazz = env->GetObjectClass(jonJoinSessionListener);
 
     MID_onJoinSession = env->GetMethodID(clazz, "onJoinSession", "(Lorg/alljoyn/bus/Status;ILorg/alljoyn/bus/SessionOpts;Ljava/lang/Object;)V");
@@ -5568,8 +5598,6 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
 {
     QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener()\n"));
 
-    JNIEnv* env = GetEnv();
-
     /*
      * In our Setup method we are passed a pointer to the reference counted bus
      * attachment.  We don't want to delete the object directly so we need to
@@ -5581,67 +5609,11 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
         busPtr->DecRef();
         busPtr = NULL;
     }
-
-    if (jsessionListener) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to SessionListener %p\n", jsessionListener));
-        env->DeleteWeakGlobalRef(jsessionListener);
-        jsessionListener = NULL;
-    }
-
-    if (jonJoinSessionListener) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to OnJoinSessionListener %p\n", jonJoinSessionListener));
-        env->DeleteWeakGlobalRef(jonJoinSessionListener);
-        jonJoinSessionListener = NULL;
-    }
-
-    if (jcontext) {
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Releasing weak global reference to context Object %p\n", jcontext));
-        env->DeleteWeakGlobalRef(jcontext);
-        jcontext = NULL;
-    }
 }
 
-void JOnJoinSessionListener::Setup(jobject jsessionListener, jobject jcontext, JBusAttachment* jbap)
+void JOnJoinSessionListener::Setup(JBusAttachment* jbap)
 {
-    QCC_DbgPrintf(("JOnJoinSessionListener::Setup()\n"));
-
-    /*
-     * When an async join operation is started, we are provided three Java
-     * object references: a session listener object, a callback listener object
-     * and a user-defined context object.  In order to keep the memory
-     * management model of the bindings somewhat consistent, the bus attachment
-     * is in charge of holding Java references to these objects while AllJoyn is
-     * off pondering what to do with the C++ counterparts.
-     *
-     * When the C++ callback is fired (our method), we need to decide what to do
-     * with those Java objects.  There may be multiple instances of async joins,
-     * including instances with the three provided ojects being identical.  We
-     * don't comment on the wisdom of a client doint that, we just admit the
-     * possibility.  If the three references we have weak references to
-     * (locally) are equal to the three references held in an instance of an
-     * asyn join by the bus attachment, we decide that we have found the right
-     * instance.  It may be the case that the client is trying to change values
-     * in a context object out from under us, and provide the same three objects
-     * thinking we can magically differentiate between them, but that's not
-     * really our problem.
-     *
-     * So we take new weak references to the provided Java objects (so we don't
-     * interfere in garbage collection) and save them to compare later.  If we
-     * can't get a reference we will be in exception state.
-     */
-    JNIEnv* env = GetEnv();
-    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to SessionListener %p\n", jsessionListener));
-    this->jsessionListener = env->NewWeakGlobalRef(jsessionListener);
-    if (!this->jsessionListener) {
-        return;
-    }
-
-    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(): Taking weak global reference to context Object %p\n", jcontext));
-    this->jcontext = env->NewWeakGlobalRef(jcontext);
-    if (!this->jcontext) {
-        env->DeleteWeakGlobalRef(jsessionListener);
-        return;
-    }
+    QCC_DbgPrintf(("JOnJoinSessionListener::Setup(0x%p)\n", jbap));
 
     /*
      * We need to be able to get back at the bus attachment in the callback to
@@ -5672,6 +5644,15 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
     JLocalRef<jobject> jopts;
     jfieldID fid;
     jobject jo;
+
+    /*
+     * The context parameter we get here is not the same thing as the context
+     * parameter we gave to Java in joinSessionAsync.  Here it is a pointer to a
+     * PendingAsyncJoin object which holds the references to the three Java
+     * objects involved in the transaction.  This must be there.
+     */
+    PendingAsyncJoin* paj = static_cast<PendingAsyncJoin*>(context);
+    assert(paj);
 
     /*
      * Translate the C++ formal parameters into their JNI counterparts.
@@ -5711,17 +5692,13 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
     env->SetShortField(jopts, fid, opts.transports);
 
     /*
-     * The weak global reference jonJoinSessionListener cannot be directly used.
-     * We have to get a "hard" reference to it and then use that.  If you try to
-     * use a weak reference directly you will crash and burn.
+     * The references provided in the PendingAsyncJoin are strong global references
+     * so they can be used as-is (we need the on join session listener and the context).
      */
-    jo = env->NewLocalRef(jonJoinSessionListener);
-    if (!jo) {
-        goto exit;
-    }
+    jo = paj->jonJoinSessionListener;
 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Call out to listener object and method\n"));
-    env->CallVoidMethod(jo, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)context);
+    env->CallVoidMethod(jo, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)paj->jcontext);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
         goto exit;
@@ -5730,77 +5707,87 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
 exit:
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release Resources\n"));
 
-    /*
-     * We have our Java resources stashed away in a list stored in the bus
-     * attachment.  We need to match our object "signature" with those "pended"
-     * objects and come to a resolution about their lifetimes.
-     */
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Taking Bus Attachment common lock\n"));
     busPtr->baCommonLock.Lock();
 
-    for (list<PendingAsyncJoin>::iterator i = busPtr->pendingAsyncJoins.begin(); i != busPtr->pendingAsyncJoins.end(); ++i) {
-        if (env->IsSameObject(i->jlistener, jsessionListener) && env->IsSameObject(i->jcallback, jonJoinSessionListener)) {
-            if (i->jcontext == NULL || env->IsSameObject(i->jcontext, jcontext)) {
-                /*
-                 * All of the stashed objects match, so the found case is
-                 * indistinguishable from any additional instance, so we use
-                 * this one.  We rely on our destructor to release our weak
-                 * references, but we need to deal with the strong references
-                 * that the bus attachment holds (mostly to make memory management
-                 * of this case similar to others).
-                 *
-                 * We always release our hold on the user context object and the
-                 * OnJoinSessionListener since they will no longer be used by
-                 * this asynchronous join instance.  If the join succeeded,
-                 * however, we need to keep on holding the session listener in
-                 * case something happens to the now "up" session.  This
-                 * reference must go in the sessionListenerMap.  If the async
-                 * call failed, we are done with the session listener as well.
-                 */
-                if (i->jcontext) {
-                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to context Object %p\n", i->jcontext));
-                    env->DeleteGlobalRef(i->jcontext);
-                    jcontext = NULL;
-                }
+    /*
+     * We stored an object containing instances of the Java objects provided in the
+     * original call to the async join that drove this process in case the call
+     * got lost in a disconnect -- we don't want to leak them.  So we need to find
+     * the matching object and delete it.
+     */
+    for (list<PendingAsyncJoin*>::iterator i = busPtr->pendingAsyncJoins.begin(); i != busPtr->pendingAsyncJoins.end(); ++i) {
+        /*
+         * If the pointer to the PendingAsyncJoin in the bus attachment is equal
+         * to the one passed in from the C++ async join callback, then we are
+         * talkiing about the same async join instance.
+         */
+        if (*i == context) {
+            /*
+             * Double check that the pointers are consistent and nothing got
+             * changed out from underneath us.  That would be bad (TM).
+             */
+            assert((*i)->jonJoinSessionListener == paj->jonJoinSessionListener);
+            assert((*i)->jsessionListener == paj->jsessionListener);
+            assert((*i)->jcontext == paj->jcontext);
 
-                if (status == ER_OK) {
-                    busPtr->sessionListenerMap[sessionId] = i->jlistener;
-                } else {
-                    QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", i->jlistener));
-                    env->DeleteGlobalRef(i->jlistener);
-                }
-
-                /*
-                 * releasing the Java callback on join session listener is
-                 * effectively a "delete this" since the global reference to the
-                 * Java object controls the lifetime of its corresponding C++
-                 * object -- us.  We have got to do that last, so we init a
-                 * local variable with the object reference before erasing the
-                 * list entry we've been working with and then delete the
-                 * global reference just before we leave.
-                 */
-                jobject jcallback = i->jcallback;
-
-                /*
-                 * Tell the bus to forget about the Java object references since
-                 * we have dealt with them all.
-                 */
-                busPtr->pendingAsyncJoins.erase(i);
-
-                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
-                env->DeleteGlobalRef(jcallback);
-
-                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
-                busPtr->baCommonLock.Unlock();
-                return;
+            /*
+             * If the join succeeded, we need to keep on holding the session
+             * listener in case something happens to the now "up" session.  This
+             * reference must go in the sessionListenerMap and we are delegating
+             * responsibility for cleaning up to that map.  If the async call
+             * failed, we are done with the session listener as well and we need
+             * to release our hold on it since no callback will be made on a
+             * failed session.
+             */
+            if (status == ER_OK) {
+                busPtr->sessionListenerMap[sessionId] = (*i)->jsessionListener;
+                (*i)->jsessionListener = NULL;
+            } else {
+                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to SessionListener %p\n", (*i)->jsessionListener));
+                env->DeleteGlobalRef((*i)->jsessionListener);
             }
+
+            /*
+             * We always release our hold on the user context object
+             * irrespective of the outcome of the call since it will no longer
+             * be used by this asynchronous join instance.
+             */
+            if ((*i)->jcontext) {
+                QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to context Object %p\n", (*i)->jcontext));
+                env->DeleteGlobalRef((*i)->jcontext);
+                (*i)->jcontext = NULL;
+            }
+
+            /*
+             * We always release our hold on the OnJoinSessionListener object
+             * and the user context object irrespective of the outcome of the
+             * call since it will no longer be used by this asynchronous join
+             * instance.
+             *
+             * Releasing the Java OnJoinSessionListener is effectively a "delete
+             * this" since the global reference to the Java object controls the
+             * lifetime of its corresponding C++ object, which is what we are
+             * executing in here.  We have got to make sure to do that last.
+             */
+            assert((*i)->jonJoinSessionListener);
+            jobject jcallback = (*i)->jonJoinSessionListener;
+            (*i)->jonJoinSessionListener = NULL;
+            busPtr->pendingAsyncJoins.erase(i);
+
+            QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Release strong global reference to OnJoinSessionListener %p\n", jcallback));
+            env->DeleteGlobalRef(jcallback);
+
+            QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
+            busPtr->baCommonLock.Unlock();
+            return;
         }
     }
 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
     busPtr->baCommonLock.Unlock();
 
-    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Leaking Java objects\n"));
+    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Unable to match context\n"));
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env,
@@ -5812,6 +5799,63 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
                                                                               jobject jonJoinSessionListener,
                                                                               jobject jcontext)
 {
+    /*
+     * This method is unusual in that there are three objects passed which have
+     * a lifetime past the duration of the method: The SessionListener needs to
+     * be kept around to hear about the joined session being lost for as long as
+     * the session is up; the OnJoinSessionListner needs to be kept around until
+     * the asynchronous join completes; and the user-defined context object has
+     * the same lifetime (from our perspective) as the OnJoinSessionListener.
+     *
+     * We handle the two "AllJoyn" objects (the session listener and the on join
+     * session listener) the same way we do all other long-lived Java objects.
+     * We expect them to create their own corresponding C++ object when their Java
+     * constructor is run, and we expect them to delete the C++ object when they
+     * are finalized.  Our memory management responsibility, then, is then to add
+     * a strong global reference to the objects to keep them alive though the two
+     * lifetime scopes mentioned above.  The Context object is just a vanilla
+     * Java object (for example, Integer) and so we can assume no C++ backing
+     * object.
+     *
+     * One of the challenges we face is because we have to work with the
+     * anonymous class idiom of Java and the underlying C++ functions don't
+     * plumb all three objects through all calls.  For example, the C++ callback
+     * JoinSessionAsyncCB gets a pointer to the JOnJoinSessionListener in its
+     * this pointer, gets a pointer to the Java context in its context parameter
+     * but doesn't get a pointer to the session listener.  This is not a problem
+     * in C++ since the language doesn't support anonymous classes, but in Java
+     * we need to be able to discover that pointer.
+     *
+     * Since different combinations of the same or different three objects can
+     * be used in overlapping calls to JoinSessionAsync, we have to keep track
+     * of which instances of which objects need to be freed when a callback is
+     * fired.  This may not be intuitively obvious, so consider the following.
+     *
+     *   The user instantiates a SessionListener SL, an OnJoinSessionListener
+     *   OJSL and a context object O; and starts an async join.
+     *
+     *   The user decides to reuse the OnJoinSessionListener but provide a new
+     *   SessionListener SL'; and starts an async join to a session.
+     *
+     * In this case, the first async join would take strong global references to
+     * the three objects and save weak references to them into the C++ backing
+     * object of the OnJoinSessionListener.  The second async join would take
+     * three more references to the provided three objects, and write them into
+     * the backing object of the provided OnJoinSessionListener.  This would
+     * overwrite the value of the provided session listener of the first join
+     * (SL) with that of the second join (SL') and create a memory leak.
+     *
+     * What we need is a way to have the C++ code pass us all three instances so
+     * we can keep track of them.  The C++ code does plumb through a context
+     * value, but the problem is that we want the Java code to plumb through a
+     * context value as well.  The answer is to change the meaning of the context
+     * value in the C++ code to be a special object that includes the references
+     * to the three Java objects we need.
+     *
+     * It's a bit counter-intuitive, but the C++ context object in this code path
+     * does not map one-to-one with the Java context object.  The Java context
+     * is stored in a special C++ context -- the two are not at all the same.
+     */
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync()\n"));
 
     /*
@@ -5851,26 +5895,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
     }
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
-    /*
-     * This method is unusual in that there are three objects passed which have
-     * a lifetime past the duration of the method: The SessionListener needs to
-     * be kept around to hear about the joined session being lost for as long as
-     * the session is up; the OnJoinSessionListner needs to be kept around until
-     * the asynchronous join completes; and the user-defined context object has
-     * the same lifetime (from our perspective) as the OnJoinSessionListener.
-     *
-     * It is tempting to think of the "single-shot" objects here as somehow different
-     * than other Java objects, whereupon we can take shortcuts on memory management.
-     * This is not the case since we cannot impose a use model on the user.  She may
-     * decide to instantiate any or all of these objects and reuse them -- or not.
-     *
-     * So we handle all of these objects the same way we do all other long-lived
-     * Java objects.  We expect them to create their own corresponding C++
-     * object when the Java constructor is run, and we expect them to delete the
-     * C++ object when they are finalized.  Our memory management responsibility
-     * here is then to add a strong global reference to the objects to keep them
-     * alive.
-     */
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to SessionListener %p\n", jsessionListener));
     jobject jglobalListenerRef = env->NewGlobalRef(jsessionListener);
     if (!jglobalListenerRef) {
@@ -5918,34 +5942,41 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * object reference that is plumbed through AllJoyn which will pop out the
      * other side un-molested.  It is not interpreted by AllJoyn so we can just
      * use our Java global reference to the provided Java object.  We pass the
-     * reference nack to the user when the callback fires.
+     * reference nack to the user when the callback fires.  N.B. this is not
+     * going to be passed into the context parameter of the C++ AsyncJoin method
+     * as described above and below.
+     *
+     * We have three objects now that are closely associated: we have an
+     * OnJoinSessionListener that we need to keep a strong reference to until
+     * the C++ async join completes; we have a SessionListener that we need to
+     * continue to hold a strong reference to past the async join completion if
+     * the join is successful, but release if it is not; and we have a user
+     * context object we need to hold a strong reference to until the async call
+     * is finished.  We tie them all together as weak references in the C++
+     * listener object corresponding to the OnJoinSessionListener.
+     *
+     * We have taken the required references above, but we need to assoicate
+     * those references with an instance of a call to async join.  We do this
+     * by allocating an object that contains the instance information and by
+     * commandeering the C++ async join context to plumb it through.
      */
-    void* context = jglobalContextRef;
+    PendingAsyncJoin* paj = new PendingAsyncJoin(jglobalListenerRef, jglobalCallbackRef, jglobalContextRef);
 
     /*
-     * We have three objects now that are closely associated.  We have an
-     * OnJoinSessionListener that will be waiting for the async join to complete.
-     * We have a SessionListener that we need to hold a strong reference to if
-     * the join is successful, and we have a user context object we need to
-     * provide back to the user when the async call is finished.  We tie them
-     * all together as weak references in the C++ listener object corresponding
-     * to the OnJoinSessionListener.
-     *
-     * Note: If a user makes an asynchronous call using one combination of the
-     * Java objects OnJoinSessionListener, SessionListener and context; and she
-     * makes a subsequent call with the first join still outstanding and with
-     * the same OnJoinSessionListener but a different SessionListener or
-     * context, the async callbacks will both come out with the second flavors
-     * of the objects.  The original objects will be temporarily leaked.  This
-     * is proabbly expected behavior, but we note it just in case.
+     * We need to provide a pointer to the bus attachment to the on join session
+     * listener.  This will bump the underlying reference count.
      */
-    callback->Setup(jsessionListener, jcontext, busPtr);
+    callback->Setup(busPtr);
 
+    /*
+     * Make the actual call into the C++ JoinSessionAsync method.  Not to beat
+     * a dead horse, but note that the context parameter is not the same as the
+     * Java context parameter passed into this method.
+     */
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Call JoinSessionAsync(%s, %d, %p, <0x%02x, %d, 0x%02x, 0x%04x>, %p, %p)\n",
                    sessionHost.c_str(), jsessionPort, listener, sessionOpts.traffic, sessionOpts.isMultipoint,
-                   sessionOpts.proximity, sessionOpts.transports, callback, context));
-
-    QStatus status = busPtr->JoinSessionAsync(sessionHost.c_str(), jsessionPort, listener, sessionOpts, callback, context);
+                   sessionOpts.proximity, sessionOpts.transports, callback, paj));
+    QStatus status = busPtr->JoinSessionAsync(sessionHost.c_str(), jsessionPort, listener, sessionOpts, callback, paj);
 
     /*
      * If we get an exception down in the AllJoyn code, it's hard to know what
@@ -5980,7 +6011,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      */
     if (status == ER_OK) {
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Success\n"));
-        PendingAsyncJoin paj(jglobalListenerRef, jglobalCallbackRef, jglobalContextRef);
 
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking Bus Attachment common lock\n"));
         busPtr->baCommonLock.Lock();
