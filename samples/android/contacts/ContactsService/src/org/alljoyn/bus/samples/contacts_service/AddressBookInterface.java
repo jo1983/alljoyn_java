@@ -19,6 +19,7 @@ package org.alljoyn.bus.samples.contacts_service;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
+import org.alljoyn.bus.annotation.AccessPermission;
 
 /*
  * AddressBookInterface is an example of an AllJoyn interface that uses complex
@@ -40,14 +41,21 @@ public interface AddressBookInterface {
      * 
      * All methods that use the BusMethod annotation can throw a BusException and should indicate
      * this fact.
+     *
+     * The AccessPermission annotation signifies that this function uses system resources that
+     * require system permission "android.permission.READ_CONTACTS". Thus the application should
+     * declare the required permissions in its manifest file. If there are more than one permission
+     * item, they should be separated by ';'.
      */
     @BusMethod(signature = "si", replySignature = "r")
+    @AccessPermission("android.permission.READ_CONTACTS")
     public Contact getContact(String name, int userId) throws BusException;
 
     /*
      * the replySignature indicates that this BusMethod will return an array of structs.
      */
     @BusMethod(replySignature = "ar")
+    @AccessPermission("android.permission.READ_CONTACTS")
     public NameId[] getAllContactNames() throws BusException;
 }
 
