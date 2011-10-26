@@ -859,9 +859,12 @@ public class BusAttachment {
     public native String getUniqueName();
 
     /**
-     * Get the guid of the local daemon as a string
+     * Get the GUID of this BusAttachment.
      *
-     * @return GUID of local AllJoyn daemon as a string.
+     * The returned value may be appended to an advertised well-known name in order to guarantee
+     * that the resulting name is globally unique.
+     *
+     * @return GUID of this BusAttachment as a string.
      */
     public native String getGlobalGUIDString();
 
