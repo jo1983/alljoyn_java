@@ -1079,7 +1079,7 @@ public class MarshalTest extends TestCase {
         Class[] ifaces = { InferredTypesInterface.class, AnnotatedTypesInterface.class };
         remoteObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testobject", BusAttachment.SESSION_ID_ANY, ifaces);
         remoteNullReturnsObj = bus.getProxyBusObject("org.alljoyn.bus.MarshalTest", "/testnullobject", 
-        		                                     BusAttachment.SESSION_ID_ANY, ifaces);
+                                                     BusAttachment.SESSION_ID_ANY, ifaces);
     }
 
     public void tearDown() throws Exception {

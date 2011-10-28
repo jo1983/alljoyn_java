@@ -118,7 +118,7 @@ public class SignalEmitterTest extends TestCase {
     }
 
     public void testGlobalBroadcast() throws Exception {
-    	// TODO fix this text
+        // TODO fix this text
 //        /* Set up another daemon to receive the global broadcast signal. */
 //        AllJoynDaemon daemon = new AllJoynDaemon();
 //        AllJoynProxyObj alljoyn = bus.getAllJoynProxyObj();
