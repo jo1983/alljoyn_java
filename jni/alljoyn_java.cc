@@ -3060,7 +3060,9 @@ JAuthListener::JAuthListener(JBusAttachment* ba, jobject jlistener)
      * We have a reference to the underlying bus attachment, so we have to
      * increment its reference count.
      */
+    QCC_DbgPrintf(("JAuthListener::JAuthListener(): Refcount on busPtr before is %d\n", busPtr->GetRef()));
     busPtr->IncRef();
+    QCC_DbgPrintf(("JAuthListener::JAuthListener(): Refcount on busPtr after %d\n", busPtr->GetRef()));
 
     JNIEnv* env = GetEnv();
 
@@ -3117,6 +3119,7 @@ JAuthListener::~JAuthListener()
      * decrement its reference count.  Once we decrement it, the object can
      * go away at any time, so we must immediately forget it.
      */
+    QCC_DbgPrintf(("JAuthListener::~JAuthListener(): Refcount on busPtr before decrement is %d\n", busPtr->GetRef()));
     busPtr->DecRef();
     busPtr = NULL;
 

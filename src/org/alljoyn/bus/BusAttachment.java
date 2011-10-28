@@ -702,8 +702,13 @@ public class BusAttachment {
             Object obj, Method handlerMethod, String source);
 
     /** Release resources. */
-    protected void finalize() {
-        destroy();
+    protected void finalize() throws Throwable {
+        try {
+            dbus = null;
+            destroy();
+        } finally {
+            super.finalize();
+        }
     }
 
     /**

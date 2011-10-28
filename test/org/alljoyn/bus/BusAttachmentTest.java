@@ -87,6 +87,7 @@ public class BusAttachmentTest extends TestCase {
 
     public void setUp() throws Exception {
         bus = null;
+        otherBus = null;
         name = "org.alljoyn.bus.BusAttachmentTest.advertise";
         address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
     }
@@ -121,10 +122,11 @@ public class BusAttachmentTest extends TestCase {
          * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
          * continuing on to the next test.
          */
-        while (busRef.get() != null || otherBusRef.get() != null) {
-            System.gc();
-            Thread.sleep(5);
-        }
+        do{
+    		System.gc();
+    		Thread.sleep(5);
+    	}
+        while (busRef.get() != null || otherBusRef.get() != null);
     }
     
     public synchronized void stopWait() {
@@ -136,11 +138,13 @@ public class BusAttachmentTest extends TestCase {
         try {
             Emitter emitter = new Emitter();
             emitter.Emit("emit1");
+            emitter = null;
         } catch (BusException ex) {
             thrown = true;
         } finally {
             assertTrue(thrown);
         }
+        
     }
 
     public void signalHandler1(String string) throws BusException {
@@ -185,6 +189,9 @@ public class BusAttachmentTest extends TestCase {
         this.wait(500);
         assertEquals(0, handledSignals1);
         assertEquals(1, handledSignals2);
+        bus.unregisterSignalHandler(this, getClass().getMethod("signalHandler2", String.class));
+        emitter = null;
+        status = null;
     }
 
     public void testRegisterSignalHandlerNoLocalObject() throws Exception {
@@ -195,6 +202,7 @@ public class BusAttachmentTest extends TestCase {
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit", 
                                             this, getClass().getMethod("signalHandler1", String.class));
         assertEquals(Status.OK, status);
+        bus.unregisterSignalHandler(this, getClass().getMethod("signalHandler1", String.class));
     }
 
     public class SignalHandlers {
@@ -238,6 +246,7 @@ public class BusAttachmentTest extends TestCase {
         emitter.Emit("emit1");
         this.wait(500);
         assertEquals(1, handledSignals1);
+        emitter = null;
     }
 
     public synchronized void testRegisterSourcedSignalHandler() throws Exception {
@@ -267,6 +276,7 @@ public class BusAttachmentTest extends TestCase {
         emitter.Emit("emit1");
         this.wait(500);
         assertEquals(0, handledSignals1);
+        emitter = null;
     }
 
     private void signalHandler3(String string) throws BusException {
@@ -348,6 +358,7 @@ public class BusAttachmentTest extends TestCase {
         emitter.Emit("emit4");
         this.wait(500);
         assertEquals(1, handledSignals4);
+        emitter = null;
     }
 
     public void testMethodMessageContext() throws Exception {
@@ -1126,9 +1137,9 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, bus.leaveSession(busSessionId));
         assertEquals(Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION, otherBus.leaveSession(otherBusSessionId));
 		
-        // TODO figure out why not seeing the sessionLost signal
-//        this.wait(4 * 1000);
-//        assertEquals(true, sessionLost);
+
+        this.wait(4 * 1000);
+        assertEquals(true, sessionLost);
     }
     /*
      *  TODO

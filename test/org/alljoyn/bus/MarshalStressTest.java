@@ -188,10 +188,10 @@ public class MarshalStressTest extends TestCase {
          * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
          * continuing on to the next test.
          */
-        while (busRef.get() != null && serviceBusRef.get() != null) {
+        do{
             System.gc();
             Thread.sleep(5);
-        }
+        } while (busRef.get() != null && serviceBusRef.get() != null);
     }
 
     public void testInvalidPropy() throws Exception {

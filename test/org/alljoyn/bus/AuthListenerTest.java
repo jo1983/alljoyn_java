@@ -531,10 +531,10 @@ public class AuthListenerTest extends TestCase {
          * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
          * continuing on to the next test.
          */
-        while (busRef.get() != null && serviceBusRef.get() != null) {
+        do{
             System.gc();
             Thread.sleep(5);
-        }
+        } while (busRef.get() != null && serviceBusRef.get() != null);
     }
     public void tearDown() throws Exception {
         partTearDown();
@@ -1028,7 +1028,7 @@ public class AuthListenerTest extends TestCase {
             "-----END CERTIFICATE-----");
         RsaAuthListener authListener = new RsaAuthListener(
             /* certificate */
-        	"-----BEGIN CERTIFICATE-----\n" +
+            "-----BEGIN CERTIFICATE-----\n" +
             "MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
             "BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
             "VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
@@ -1152,24 +1152,24 @@ public class AuthListenerTest extends TestCase {
             "user2".toCharArray());
         /* Trust client certificate */
         serviceAuthListener.addTrustAnchor(
-        	"-----BEGIN CERTIFICATE-----\n" +
-        	"MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
-        	"BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
-        	"VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
-        	"MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
-        	"MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
-        	"MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
-        	"8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
-        	"XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
-        	"ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
-        	"C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
-        	"MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
-        	"QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
-        	"BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
-        	"ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
-        	"cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
-        	"NeEMMSIgpTeBZoUP/kGQ\n" +
-        	"-----END CERTIFICATE-----");
+            "-----BEGIN CERTIFICATE-----\n" +
+            "MIIC2zCCAkSgAwIBAgIJALP2kEZ4a99OMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV\n" +
+            "BAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRlMQ0wCwYDVQQKEwRRVWlDMRAwDgYD\n" +
+            "VQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2VyMTAeFw0xMTA2MDMyMTUxMTRaFw0y\n" +
+            "MTA1MzEyMTUxMTRaMFMxCzAJBgNVBAYTAk5BMRMwEQYDVQQIEwpTb21lLVN0YXRl\n" +
+            "MQ0wCwYDVQQKEwRRVWlDMRAwDgYDVQQLEwdBbGxKb3luMQ4wDAYDVQQDEwV1c2Vy\n" +
+            "MTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEArSd4r62mdaIRG9xZPDAXfImt\n" +
+            "8e7GTIyXeM8z49Ie1mrQh7roHbn931Znzn20QQwFD6pPC7WxStXJVH0iAoYgzzPs\n" +
+            "XV8kZdbkLGUMPl2GoZY3xDSD+DA3m6krcXcN7dpHv9OlN0D9Trc288GYuFEENpik\n" +
+            "ZvQhMKPDUAEkucQ95Z8CAwEAAaOBtjCBszAdBgNVHQ4EFgQUuXlRkdpOWs3KC1EX\n" +
+            "C6uWyyelCmUwgYMGA1UdIwR8MHqAFLl5UZHaTlrNygtRFwurlssnpQploVekVTBT\n" +
+            "MQswCQYDVQQGEwJOQTETMBEGA1UECBMKU29tZS1TdGF0ZTENMAsGA1UEChMEUVVp\n" +
+            "QzEQMA4GA1UECxMHQWxsSm95bjEOMAwGA1UEAxMFdXNlcjGCCQCz9pBGeGvfTjAM\n" +
+            "BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBACllsq/pzX5A63jxy7VHBkBN\n" +
+            "ahwg+1QxcWALnns7JheIp8GhewzmuHnKlPsEXhhfF+zxuBUsN8IPUfEmcI/HlvuL\n" +
+            "cBBinj/pC7WrvHvSPUoXVm1pt8uTbEwp84J59dXuruAkpjQbAJVXcYtyz+TD19/s\n" +
+            "NeEMMSIgpTeBZoUP/kGQ\n" +
+            "-----END CERTIFICATE-----");
         RsaAuthListener authListener = new RsaAuthListener(
             /* certificate */
             "-----BEGIN CERTIFICATE-----\n" +
