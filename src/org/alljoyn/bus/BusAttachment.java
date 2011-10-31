@@ -631,6 +631,7 @@ public class BusAttachment {
     private Method lostAdvertisedName;
 
     private DBusProxyObj dbus;
+    private ProxyBusObject dbusbo;
 
     /** Policy for handling messages received from remote devices. */
     public enum RemoteMessage {
@@ -664,8 +665,15 @@ public class BusAttachment {
             /* This will not happen */
         }
         create(applicationName, allowRemoteMessages);
-        dbus = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", SESSION_ID_ANY,
-                                  new Class[] { DBusProxyObj.class }).getInterface(DBusProxyObj.class);        
+        
+        /*
+         * Create a separate dbus bus object (dbusbo) and interface so we get at
+         * it and can quickly release its resources when we're done with it.
+         * The corresponding interface (dbus) is what we give the clients.
+         */
+        dbusbo = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", SESSION_ID_ANY,
+                                    new Class[] { DBusProxyObj.class });
+        dbus = dbusbo.getInterface(DBusProxyObj.class);        
         executor = Executors.newSingleThreadExecutor();
     }
 
@@ -701,9 +709,43 @@ public class BusAttachment {
     private native Status registerNativeSignalHandler(String ifaceName, String signalName,
             Object obj, Method handlerMethod, String source);
 
-    /** Release resources. */
+    /**
+     * Release resources immediately.
+     * 
+     * Normally, when all references are removed to a given object, the Java
+     * garbage collector notices the fact that the object is no longer required
+     * and will destory it.  This can happen at the garbage collector's leisure
+     * an so any resources held by the object will not be released until "some
+     * time later" after the object is no longer needed.
+     *
+     * Often, in test programs, we cycle through many BusAttachments in a very
+     * short time, and if we rely on the garbage collector to clean up, we can
+     * fairly quickly run out of scarce underlying resources -- especially file
+     * descriptors.
+     *
+     * We provide an explicity release() method to allow test programs to release
+     * the underlying resources immediately.  The garbage collector will still
+     * call finalize, but the resrouces held by the underlying C++ objects will
+     * go away immediately.
+     *
+     * It is a programming error to call another method on the BusAttachment
+     * after the release() method has been called.
+     */
+    public void release() {
+        if (dbusbo != null) {
+            dbusbo.release();
+            dbusbo = null;
+        }
+        dbus = null;
+        destroy();
+    }
+
+    /**
+     * Let the Java garbage collector release resources.
+     */
     protected void finalize() throws Throwable {
         try {
+            dbusbo = null;
             dbus = null;
             destroy();
         } finally {

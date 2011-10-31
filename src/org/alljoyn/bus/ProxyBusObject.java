@@ -266,7 +266,35 @@ public class ProxyBusObject {
         }
     }
 
-    /** Release native resources. */
+    /**
+     * Release resources immediately.
+     * 
+     * Normally, when all references are removed to a given object, the Java
+     * garbage collector notices the fact that the object is no longer required
+     * and will destory it.  This can happen at the garbage collector's leisure
+     * an so any resources held by the object will not be released until "some
+     * time later" after the object is no longer needed.
+     *
+     * Often, in test programs, we cycle through many BusAttachments in a very
+     * short time, and if we rely on the garbage collector to clean up, we can
+     * fairly quickly run out of scarce underlying resources -- especially file
+     * descriptors.
+     *
+     * We provide an explicity release() method to allow test programs to release
+     * the underlying resources immediately.  The garbage collector will still
+     * call finalize, but the resrouces held by the underlying C++ objects will
+     * go away immediately.
+     *
+     * It is a programming error to call another method on the ProxyBusObject
+     * after the release() method has been called.
+     */
+    public void release() {
+        destroy();
+    }
+
+    /**
+     * Release native resources.
+     */
     protected void finalize() throws Throwable {
         try {
             destroy();

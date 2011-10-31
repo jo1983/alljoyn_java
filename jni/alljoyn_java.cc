@@ -4308,7 +4308,7 @@ void JBusAttachment::UnregisterSignalHandler(jobject jsignalHandler, jobject jme
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jobject thiz, jstring japplicationName, jboolean allowRemoteMessages)
 {
-    // TODO:  Temporary debugging use
+    // Temporary debugging use
     // QCC_UseOSLogging(true);
     // QCC_SetDebugLevel("ALLJOYN_JAVA", 7);
 
@@ -4377,6 +4377,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
     QCC_DbgPrintf(("BusAttachment_destroy()\n"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (busPtr == NULL) {
+        QCC_DbgPrintf(("BusAttachment_destroy(): Already destroyed. Returning.\n"));
+        return;
+    }
 
     /*
      * We don't want to directly delete a reference counted object, we want to
@@ -7783,6 +7787,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env, 
 
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (!proxyBusObj) {
+        QCC_DbgPrintf(("ProxyBusObject_destroy(): Already destroyed. Returning.\n"));
         return;
     }
 

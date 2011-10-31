@@ -103,6 +103,7 @@ public class BusAttachmentTest extends TestCase {
                 }
             }
             bus.disconnect();
+            bus.release();
             bus = null;
         }
         
@@ -114,6 +115,7 @@ public class BusAttachmentTest extends TestCase {
                 }
             }
             otherBus.disconnect();
+            otherBus.release();
             otherBus = null;
         }
         /*
@@ -444,6 +446,7 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(true, pinRequested);
 
         otherBus.disconnect();
+        otherBus.release();
         otherBus = null;
     }
 
