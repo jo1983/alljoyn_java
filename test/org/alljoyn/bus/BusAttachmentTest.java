@@ -96,24 +96,12 @@ public class BusAttachmentTest extends TestCase {
         System.setProperty("org.alljoyn.bus.address", address);
 
         if (bus != null) {
-            String[] busNamesList = bus.getDBusProxyObj().ListNames();
-            for(String busName : busNamesList) {    
-                if (busName.equals("org.alljoyn.bus.BusAttachmentTest")) {
-                    assertEquals(Status.OK, bus.releaseName("org.alljoyn.bus.BusAttachmentTest"));
-                }
-            }
             bus.disconnect();
             bus.release();
             bus = null;
         }
         
         if (otherBus != null) {
-            String[] busNamesList = otherBus.getDBusProxyObj().ListNames();
-            for(String busName : busNamesList) {    
-                if (busName.equals(name)) {
-                    assertEquals(Status.OK, otherBus.releaseName(name));
-                }
-            }
             otherBus.disconnect();
             otherBus.release();
             otherBus = null;
