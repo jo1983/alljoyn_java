@@ -714,7 +714,7 @@ public class BusAttachment {
      * 
      * Normally, when all references are removed to a given object, the Java
      * garbage collector notices the fact that the object is no longer required
-     * and will destory it.  This can happen at the garbage collector's leisure
+     * and will destroy it.  This can happen at the garbage collector's leisure
      * an so any resources held by the object will not be released until "some
      * time later" after the object is no longer needed.
      *
@@ -725,7 +725,7 @@ public class BusAttachment {
      *
      * We provide an explicity release() method to allow test programs to release
      * the underlying resources immediately.  The garbage collector will still
-     * call finalize, but the resrouces held by the underlying C++ objects will
+     * call finalize, but the resources held by the underlying C++ objects will
      * go away immediately.
      *
      * It is a programming error to call another method on the BusAttachment
