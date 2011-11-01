@@ -107,7 +107,7 @@ using namespace ajn;
  * over and over again:
  *
  *   if (env->ExceptionCheck()) {
- *     QCC_LogError(ER_FAIL, ("Descriptive text\n"));
+ *     QCC_LogError(ER_FAIL, ("Descriptive text"));
  *     return NULL;
  *   }
  *
@@ -1058,8 +1058,12 @@ static void ThrowErrorReplyBusException(const char* name, const char* message)
  * get at the C++ objects, and C++ objects use an object reference to get at
  * the Java objects.
  *
- * @return The handle value as a pointer.  NULL is a valid value, so
- *         exceptions must be checked for explicitly by the caller.
+ * @return The handle value as a pointer.  NULL is a valid value.
+ *
+ * @warning This method makes native calls which may throw exceptions.  In the
+ *          usual idiom, exceptions must be checked for explicitly by the caller
+ *          after *every* call to GetHandle.  Since NULL is a valid value to
+ *          return, validity of the returned pointer must be checked as well.
  */
 template <typename T>
 static T GetHandle(jobject jobj)
@@ -1774,7 +1778,7 @@ void NewRefBackingObject(jobject javaObject, JBusObject* cppObject)
 
     map<jobject, pair<uint32_t, JBusObject*> >::iterator i = gBusObjectMap.find(javaObject);
     if (i != gBusObjectMap.end()) {
-        QCC_LogError(ER_FAIL, ("NewRefBackingObject(): Mapping already established for Bus Object %p.\n", javaObject));
+        QCC_LogError(ER_FAIL, ("NewRefBackingObject(): Mapping already established for Bus Object %p", javaObject));
         return;
     }
 
@@ -1828,7 +1832,7 @@ void IncRefBackingObject(jobject javaObject)
         }
     }
 
-    QCC_LogError(ER_FAIL, ("IncRefBackingObject(): No mapping exists for Java Bus Object %p.\n", javaObject));
+    QCC_LogError(ER_FAIL, ("IncRefBackingObject(): No mapping exists for Java Bus Object %p", javaObject));
 }
 
 /**
@@ -1889,7 +1893,7 @@ JBusObject* DecRefBackingObject(jobject javaObject)
         }
     }
 
-    QCC_LogError(ER_FAIL, ("DecRefBackingObject(): No mapping exists for Java Bus Object %p.\n", javaObject));
+    QCC_LogError(ER_FAIL, ("DecRefBackingObject(): No mapping exists for Java Bus Object %p", javaObject));
     return NULL;
 }
 
@@ -2047,7 +2051,7 @@ JKeyStoreListener::JKeyStoreListener(jobject jlistener)
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
     if (!clazz) {
-        QCC_LogError(ER_FAIL, ("JKeyStoreListener::JKeyStoreListener(): Can't GetObjectClass() for KeyStoreListener\n"));
+        QCC_LogError(ER_FAIL, ("JKeyStoreListener::JKeyStoreListener(): Can't GetObjectClass() for KeyStoreListener"));
         return;
     }
 
@@ -2111,7 +2115,7 @@ QStatus JKeyStoreListener::LoadRequest(KeyStore& keyStore)
      */
     jobject jo = env->NewLocalRef(jkeyStoreListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JKeystoreListener::LoadRequest(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JKeystoreListener::LoadRequest(): Can't get new local reference to SessionListener"));
         return ER_FAIL;
     }
 
@@ -2252,7 +2256,7 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
      */
     jobject jo = env->NewLocalRef(jkeyStoreListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JKeystoreListener::StoreRequest(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JKeystoreListener::StoreRequest(): Can't get new local reference to SessionListener"));
         return ER_FAIL;
     }
 
@@ -2305,7 +2309,7 @@ JBusListener::JBusListener(jobject jlistener)
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
     if (!clazz) {
-        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't GetObjectClass() for KeyStoreListener\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't GetObjectClass() for KeyStoreListener"));
         return;
     }
 
@@ -2381,7 +2385,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
      */
     JLocalRef<jstring> jname = env->NewStringUTF(name);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception"));
         return;
     }
 
@@ -2389,7 +2393,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
 
     JLocalRef<jstring> jnamePrefix = env->NewStringUTF(namePrefix);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception"));
         return;
     }
 
@@ -2400,7 +2404,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2411,7 +2415,7 @@ void JBusListener::FoundAdvertisedName(const char* name, TransportMask transport
     QCC_DbgPrintf(("JBusListener::FoundAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_foundAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::FoundAdvertisedName(): Exception"));
         return;
     }
 
@@ -2449,7 +2453,7 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
      */
     JLocalRef<jstring> jname = env->NewStringUTF(name);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception"));
         return;
     }
 
@@ -2457,7 +2461,7 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
 
     JLocalRef<jstring> jnamePrefix = env->NewStringUTF(namePrefix);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception"));
         return;
     }
 
@@ -2468,7 +2472,7 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2479,7 +2483,7 @@ void JBusListener::LostAdvertisedName(const char* name, TransportMask transport,
     QCC_DbgPrintf(("JBusListener::LostAdvertisedName(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_lostAdvertisedName, (jstring)jname, jtransport, (jstring)jnamePrefix);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::LostAdvertisedName(): Exception"));
         return;
     }
 
@@ -2515,19 +2519,19 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
      */
     JLocalRef<jstring> jbusName = env->NewStringUTF(busName);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception"));
         return;
     }
 
     JLocalRef<jstring> jpreviousOwner = env->NewStringUTF(previousOwner);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception"));
         return;
     }
 
     JLocalRef<jstring> jnewOwner = env->NewStringUTF(newOwner);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception"));
         return;
     }
 
@@ -2538,7 +2542,7 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2549,7 +2553,7 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
     QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_nameOwnerChanged, (jstring)jbusName, (jstring)jpreviousOwner, (jstring)jnewOwner);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::NameOwnerChanged(): Exception"));
         return;
     }
 
@@ -2581,7 +2585,7 @@ void JBusListener::BusStopping(void)
      */
     jobject jo = env->NewLocalRef(jbusListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2592,7 +2596,7 @@ void JBusListener::BusStopping(void)
     QCC_DbgPrintf(("JBusListener::BusStopping(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_busStopping);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusListener::BusStopping(): Exception"));
         return;
     }
 
@@ -2624,29 +2628,29 @@ JSessionListener::JSessionListener(jobject jlistener)
     QCC_DbgPrintf(("JSessionListener::JSessionListener(): Taking weak global reference to SessionListener %p\n", jlistener));
     jsessionListener = env->NewWeakGlobalRef(jlistener);
     if (!jsessionListener) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't create new weak global reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't create new weak global reference to SessionListener"));
         return;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
     if (!clazz) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't GetObjectClass() for SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't GetObjectClass() for SessionListener"));
         return;
     }
 
     MID_sessionLost = env->GetMethodID(clazz, "sessionLost", "(I)V");
     if (!MID_sessionLost) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionLost() in SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionLost() in SessionListener"));
     }
 
     MID_sessionMemberAdded = env->GetMethodID(clazz, "sessionMemberAdded", "(ILjava/lang/String;)V");
     if (!MID_sessionMemberAdded) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionMemberAdded() in SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionMemberAdded() in SessionListener"));
     }
 
     MID_sessionMemberRemoved = env->GetMethodID(clazz, "sessionMemberRemoved", "(ILjava/lang/String;)V");
     if (!MID_sessionMemberRemoved) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionMemberRemoved() in SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::JSessionListener(): Can't find sessionMemberRemoved() in SessionListener"));
     }
 }
 
@@ -2701,7 +2705,7 @@ void JSessionListener::SessionLost(SessionId sessionId)
      */
     jobject jo = env->NewLocalRef(jsessionListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::SessionLost(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionLost(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2712,7 +2716,7 @@ void JSessionListener::SessionLost(SessionId sessionId)
     QCC_DbgPrintf(("JSessionListener::SessionLost(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_sessionLost, jsessionId);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::SessionLost(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionLost(): Exception"));
         return;
     }
 
@@ -2756,7 +2760,7 @@ void JSessionListener::SessionMemberAdded(SessionId sessionId, const char* uniqu
      */
     jobject jo = env->NewLocalRef(jsessionListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberAdded(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberAdded(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2767,7 +2771,7 @@ void JSessionListener::SessionMemberAdded(SessionId sessionId, const char* uniqu
     QCC_DbgPrintf(("JSessionListener::SessionMemberAdded(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_sessionMemberAdded, jsessionId, (jstring)juniqueName);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberAdded(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberAdded(): Exception"));
         return;
     }
 
@@ -2810,7 +2814,7 @@ void JSessionListener::SessionMemberRemoved(SessionId sessionId, const char* uni
      */
     jobject jo = env->NewLocalRef(jsessionListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberRemoved(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberRemoved(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -2821,7 +2825,7 @@ void JSessionListener::SessionMemberRemoved(SessionId sessionId, const char* uni
     QCC_DbgPrintf(("JSessionListener::SessionMemberRemoved(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_sessionMemberRemoved, jsessionId, (jstring)juniqueName);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberRemoved(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionListener::SessionMemberRemoved(): Exception"));
         return;
     }
 
@@ -2853,13 +2857,13 @@ JSessionPortListener::JSessionPortListener(jobject jlistener)
     QCC_DbgPrintf(("JSessionPortListener::JSessionPortListener(): Taking weak global reference to SessionPortListener %p\n", jlistener));
     jsessionPortListener = env->NewWeakGlobalRef(jlistener);
     if (!jsessionPortListener) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::JSessionPortListener(): Can't create new weak global reference to SessionPortListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::JSessionPortListener(): Can't create new weak global reference to SessionPortListener"));
         return;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
     if (!clazz) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::JSessionPortListener(): Can't GetObjectClass() for SessionPortListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::JSessionPortListener(): Can't GetObjectClass() for SessionPortListener"));
         return;
     }
 
@@ -2920,20 +2924,20 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception"));
         return false;
     }
 
     jmethodID mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
     if (!mid) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Can't find SessionOpts constructor\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Can't find SessionOpts constructor"));
         return false;
     }
 
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Create new SessionOpts\n"));
     JLocalRef<jobject> jsessionopts = env->NewObject(CLS_SessionOpts, mid);
     if (!jsessionopts) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Cannot create SessionOpts\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Cannot create SessionOpts"));
     }
 
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Load SessionOpts\n"));
@@ -2956,7 +2960,7 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
      */
     jobject jo = env->NewLocalRef(jsessionPortListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Can't get new local reference to SessionListener"));
         return false;
     }
 
@@ -2967,7 +2971,7 @@ bool JSessionPortListener::AcceptSessionJoiner(SessionPort sessionPort, const ch
     QCC_DbgPrintf(("JSessionPortListener::AcceptSessionJoiner(): Call out to listener object and method\n"));
     bool result = env->CallBooleanMethod(jo, MID_acceptSessionJoiner, sessionPort, (jstring)jjoiner, (jobject)jsessionopts);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::AcceptSessionJoiner(): Exception"));
         return false;
     }
 
@@ -3005,7 +3009,7 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
 
     JLocalRef<jstring> jjoiner = env->NewStringUTF(joiner);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception"));
     }
 
     /*
@@ -3015,7 +3019,7 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
      */
     jobject jo = env->NewLocalRef(jsessionPortListener);
     if (!jo) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Can't get new local reference to SessionListener\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Can't get new local reference to SessionListener"));
         return;
     }
 
@@ -3026,7 +3030,7 @@ void JSessionPortListener::SessionJoined(SessionPort sessionPort, SessionId id, 
     QCC_DbgPrintf(("JSessionPortListener::SessionJoined(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_sessionJoined, sessionPort, id, (jstring)jjoiner);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JSessionPortListener::SessionJoined(): Exception"));
         return;
     }
 
@@ -3069,37 +3073,37 @@ JAuthListener::JAuthListener(JBusAttachment* ba, jobject jlistener)
     QCC_DbgPrintf(("JAuthListener::JAuthListener(): Taking weak global reference to AuthListener %p\n", jlistener));
     jauthListener = env->NewWeakGlobalRef(jlistener);
     if (!jauthListener) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't create new weak global reference to AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't create new weak global reference to AuthListener"));
         return;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jlistener);
     if (!clazz) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't GetObjectClass() for AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't GetObjectClass() for AuthListener"));
         return;
     }
 
     MID_requestCredentials = env->GetMethodID(clazz, "requestCredentials", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Lorg/alljoyn/bus/AuthListener$Credentials;");
     if (!MID_requestCredentials) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find requestCredentials() in AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find requestCredentials() in AuthListener"));
         return;
     }
 
     MID_verifyCredentials = env->GetMethodID(clazz, "verifyCredentials", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
     if (!MID_verifyCredentials) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find verifyCredentials() in jListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find verifyCredentials() in jListener"));
         return;
     }
 
     MID_securityViolation = env->GetMethodID(clazz, "securityViolation", "(Lorg/alljoyn/bus/Status;)V");
     if (!MID_securityViolation) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find securityViolation() in jListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find securityViolation() in jListener"));
         return;
     }
 
     MID_authenticationComplete = env->GetMethodID(clazz, "authenticationComplete", "(Ljava/lang/String;Ljava/lang/String;Z)V");
     if (!MID_authenticationComplete) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find authenticationComplete() in jListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::JAuthListener(): Can't find authenticationComplete() in jListener"));
         return;
     }
 }
@@ -3165,19 +3169,19 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
 
     JLocalRef<jstring> jauthMechanism = env->NewStringUTF(authMechanism);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string"));
         return false;
     }
 
     JLocalRef<jstring> jauthPeer = env->NewStringUTF(authPeer);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string"));
         return false;
     }
 
     JLocalRef<jstring> juserName = env->NewStringUTF(userName);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new UTF string"));
         return false;
     }
 
@@ -3195,7 +3199,7 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
         busPtr->baAuthenticationChangeLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new local reference to AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get new local reference to AuthListener"));
         return false;
     }
 
@@ -3216,37 +3220,37 @@ bool JAuthListener::RequestCredentials(const char* authMechanism, const char* au
     busPtr->baAuthenticationChangeLock.Unlock();
 
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Exception calling out to Java method\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Exception calling out to Java method"));
         return false;
     }
 
     if (!jcredentials) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Null return from Java method\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Null return from Java method"));
         return false;
     }
 
     JLocalRef<jclass> clazz = env->GetObjectClass(jcredentials);
     if (!clazz) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't GetObjectClass() for Credentials\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't GetObjectClass() for Credentials"));
         return false;
     }
 
     jfieldID fid = env->GetFieldID(clazz, "password", "[B");
     if (!fid) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't find password field in Credentials\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't find password field in Credentials"));
         return false;
     }
 
     JLocalRef<jbyteArray> jpassword = (jbyteArray)env->GetObjectField(jcredentials, fid);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get password byte array from Credentials\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get password byte array from Credentials"));
         return false;
     }
 
     if (jpassword) {
         jbyte* password = env->GetByteArrayElements(jpassword, NULL);
         if (env->ExceptionCheck()) {
-            QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get password bytes\n"));
+            QCC_LogError(ER_FAIL, ("JAuthListener::RequestCredentials(): Can't get password bytes"));
             return false;
         }
         credentials.SetPassword(String((const char*)password, env->GetArrayLength(jpassword)));
@@ -3404,7 +3408,7 @@ bool JAuthListener::VerifyCredentials(const char* authMechanism, const char* aut
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
         busPtr->baAuthenticationChangeLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JAuthListener::Verifyredentials(): Can't get new local reference to AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::Verifyredentials(): Can't get new local reference to AuthListener"));
         return false;
     }
 
@@ -3465,7 +3469,7 @@ void JAuthListener::SecurityViolation(QStatus status, const Message& msg)
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
         busPtr->baAuthenticationChangeLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JAuthListener::SecurityViolation(): Can't get new local reference to AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::SecurityViolation(): Can't get new local reference to AuthListener"));
         return;
     }
 
@@ -3525,7 +3529,7 @@ void JAuthListener::AuthenticationComplete(const char* authMechanism, const char
     jobject jo = env->NewLocalRef(jauthListener);
     if (!jo) {
         busPtr->baAuthenticationChangeLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JAuthListener::AuthenticationComplete(): Can't get new local reference to AuthListener\n"));
+        QCC_LogError(ER_FAIL, ("JAuthListener::AuthenticationComplete(): Can't get new local reference to AuthListener"));
         return;
     }
 
@@ -3853,7 +3857,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
     jauthListenerRef = env->NewGlobalRef(jauthListener);
     QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Remembering %p\n", jauthListenerRef));
     if (!jauthListenerRef) {
-        QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Unable to take strong global reference to AuthListener %p\n", jauthListener));
+        QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Unable to take strong global reference to AuthListener %p", jauthListener));
 
         QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
@@ -3878,7 +3882,7 @@ QStatus JBusAttachment::EnablePeerSecurity(const char* authMechanisms, jobject j
     }
 
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JBusAttachment::EnablePeerSecurity(): Exception"));
 
         QCC_DbgPrintf(("JBusAttachment::EnablePeerSecurity(): Releasing Bus Attachment common lock\n"));
         baCommonLock.Unlock();
@@ -4134,7 +4138,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
 
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
-        QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Java Bus Object.\n"));
+        QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Java Bus Object"));
         return;
     }
 
@@ -4145,7 +4149,7 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
 
         QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
-        QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Backing Object.\n"));
+        QCC_LogError(ER_BUS_OBJ_NOT_FOUND, ("JBusAttachment::UnregisterBusObject(): No existing Backing Object"));
         return;
     }
 
@@ -4377,8 +4381,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
     QCC_DbgPrintf(("BusAttachment_destroy()\n"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    if (busPtr == NULL) {
-        QCC_DbgPrintf(("BusAttachment_destroy(): Already destroyed. Returning.\n"));
+    if (env->ExceptionCheck() || busPtr == NULL) {
+        QCC_DbgPrintf(("BusAttachment_destroy(): Exception or already destroyed. Returning.\n"));
         return;
     }
 
@@ -4427,8 +4431,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
     QCC_DbgPrintf(("BusAttachment_registerBusListener()\n"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception\n"));
+    if (env->ExceptionCheck() || busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception or NULL bus pointer"));
         return;
     }
     QCC_DbgPrintf(("BusAttachment_registerBusListener(): Refcount on busPtr is %d\n", busPtr->GetRef()));
@@ -4454,6 +4458,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
      * Get the C++ object that must be there backing the Java object
      */
     JBusListener* listener = GetNativeListener<JBusListener*>(env, jlistener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusListener(): Exception"));
+        return;
+    }
+
     assert(listener);
 
     /*
@@ -4478,8 +4487,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
     QCC_DbgPrintf(("BusAttachment_unregisterBusListener()\n"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception\n"));
+    if (env->ExceptionCheck() || busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception or NULL bus pointer"));
         return;
     }
     QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Refcount on busPtr is %d\n", busPtr->GetRef()));
@@ -4488,6 +4497,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
      * Get the C++ object that must be there backing the Java object
      */
     JBusListener* listener = GetNativeListener<JBusListener*>(env, jlistener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusListener(): Exception"));
+        return;
+    }
+
     assert(listener);
 
     /*
@@ -4521,6 +4535,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_create(JNIEnv* env, jobj
     QCC_DbgPrintf(("BusListener_create()\n"));
 
     assert(GetHandle<JBusListener*>(thiz) == NULL);
+    if (env->ExceptionCheck()) {
+        QCC_DbgPrintf(("BusListener_create(): Exception.\n"));
+        return;
+    }
 
     JBusListener* jbl = new JBusListener(thiz);
     if (jbl == NULL) {
@@ -4540,6 +4558,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_destroy(JNIEnv* env, job
 
     JBusListener* jbl = GetHandle<JBusListener*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusListener_destroy(): Exception"));
         return;
     }
 
@@ -4560,15 +4579,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv*
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_requestName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4578,12 +4607,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_requestName(JNIEnv*
 
     QStatus status = busPtr->RequestName(name.c_str(), jflags);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_requestName(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_requestName(): RequestName() fails\n"));
+        QCC_LogError(status, ("BusAttachment_requestName(): RequestName() fails"));
     }
 
     return JStatus(status);
@@ -4599,15 +4628,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv*
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_releaseName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4618,12 +4657,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_releaseName(JNIEnv*
 
     QStatus status = busPtr->ReleaseName(name.c_str());
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_releaseName(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_releaseName(): ReleaseName() fails\n"));
+        QCC_LogError(status, ("BusAttachment_releaseName(): ReleaseName() fails"));
     }
 
     return JStatus(status);
@@ -4639,15 +4678,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env
      */
     JString rule(jrule);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_addMatch(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4657,12 +4706,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env
 
     QStatus status = busPtr->AddMatch(rule.c_str());
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_addMatch(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_addMatch(): AddMatch() fails\n"));
+        QCC_LogError(status, ("BusAttachment_addMatch(): AddMatch() fails"));
     }
 
     return JStatus(status);
@@ -4678,15 +4727,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*
      */
     JString rule(jrule);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_removeMatch(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4696,12 +4755,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*
 
     QStatus status = busPtr->RemoveMatch(rule.c_str());
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeMatch(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_removeMatch(): RemoveMatch() fails\n"));
+        QCC_LogError(status, ("BusAttachment_removeMatch(): RemoveMatch() fails"));
     }
 
     return JStatus(status);
@@ -4717,15 +4776,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEn
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_advertiseName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4735,12 +4804,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName(JNIEn
 
     QStatus status = busPtr->AdvertiseName(name.c_str(), jtransports);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_advertiseName(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_advertiseName(): AdvertiseName() fails\n"));
+        QCC_LogError(status, ("BusAttachment_advertiseName(): AdvertiseName() fails"));
     }
 
     return JStatus(status);
@@ -4756,15 +4825,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_cancelAdvertiseName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4774,12 +4853,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName
 
     QStatus status = busPtr->CancelAdvertiseName(name.c_str(), jtransports);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelAdvertiseName(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_cancelAdvertiseName(): CancelAdvertiseName() fails\n"));
+        QCC_LogError(status, ("BusAttachment_cancelAdvertiseName(): CancelAdvertiseName() fails"));
     }
 
     return JStatus(status);
@@ -4795,15 +4874,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_findAdvertisedName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4813,12 +4902,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
 
     QStatus status = busPtr->FindAdvertisedName(name.c_str());
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedName(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_findAdvertsiedName(): FindAdvertisedName() fails\n"));
+        QCC_LogError(status, ("BusAttachment_findAdvertsiedName(): FindAdvertisedName() fails"));
     }
 
     return JStatus(status);
@@ -4834,15 +4923,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4852,12 +4951,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
 
     QStatus status = busPtr->CancelFindAdvertisedName(name.c_str());
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedName(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_cancelfindAdvertisedName(): CancelFindAdvertisedName() fails\n"));
+        QCC_LogError(status, ("BusAttachment_cancelfindAdvertisedName(): CancelFindAdvertisedName() fails"));
     }
 
     return JStatus(status);
@@ -4939,9 +5038,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -4971,6 +5080,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionPortListener* listener = GetNativeListener<JSessionPortListener*>(env, jlistener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception"));
+        return NULL;
+    }
+
     assert(listener);
 
     /*
@@ -4993,7 +5107,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
      * log the exception and let it propagate on up the stack to the client.
      */
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception"));
         return NULL;
     }
 
@@ -5020,7 +5134,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_bindSessionPort(JNI
         QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error.  Forgetting jglobalref\n"));
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error.  Forgetting jglobalref"));
         env->DeleteGlobalRef(jglobalref);
         return JStatus(status);
     }
@@ -5055,9 +5169,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_unbindSessionPort(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -5076,7 +5200,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
      * log the exception and let it propagate on up the stack to the client.
      */
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_unbindSessionPort(): Exception"));
         return NULL;
     }
 
@@ -5119,7 +5243,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_unbindSessionPort(J
         QCC_DbgPrintf(("BusAttachment_bindSessionPort(): Releasing strong global reference to SessionPortListener %p\n", jglobalref));
         env->DeleteGlobalRef(jglobalref);
     } else {
-        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error\n"));
+        QCC_LogError(status, ("BusAttachment_bindSessionPort(): Error"));
     }
 
     return JStatus(status);
@@ -5130,6 +5254,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_create(JNIEnv* e
     QCC_DbgPrintf(("SessionPortListener_create()\n"));
 
     assert(GetHandle<JSessionPortListener*>(thiz) == NULL);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SessionPortListener_create(): Exception"));
+        return;
+    }
 
     JSessionPortListener* jspl = new JSessionPortListener(thiz);
     if (jspl == NULL) {
@@ -5149,6 +5277,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionPortListener_destroy(JNIEnv* 
 
     JSessionPortListener* jspl = GetHandle<JSessionPortListener*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SessionPortListener_destroy(): Exception"));
         return;
     }
 
@@ -5201,7 +5330,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      */
     JString sessionHost(jsessionHost);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception"));
         return NULL;
     }
 
@@ -5228,9 +5357,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_bindSessionPort(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_joinSession(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -5249,6 +5388,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionListener* listener = GetNativeListener<JSessionListener*>(env, jlistener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception"));
+        return NULL;
+    }
+
     assert(listener);
 
     /*
@@ -5275,7 +5419,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
      * log the exception and let it propagate on up the stack to the client.
      */
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSession(): Exception"));
         return NULL;
     }
 
@@ -5301,7 +5445,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSession(JNIEnv*
         QCC_DbgPrintf(("BusAttachment_joinSession(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
-        QCC_LogError(status, ("BusAttachment_joinSession(): Error.  Forgetting jglobalref\n"));
+        QCC_LogError(status, ("BusAttachment_joinSession(): Error.  Forgetting jglobalref"));
         env->DeleteGlobalRef(jglobalref);
         return JStatus(status);
     }
@@ -5356,8 +5500,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_leaveSession(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -5376,7 +5531,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
      * log the exception and let it propagate on up the stack to the client.
      */
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_leaveSession(): Exception"));
         return NULL;
     }
 
@@ -5418,7 +5573,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
         QCC_DbgPrintf(("BusAttachment_leaveSession(): Releasing strong global reference to SessionListener %p\n", jglobalref));
         env->DeleteGlobalRef(jglobalref);
     } else {
-        QCC_LogError(status, ("BusAttachment_leaveSession(): Error\n"));
+        QCC_LogError(status, ("BusAttachment_leaveSession(): Error"));
     }
 
     return JStatus(status);
@@ -5457,9 +5612,19 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_setSessionListener(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -5478,6 +5643,11 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionListener* listener = GetNativeListener<JSessionListener*>(env, jlistener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setSessionListener(): Exception"));
+        return NULL;
+    }
+
     assert(listener);
 
     /*
@@ -5535,7 +5705,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setSessionListener(
         QCC_DbgPrintf(("BusAttachment_setSessionListener(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
-        QCC_LogError(status, ("BusAttachment_setSessionListener(): Error\n"));
+        QCC_LogError(status, ("BusAttachment_setSessionListener(): Error"));
 
         /*
          * We know that the C++ listener corresponding to the Java listener we
@@ -5558,6 +5728,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_create(JNIEnv* env, 
     QCC_DbgPrintf(("SessionListener_create()\n"));
 
     assert(GetHandle<JSessionListener*>(thiz) == NULL);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SessionListener_create(): Exception"));
+        return;
+    }
 
     JSessionListener* jsl = new JSessionListener(thiz);
     if (jsl == NULL) {
@@ -5577,6 +5751,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SessionListener_destroy(JNIEnv* env,
 
     JSessionListener* jsl = GetHandle<JSessionListener*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SessionListener_destroy(): Exception"));
         return;
     }
 
@@ -5666,7 +5841,7 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
      */
     jstatus = JStatus(status);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception"));
         goto exit;
     }
 
@@ -5674,14 +5849,14 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
 
     mid = env->GetMethodID(CLS_SessionOpts, "<init>", "()V");
     if (!mid) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Can't find SessionOpts constructor\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Can't find SessionOpts constructor"));
         goto exit;
     }
 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Create new SessionOpts\n"));
     jopts = env->NewObject(CLS_SessionOpts, mid);
     if (!jopts) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Cannot create SessionOpts\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Cannot create SessionOpts"));
         goto exit;
     }
 
@@ -5707,7 +5882,7 @@ void JOnJoinSessionListener::JoinSessionCB(QStatus status, SessionId sessionId, 
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Call out to listener object and method\n"));
     env->CallVoidMethod(jo, MID_onJoinSession, (jobject)jstatus, jsessionId, (jobject)jopts, (jobject)paj->jcontext);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Exception"));
         goto exit;
     }
 
@@ -5794,7 +5969,7 @@ exit:
     QCC_DbgPrintf(("JOnJoinSessionListener::JoinSessionCB(): Releasing Bus Attachment common lock\n"));
     busPtr->baCommonLock.Unlock();
 
-    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Unable to match context\n"));
+    QCC_LogError(ER_FAIL, ("JOnJoinSessionListener::JoinSessionCB(): Unable to match context"));
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JNIEnv* env,
@@ -5870,7 +6045,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      */
     JString sessionHost(jsessionHost);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception"));
         return NULL;
     }
 
@@ -5897,14 +6072,27 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Taking strong global reference to SessionListener %p\n", jsessionListener));
     jobject jglobalListenerRef = env->NewGlobalRef(jsessionListener);
     if (!jglobalListenerRef) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Unable to take strong global reference"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
         return NULL;
     }
 
@@ -5913,6 +6101,9 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
     if (!jglobalCallbackRef) {
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Forgetting jglobalListenerRef\n"));
         env->DeleteGlobalRef(jglobalListenerRef);
+
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Unable to take strong global reference"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
         return NULL;
     }
 
@@ -5936,12 +6127,22 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * Get the C++ object that must be there backing the Java listener object
      */
     JSessionListener* listener = GetNativeListener<JSessionListener*>(env, jsessionListener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception"));
+        return NULL;
+    }
+
     assert(listener);
 
     /*
      * Get the C++ object that must be there backing the Java callback object
      */
     JOnJoinSessionListener* callback = GetNativeListener<JOnJoinSessionListener*>(env, jonJoinSessionListener);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception"));
+        return NULL;
+    }
+
     assert(callback);
 
     /*
@@ -5994,7 +6195,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
      * log the exception and let it propagate on up the stack to the client.
      */
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_joinSessionAsync(): Exception"));
         return NULL;
     }
 
@@ -6027,7 +6228,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_joinSessionAsync(JN
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing Bus Attachment common lock\n"));
         busPtr->baCommonLock.Unlock();
     } else {
-        QCC_LogError(status, ("BusAttachment_joinSessionAsync(): Error\n"));
+        QCC_LogError(status, ("BusAttachment_joinSessionAsync(): Error"));
 
         QCC_DbgPrintf(("BusAttachment_joinSessionAsync(): Releasing strong global reference to SessionListener %p\n", jglobalListenerRef));
         env->DeleteGlobalRef(jglobalListenerRef);
@@ -6048,6 +6249,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_create(JNIEnv*
     QCC_DbgPrintf(("OnJoinSessionListener_create()\n"));
 
     assert(GetHandle<JOnJoinSessionListener*>(thiz) == NULL);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("OnJoinSessionListener_create(): Exception"));
+        return;
+    }
 
     QCC_DbgPrintf(("OnJoinSessionListener_create(): Create backing object\n"));
     JOnJoinSessionListener* jojsl = new JOnJoinSessionListener(thiz);
@@ -6069,6 +6274,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_OnJoinSessionListener_destroy(JNIEnv
 
     JOnJoinSessionListener* jojsl = GetHandle<JOnJoinSessionListener*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("OnJoinSessionListener_destroy(): Exception"));
         return;
     }
 
@@ -6087,9 +6293,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_getSessionFd(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -6101,12 +6318,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getSessionFd(JNIEnv
 
     QStatus status = busPtr->GetSessionFd(jsessionId, sockfd);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_getSessionFd(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_getSessionFd(): GetSessionFd() fails\n"));
+        QCC_LogError(status, ("BusAttachment_getSessionFd(): GetSessionFd() fails"));
     }
 
     /*
@@ -6128,9 +6345,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setLinkTimeout(JNIE
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_setLinkTimeout(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -6144,7 +6372,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setLinkTimeout(JNIE
 
     QStatus status = busPtr->SetLinkTimeout(jsessionId, linkTimeout);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLinkTimeout(): Exception"));
         return NULL;
     }
 
@@ -6154,7 +6382,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setLinkTimeout(JNIE
     if (status == ER_OK) {
         env->SetIntField(jLinkTimeout, fid, linkTimeout);
     } else {
-        QCC_LogError(status, ("BusAttachment_setLinkTimeout(): SetLinkTimeout() fails\n"));
+        QCC_LogError(status, ("BusAttachment_setLinkTimeout(): SetLinkTimeout() fails"));
     }
 
     return JStatus(status);
@@ -6172,14 +6400,26 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv*
      */
     JString name(jname);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getPeerGUID(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_getPeerGUID(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -6211,7 +6451,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getPeerGUID(JNIEnv*
     env->SetObjectField(jguid, guidValueFid, jstr);
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_getPeerGUID(): GetPeerGUID() fails\n"));
+        QCC_LogError(status, ("BusAttachment_getPeerGUID(): GetPeerGUID() fails"));
     }
 
     return JStatus(status);
@@ -6227,15 +6467,26 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIE
      */
     JString module(jmodule);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_setDaemonDebug(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -6245,12 +6496,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setDaemonDebug(JNIE
 
     QStatus status = busPtr->SetDaemonDebug(module.c_str(), jlevel);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDaemonDebug(): Exception"));
         return NULL;
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_setDaemonDebug(): SetDaemonDebug() fails\n"));
+        QCC_LogError(status, ("BusAttachment_setDaemonDebug(): SetDaemonDebug() fails"));
     }
 
     return JStatus(status);
@@ -6265,7 +6516,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setLogLevels(JNIEnv*en
      */
     JString logEnv(jlogEnv);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setLogLevels(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setLogLevels(): Exception"));
         return;
     }
 
@@ -6285,7 +6536,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_setDebugLevel(JNIEnv*e
      */
     JString module(jmodule);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setDebugLevel(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setDebugLevel(): Exception"));
         return;
     }
 
@@ -6320,28 +6571,44 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env
 
     JString connectArgs(jconnectArgs);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_connect(): Exception"));
         return NULL;
     }
 
     JString authMechanisms(jauthMechanisms);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_connect(): Exception"));
         return NULL;
     }
 
     JString keyStoreFileName(jkeyStoreFileName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_connect(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_connect(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_connect(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_connect(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QStatus status = busPtr->Connect(connectArgs.c_str(), jkeyStoreListener, authMechanisms.c_str(),
                                      jauthListener, keyStoreFileName.c_str(), isShared);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_connect(): Exception"));
         return NULL;
     } else {
         return JStatus(status);
@@ -6354,13 +6621,21 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env
 
     JString connectArgs(jconnectArgs);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): Exception"));
         return;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): Exception"));
         return;
     }
+
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): NULL bus pointer"));
+        return;
+    }
+
     QCC_DbgPrintf(("BusAttachment_disconnect(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     busPtr->Disconnect(connectArgs.c_str());
@@ -6385,10 +6660,22 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_enablePeerSecurity(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_enablePeerSecurity(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QStatus status = busPtr->EnablePeerSecurity(authMechanisms.c_str(), jauthListener, keyStoreFileName.c_str(), isShared);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_enablePeerSecurity(): Exception"));
         return NULL;
     } else {
         return JStatus(status);
@@ -6505,11 +6792,14 @@ QStatus JBusObject::AddInterfaces(jobjectArray jbusInterfaces)
     for (jsize i = 0; i < len; ++i) {
         JLocalRef<jobject> jbusInterface = env->GetObjectArrayElement(jbusInterfaces, i);
         if (env->ExceptionCheck()) {
+            QCC_LogError(ER_FAIL, ("JBusObject::AddInterfaces(): Exception"));
             return ER_FAIL;
         }
+        assert(jbusInterface);
 
         const InterfaceDescription* intf = GetHandle<const InterfaceDescription*>(jbusInterface);
         if (env->ExceptionCheck()) {
+            QCC_LogError(ER_FAIL, ("JBusObject::AddInterfaces(): Exception"));
             return ER_FAIL;
         }
         assert(intf);
@@ -6813,7 +7103,7 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
     jobject jo = env->NewLocalRef(jbusObj);
     if (!jo) {
         mapLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JBusObject::MethodHandler(): Can't get new local reference to BusObject\n"));
+        QCC_LogError(ER_FAIL, ("JBusObject::MethodHandler(): Can't get new local reference to BusObject"));
         return;
     }
 
@@ -6903,7 +7193,7 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
 QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
                            const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags)
 {
-    QCC_DbgPrintf(("JBusObject::Signal()\n"));
+    QCC_DbgPrintf(("JBusObject::Signal()"));
 
     const InterfaceDescription* intf = bus.GetInterface(ifaceName);
     if (!intf) {
@@ -6960,7 +7250,7 @@ QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
     jobject jo = env->NewLocalRef(jbusObj);
     if (!jo) {
         mapLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JBusObject::Get(): Can't get new local reference to BusObject\n"));
+        QCC_LogError(ER_FAIL, ("JBusObject::Get(): Can't get new local reference to BusObject"));
         return ER_FAIL;
     }
 
@@ -7030,7 +7320,7 @@ QStatus JBusObject::Set(const char* ifcName, const char* propName, MsgArg& val)
     jobject jo = env->NewLocalRef(jbusObj);
     if (!jo) {
         mapLock.Unlock();
-        QCC_LogError(ER_FAIL, ("JBusObject::Set(): Can't get new local reference to BusObject\n"));
+        QCC_LogError(ER_FAIL, ("JBusObject::Set(): Can't get new local reference to BusObject"));
         return ER_FAIL;
     }
 
@@ -7062,7 +7352,7 @@ String JBusObject::GenerateIntrospection(bool deep, size_t indent) const
          */
         jobject jo = env->NewLocalRef(jbusObj);
         if (!jo) {
-            QCC_LogError(ER_FAIL, ("JBusObject::GenerateIntrospection(): Can't get new local reference to BusObject\n"));
+            QCC_LogError(ER_FAIL, ("JBusObject::GenerateIntrospection(): Can't get new local reference to BusObject"));
             return "";
         }
 
@@ -7100,7 +7390,7 @@ void JBusObject::ObjectRegistered()
          */
         jobject jo = env->NewLocalRef(jbusObj);
         if (!jo) {
-            QCC_LogError(ER_FAIL, ("JBusObject::ObjectRegistered(): Can't get new local reference to BusObject\n"));
+            QCC_LogError(ER_FAIL, ("JBusObject::ObjectRegistered(): Can't get new local reference to BusObject"));
             return;
         }
 
@@ -7127,7 +7417,7 @@ void JBusObject::ObjectUnregistered()
          */
         jobject jo = env->NewLocalRef(jbusObj);
         if (!jo) {
-            QCC_LogError(ER_FAIL, ("JBusObject::ObjectUnregistered(): Can't get new local reference to BusObject\n"));
+            QCC_LogError(ER_FAIL, ("JBusObject::ObjectUnregistered(): Can't get new local reference to BusObject"));
             return;
         }
 
@@ -7147,12 +7437,25 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(J
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusObject(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusObject(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_registerBusObject(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QStatus status = busPtr->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusObject(): Exception"));
         return NULL;
     }
 
@@ -7164,10 +7467,17 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject(JN
     QCC_DbgPrintf(("BusAttachment_unregisterBusObject()\n"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    QCC_DbgPrintf(("BusAttachment_unregisterBusObject(): Refcount on busPtr is %d\n", busPtr->GetRef()));
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusObject(): Exception"));
         return;
     }
+
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterBusObject(): NULL bus pointer"));
+        return;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_unregisterBusObject(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     busPtr->UnregisterBusObject(jbusObject);
 }
@@ -7321,11 +7631,23 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     QCC_DbgPrintf(("BusAttachment_registerNativeSignalHandler(): Refcount on busPtr is %d\n", busPtr->GetRef()));
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerNativeSignalHandler(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerNativeSignalHandler(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
         return NULL;
     }
 
     QStatus status = busPtr->RegisterSignalHandler(ifaceName.c_str(), signalName.c_str(), jsignalHandler, jmethod, srcPath);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_registerBusObject(): Exception"));
         return NULL;
     }
 
@@ -7338,8 +7660,20 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterSignalHandle
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterNativeSignalHandler(): Exception"));
         return;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_unregisterNativeSignalHandler(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return;
+    }
+
     QCC_DbgPrintf(("BusAttachment_unregisterNativeSignalHandler(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     busPtr->UnregisterSignalHandler(jsignalHandler, jmethod);
@@ -7351,8 +7685,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getUniqueName(JNIEn
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getUniqueName(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getUniqueName(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_getUniqueName(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     return env->NewStringUTF(busPtr->GetUniqueName().c_str());
@@ -7364,8 +7710,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getGlobalGUIDString
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getGlobalGUIDString(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getGlobalGUIDString(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_getGlobalGUIDString(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     return env->NewStringUTF(busPtr->GetGlobalGUIDString().c_str());
@@ -7377,8 +7735,14 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeyStore(JNIEnv* 
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_clearKeyStore(): Exception"));
         return;
     }
+
+    if (busPtr == NULL) {
+        return;
+    }
+
     QCC_DbgPrintf(("BusAttachment_clearKeyStore(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     busPtr->ClearKeyStore();
@@ -7393,14 +7757,26 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
      */
     JString guid(jguid);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_clearKeys(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_clearKeys(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_clearKeys(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_clearKeys(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_clearKeys(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QCC_DbgPrintf(("BusAttachment_clearKeys(): Call ClearKeys(%s)\n", guid.c_str()));
@@ -7408,7 +7784,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_clearKeys(JNIEnv* e
     QStatus status = busPtr->ClearKeys(guid.c_str());
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_clearKeys(): ClearKeys() fails\n"));
+        QCC_LogError(status, ("BusAttachment_clearKeys(): ClearKeys() fails"));
     }
 
     return JStatus(status);
@@ -7423,22 +7799,34 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setKeyExpiration(JN
      */
     JString guid(jguid);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_setKeyExpiration(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_setKeyExpiration(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setKeyExpiration(): Exception"));
         return NULL;
     }
+
     QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_setKeyExpiration(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
 
     QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Call SetKeyExpiration(%s, %d)\n", guid.c_str(), jtimeout));
 
     QStatus status = busPtr->SetKeyExpiration(guid.c_str(), jtimeout);
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_setKeyExpiration(): SetKeyExpiration() fails\n"));
+        QCC_LogError(status, ("BusAttachment_setKeyExpiration(): SetKeyExpiration() fails"));
     }
 
     return JStatus(status);
@@ -7453,14 +7841,26 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getKeyExpiration(JN
      */
     JString guid(jguid);
     if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_getKeyExpiration(): Exception\n"));
+        QCC_LogError(ER_FAIL, ("BusAttachment_getKeyExpiration(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getKeyExpiration(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_getKeyExpiration(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_getKeyExpiration(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -7485,7 +7885,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getKeyExpiration(JN
     env->SetIntField(jtimeout, timeoutValueFid, timeout);
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_getKeyExpiration(): GetKeyExpiration() fails\n"));
+        QCC_LogError(status, ("BusAttachment_getKeyExpiration(): GetKeyExpiration() fails"));
     }
 
     return JStatus(status);
@@ -7497,8 +7897,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIE
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_reloadKeyStore(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_reloadKeyStore(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("BusAttachment_reloadKeyStore(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     QCC_DbgPrintf(("BusAttachment_reloadKeyStore(): Call ReloadKeyStore()\n"));
@@ -7506,7 +7918,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore(JNIE
     QStatus status = busPtr->ReloadKeyStore();
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_reloadKeyStore(): ReloadKeyStore() fails\n"));
+        QCC_LogError(status, ("BusAttachment_reloadKeyStore(): ReloadKeyStore() fails"));
     }
 
     return JStatus(status);
@@ -7577,8 +7989,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_create(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_create(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("InterfaceDescription_create(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     InterfaceDescription* intf;
@@ -7617,27 +8041,32 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
 
     InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMember(): Exception"));
         return NULL;
     }
     assert(intf);
 
     JString name(jname);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMember(): Exception"));
         return NULL;
     }
 
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMember(): Exception"));
         return NULL;
     }
 
     JString outSig(joutSig);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMember(): Exception"));
         return NULL;
     }
 
     JString accessPerm(jaccessPerm);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMember(): Exception"));
         return NULL;
     }
 
@@ -7667,17 +8096,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(
 
     InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addProperty(): Exception"));
         return NULL;
     }
     assert(intf);
 
     JString name(jname);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addProperty(): Exception"));
         return NULL;
     }
 
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addProperty(): Exception"));
         return NULL;
     }
 
@@ -7704,8 +8136,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv
 
     InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_activate(): Exception"));
         return;
     }
+
     assert(intf);
 
     intf->Activate();
@@ -7749,18 +8183,28 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, j
 
     JString busName(jbusName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_create(): Exception"));
         return;
     }
 
     JString objPath(jobjPath);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_create(): Exception"));
         return;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_create(): Exception"));
         return;
     }
+
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_create(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return;
+    }
+
     QCC_DbgPrintf(("ProxyBusObject_create(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     /*
@@ -7791,6 +8235,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env, 
         return;
     }
 
+    if (proxyBusObj == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_destroy(): NULL bus object pointer"));
+        return;
+    }
+
     QCC_DbgPrintf(("ProxyBusObject_destroy(): Refcount on busPtr now %d\n", proxyBusObj->busPtr->GetRef()));
 
     /*
@@ -7816,8 +8265,10 @@ static void AddInterface(jobject thiz, jobject jbus, jstring jinterfaceName)
 
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("AddInterface(): Exception"));
         return;
     }
+
     assert(proxyBusObj);
 
     JString interfaceName(jinterfaceName);
@@ -7834,18 +8285,27 @@ static void AddInterface(jobject thiz, jobject jbus, jstring jinterfaceName)
     QStatus status = (QStatus)env->CallIntMethod(thiz, mid, jinterfaceName);
     if (env->ExceptionCheck()) {
         /* AnnotationBusException */
+        QCC_LogError(ER_FAIL, ("AddInterface(): Exception"));
         return;
     }
 
     if (ER_OK != status) {
+        QCC_LogError(ER_FAIL, ("AddInterface(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         return;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("AddInterface(): Exception"));
         return;
     }
+
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("AddInterface(): NULL bus pointer"));
+        return;
+    }
+
     QCC_DbgPrintf(("AddInterface(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     const InterfaceDescription* intf = busPtr->GetInterface(interfaceName.c_str());
@@ -7872,31 +8332,48 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
 
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
         return NULL;
     }
 
     JString methodName(jmethodName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
         return NULL;
     }
 
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
         return NULL;
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
         return NULL;
     }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
     QCC_DbgPrintf(("ProxybusObject_methodCall(): Refcount on busPtr is %d\n", busPtr->GetRef()));
 
     Message replyMsg(*busPtr);
 
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
         return NULL;
     }
+
     assert(proxyBusObj);
 
     MsgArg args;
@@ -7981,23 +8458,28 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
 
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
         return NULL;
     }
 
     JString propertyName(jpropertyName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
         return NULL;
     }
 
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
         return NULL;
     }
+
     assert(proxyBusObj);
 
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
         AddInterface(thiz, jbus, jinterfaceName);
         if (env->ExceptionCheck()) {
+            QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
             return NULL;
         }
     }
@@ -8007,6 +8489,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
     if (ER_OK == status) {
         return Unmarshal(&value, CLS_Variant);
     } else {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         return NULL;
     }
@@ -8024,28 +8507,34 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
 
     JString interfaceName(jinterfaceName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         return;
     }
 
     JString propertyName(jpropertyName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         return;
     }
 
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         return;
     }
 
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         return;
     }
+
     assert(proxyBusObj);
 
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
         AddInterface(thiz, jbus, jinterfaceName);
         if (env->ExceptionCheck()) {
+            QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
             return;
         }
     }
@@ -8058,6 +8547,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
         status = ER_FAIL;
     }
     if (ER_OK != status) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
 }
@@ -8070,26 +8560,31 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jo
 
     JString destination(jdestination);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         return;
     }
 
     JString ifaceName(jifaceName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         return;
     }
 
     JString signalName(jsignalName);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         return;
     }
 
     JString inputSig(jinputSig);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         return;
     }
 
     MsgArg args;
     if (!Marshal(inputSig.c_str(), jargs, &args)) {
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Marshal() error"));
         return;
     }
 
@@ -8112,6 +8607,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jo
     if (!busObject) {
         QCC_DbgPrintf(("SignalEmitter_signal(): Releasing global Bus Object map lock\n"));
         gBusObjectMapLock.Unlock();
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
         return;
     }
@@ -8123,6 +8619,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jo
     gBusObjectMapLock.Unlock();
 
     if (ER_OK != status) {
+        QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
 }
@@ -8133,6 +8630,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env,
 
     JString signature(jsignature);
     if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("Signature_split(): Exception"));
         return NULL;
     }
     const char* next = signature.c_str();
@@ -8173,6 +8671,11 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_Variant_destroy(JNIEnv* env, jobject
     // QCC_DbgPrintf(("Variant_destroy()\n"));
 
     MsgArg* arg = GetHandle<MsgArg*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("Variant_destroy(): Exception"));
+        return;
+    }
+
     if (!arg) {
         return;
     }
