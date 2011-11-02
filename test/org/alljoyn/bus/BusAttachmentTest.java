@@ -163,20 +163,54 @@ public class BusAttachmentTest extends TestCase {
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                                             this, getClass().getMethod("signalHandler2", String.class));
         assertEquals(Status.OK, status);
+
+        //
+        // Emit a signal and make sure that both of the handlers we registered
+        // receive that signal.
+        //
         emitter.Emit("emit1");
-        this.wait(500);
-        //check if we need to continue to waiting
-        if(handledSignals1 != 1 || handledSignals2 != 1 ) {
-            this.wait(500);
+
+        //
+        // It's hard to say what the minimum time to wait is, but we have to
+        // impose a maximum time or we wait forever.  Any conceivable machine
+        // whether running on a VM or not should be able to send and receive a
+        // signal in ten seconds.  We'll do the wait in increments of one second
+        // to minimize the time in the best case.
+        //
+        for (int i = 0; i < 10; ++i) {
+            this.wait(1000);
+            //
+            // Break out as soon as we see the result we need.
+            //
+            if(handledSignals1 == 1 && handledSignals2 == 1 ) {
+                break;
+            }
         }
         
         assertEquals(1, handledSignals1);
         assertEquals(1, handledSignals2);
 
         handledSignals1 = handledSignals2 = 0;
+
+        //
+        // Unregister one of the handlers and make sure that the unregistered
+        // handler does not receive the signal but the second handler continues
+        // to get the signal.
+        //
         bus.unregisterSignalHandler(this, getClass().getMethod("signalHandler1", String.class));
         emitter.Emit("emit2");
-        this.wait(500);
+
+        //
+        // We want to wait go make sure that we *don't* see a signal, so we
+        // have to wait long enough for any conceivable machine to possible
+        // receive one.  We can't really wait until the one is received since
+        // the driving thread could be blocked for unknown amounts of time and
+        // could simply come back later and deliver the signal.  So this test
+        // is hard to do in a minimum time.  Since we pulled a time out of the
+        // hat above when we decided that any reasonable machine must be able
+        // to do a signal in ten seconds, we should use that here as well.
+        //
+        this.wait(10000);
         assertEquals(0, handledSignals1);
         assertEquals(1, handledSignals2);
         bus.unregisterSignalHandler(this, getClass().getMethod("signalHandler2", String.class));
