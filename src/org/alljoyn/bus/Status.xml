@@ -22,4 +22,5 @@ Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
   <status name="ER_INVALID_CONNECT_ARGS" value="0xa001" comment="The org.alljoyn.bus.address property is null"/>
   <status name="ER_ALREADY_FINDING" value="0xa002" comment="A find name request for the well-known name prefix is already active"/>
   <status name="ER_CANCELLED" value="0xa003" comment="An operation was cancelled"/>
+  <status name="ER_ALREADY_REGISTERED" value="0xa004" comment="An AuthListener is already set on this BusAttachment"/>
 </status_block>
