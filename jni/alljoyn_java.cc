@@ -1174,6 +1174,14 @@ class JBusAttachment : public BusAttachment {
     Mutex baCommonLock;
 
     /**
+     * A mutex to serialize method call, property, etc., access in any attached
+     * ProxyBusObject.  This is a blunt instrument, but support for
+     * multi-threading on client and service sides has not been completely
+     * implemented, so we simply disallow it for now.
+     */
+    Mutex baProxyLock;
+
+    /**
      * A vector of all of the C++ "halves" of the signal handler objects
      * associated with this bus attachment.  Note that this member is public
      * since we trust that the native binding we wrote will usse it correctly.
@@ -8373,28 +8381,42 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
 
     QCC_DbgPrintf(("ProxybusObject_methodCall(): Refcount on busPtr is %d", busPtr->GetRef()));
 
+    /*
+     * This part of the binding and on down lower is fundamentally single
+     * threaded.  We want to eventually support multiple overlapping synchronous
+     * calls, but we do not support this now.
+     *
+     * It might sound reasonable for a user of the bindings to get around this
+     * limitation by spinning up a bunch of threads to make overlapping
+     * synchronous method calls.  Since these calls will be coming in here to be
+     * dispatched, We have to actively prevent this from happening for now.
+     *
+     * It's a bit of a blunt instrument, but we acquire a common method call lock
+     * in the underlying bus attachment before allowing any method call on a
+     * proxy bus object to proceed.
+     */
+    busPtr->baProxyLock.Lock();
+
     Message replyMsg(*busPtr);
 
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        busPtr->baProxyLock.Unlock();
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
         return NULL;
     }
 
     assert(proxyBusObj);
 
-    MsgArg args;
-    QStatus status;
-    const MsgArg* replyArgs;
-    size_t numReplyArgs;
-    jobject jreplyArg = NULL;
     const InterfaceDescription::Member* member = NULL;
 
     const InterfaceDescription* intf = proxyBusObj->GetInterface(interfaceName.c_str());
     if (!intf) {
         AddInterface(thiz, jbus, jinterfaceName);
         if (env->ExceptionCheck()) {
-            goto exit;
+            busPtr->baProxyLock.Unlock();
+            QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Exception"));
+            return NULL;
         }
         intf = proxyBusObj->GetInterface(interfaceName.c_str());
         assert(intf);
@@ -8402,12 +8424,21 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
 
     member = intf->GetMember(methodName.c_str());
     if (!member) {
+        busPtr->baProxyLock.Unlock();
         env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_INTERFACE_NO_SUCH_MEMBER));
-        goto exit;
+        return NULL;
     }
 
+    MsgArg args;
+    QStatus status;
+    const MsgArg* replyArgs;
+    size_t numReplyArgs;
+    jobject jreplyArg = NULL;
+
     if (!Marshal(inputSig.c_str(), jargs, &args)) {
-        goto exit;
+        busPtr->baProxyLock.Unlock();
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Marshal failure"));
+        return jreplyArg;
     }
 
     if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
@@ -8450,7 +8481,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         }
     }
 
-exit:
+    busPtr->baProxyLock.Unlock();
     if (env->ExceptionCheck()) {
         return NULL;
     } else {
@@ -8475,8 +8506,43 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
         return NULL;
     }
 
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("ProxybusObject_getproperty(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    /*
+     * This part of the binding and on down lower is fundamentally single
+     * threaded.  We want to eventually support multiple overlapping synchronous
+     * calls, but we do not support this now.
+     *
+     * It might sound reasonable for a user of the bindings to get around this
+     * limitation by spinning up a bunch of threads to make overlapping get
+     * property calls.  Since these calls will be coming in here to be
+     * dispatched, We have to actively prevent this from happening for now.
+     *
+     * It's a bit of a blunt instrument, but we acquire a common method call lock
+     * in the underlying bus attachment before allowing any method call on a
+     * proxy bus object to proceed.
+     */
+    busPtr->baProxyLock.Lock();
+
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        busPtr->baProxyLock.Unlock();
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
         return NULL;
     }
@@ -8486,6 +8552,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
         AddInterface(thiz, jbus, jinterfaceName);
         if (env->ExceptionCheck()) {
+            busPtr->baProxyLock.Unlock();
             QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
             return NULL;
         }
@@ -8494,9 +8561,12 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
     MsgArg value;
     QStatus status = proxyBusObj->GetProperty(interfaceName.c_str(), propertyName.c_str(), value);
     if (ER_OK == status) {
-        return Unmarshal(&value, CLS_Variant);
+        jobject obj = Unmarshal(&value, CLS_Variant);
+        busPtr->baProxyLock.Unlock();
+        return obj;
     } else {
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
+        busPtr->baProxyLock.Unlock();
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         return NULL;
     }
@@ -8530,8 +8600,38 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
         return;
     }
 
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
+        return;
+    }
+
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): NULL bus pointer"));
+        return;
+    }
+
+    QCC_DbgPrintf(("ProxybusObject_setproperty(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    /*
+     * This part of the binding and on down lower is fundamentally single
+     * threaded.  We want to eventually support multiple overlapping synchronous
+     * calls, but we do not support this now.
+     *
+     * It might sound reasonable for a user of the bindings to get around this
+     * limitation by spinning up a bunch of threads to make overlapping set
+     * property calls.  Since these calls will be coming in here to be
+     * dispatched, We have to actively prevent this from happening for now.
+     *
+     * It's a bit of a blunt instrument, but we acquire a common method call lock
+     * in the underlying bus attachment before allowing any method call on a
+     * proxy bus object to proceed.
+     */
+    busPtr->baProxyLock.Lock();
+
     JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
     if (env->ExceptionCheck()) {
+        busPtr->baProxyLock.Unlock();
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         return;
     }
@@ -8541,6 +8641,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
     if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
         AddInterface(thiz, jbus, jinterfaceName);
         if (env->ExceptionCheck()) {
+            busPtr->baProxyLock.Unlock();
             QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
             return;
         }
@@ -8557,6 +8658,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_setProperty(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
+    busPtr->baProxyLock.Unlock();
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jobject thiz, jobject jbusObject, jstring jdestination,
