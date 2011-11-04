@@ -4720,7 +4720,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_addMatch(JNIEnv*env
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeMatch(JNIEnv*env, jobject thiz,
                                                                          jstring jrule)
 {
-    QCC_DbgPrintf(("BusAttachment_addMatch()\n"));
+    QCC_DbgPrintf(("BusAttachment_removeMatch()\n"));
 
     /*
      * Load the C++ well-known name with the Java well-known name.
@@ -7524,6 +7524,9 @@ bool JSignalHandler::IsSameObject(jobject jobj, jobject jmeth)
 QStatus JSignalHandler::Register(BusAttachment& bus, const char* ifaceName, const char* signalName,
                                  const char* srcPath)
 {
+    if (bus.IsConnected() == false) {
+        return ER_BUS_NOT_CONNECTED;
+    }
     const InterfaceDescription* intf = bus.GetInterface(ifaceName);
     if (!intf) {
         return ER_BUS_NO_SUCH_INTERFACE;
@@ -7542,21 +7545,19 @@ QStatus JSignalHandler::Register(BusAttachment& bus, const char* ifaceName, cons
         if (!source.empty()) {
             rule += ",path='" + source + "'";
         }
-        MsgArg arg("s", rule.c_str());
-        Message reply(bus);
-        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
-        status = dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "AddMatch", &arg, 1, reply);
+        status = bus.AddMatch(rule.c_str());
     }
     return status;
 }
 
 void JSignalHandler::Unregister(BusAttachment& bus)
 {
+    if (bus.IsConnected() == false) {
+        return;
+    }
+
     if (member) {
-        MsgArg arg("s", rule.c_str());
-        Message reply(bus);
-        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
-        dbusObj.MethodCall(ajn::org::freedesktop::DBus::InterfaceName, "RemoveMatch", &arg, 1, reply);
+        bus.RemoveMatch(rule.c_str());
 
         bus.UnregisterSignalHandler(this,
                                     static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler),
