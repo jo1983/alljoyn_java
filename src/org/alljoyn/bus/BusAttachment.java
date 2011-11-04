@@ -538,11 +538,15 @@ public class BusAttachment {
         private static final int NEW_PASSWORD   = 0x1001;
         private static final int ONE_TIME_PWD   = 0x2001;
 
-        private AuthListener authListener;
+        private AuthListener authListener = null;
         private SecurityViolationListener violationListener;
 
         public void setAuthListener(AuthListener authListener) {
             this.authListener = authListener;
+        }
+
+        public boolean authListenerSet() {
+            return authListener != null;
         }
 
         public void setSecurityViolationListener(SecurityViolationListener violationListener) {
@@ -1125,6 +1129,15 @@ public class BusAttachment {
      */
     public Status registerAuthListener(String authMechanisms, AuthListener listener, 
                                        String keyStoreFileName, boolean isShared) {
+
+        /*
+         * It is not possible to register multiple AuthListeners or replace an
+         * existing AuthListener.
+         */
+        if (busAuthListener.authListenerSet()) {
+            return Status.ALREADY_REGISTERED;
+        }
+
         this.authMechanisms = authMechanisms;
         busAuthListener.setAuthListener(listener);
         this.keyStoreFileName = keyStoreFileName;
