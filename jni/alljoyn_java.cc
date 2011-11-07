@@ -465,38 +465,39 @@ using namespace ajn;
  *
  *              +--- Bindings Strong Reference (7)
  *              |
- *              |              (1)                                               (2) (8)
- *      +-------------+   Java Weak Ref  +--------------+  C++ Object Ref  +----------------+
- *      | Java Object | <--------------- |  C++ Object  | <--------------- |    AllJoyn     |
- *      |             |                  |              | --------+        | Bus Attachment |
- *      |   Extends   |                  |  Implements  |         |        +----------------+
- *      |  Bus Object |                  |  Bus Object  |         |                       ^
- *      |  Implements |                  | Methods from |         |                       |
- *      |  Interface  |                  |   C++ class  |         |                       |
- *      |  Interface  |                  +--------------+         | (3) Pointer to        |
- *      |     ...     |                         ^                 |     refcounted        |
- *      +-------------+                         |                 |     object            |
- *             ^                                |                 |                       |
- *             |                                |                 |                       |
- *     +----------------+                       |                 |                       |
- *     | Signal Emitter | (5)                   |                 |                       |
- *     +----------------+                       |                 |                       | (4) C++ Bus Attachment
- *             |                                |                 |                       |     ISA AllJoyn Bus
- *             v                                |                 |                       |     Attachment
- *     [Java Object, Ref Count, C++ Object] ----+ (6) (7)         |                       |
- *             ^                                                  |                       |
- *             |                                                  |                       |
- *             +-------------------------------------------------->---------------+       |
- *                                                                |               |       |
- *                                           +--------------------+               |       |
- *                                           |                                    |       |
- *                                           v                                    |       |
- *     +---------------------+     +--------------------+                         |       |
- *     | Java Bus Attachment | --> | C++ Bus Attachment | --> [Java Bus Object] --+ (8)   |
- *     +---------------------+     +--------------------+     [Java Bus Object]           |
- *                                           |                                            |
- *                                           |                                            |
- *                                           +--------------------------------------------
+ *              |              (1)                                                  (2) (8)
+ *      +-------------+   Java Weak Ref  +--------------+    C++ Object Ref    +----------------+
+ *      | Java Object | <--------------- |  C++ Object  | <------------------- |    AllJoyn     |
+ *      |             |                  |              | --------+            | Bus Attachment |
+ *      |   Extends   |                  |  Implements  |         |            +----------------+
+ *      |  Bus Object |                  |  Bus Object  |         |                         ^
+ *      |  Implements |                  | Methods from |         |                         |
+ *      |  Interface  |                  |   C++ class  |         |                         |
+ *      |  Interface  |                  +--------------+         | (3) Pointer to          |
+ *      |     ...     |                         ^                 |     refcounted          |
+ *      +-------------+                         |                 |     object              |
+ *             ^                                |                 |                         |
+ *             |                                |                 |                         |
+ *     +----------------+                       |                 |                         |
+ *     | Signal Emitter | (5)                   |                 |                         |
+ *     +----------------+                       |                 |                         | (4) C++ Bus Attachment
+ *             |                                |                 |                         |     ISA AllJoyn Bus
+ *             v                                |                 |                         |     Attachment
+ *     [Java Object, Ref Count, C++ Object] ----+ (6) (7)         |                         |
+ *             ^                                                  |                         |
+ *             |                                                  |                         |
+ *             +--------------------------------------------------)---------------+         |
+ *                                                                |               |         |
+ *                                           +--------------------+               |         |
+ *                                           |                                    |         |
+ *                                           v                                    |         |
+ *     +---------------------+     +--------------------+                         |         |
+ *     | Java Bus Attachment | --> | C++ Bus Attachment | --> [Java Bus Object] --+ (8) (9) |
+ *     +---------------------+     +--------------------+     [Java Bus Object]             |
+ *                                           |                                              |
+ *                                           |                                              |
+ *                                           +----------------------------------------------+
+ *
  * (1) As usual, there is a one-to-one relationship between the provided Java
  *     object and the associated C++ object, but the relationship is one-way
  *     since there is no bindings state in the Java Object.  The Java reference
@@ -550,7 +551,26 @@ using namespace ajn;
  *     of the bindings references to Java Bus Objects and delete any C++ objects
  *     that are no longer necessary.  We must have a list of Java Bus Objects in
  *     each Bus Attachment for cleanup purposes.
-
+ *
+ * (9) The detail to be aware of in (8) is that since a BusObject is an
+ *     interface we have no way to know when the user is done with a particular
+ *     BusObject.  If we had our hands on it, we could know when the user is
+ *     done by hooking the finalizer.  We do want to make sure that the resources
+ *     allocated to the BusAttachment are not held up by a user forgetting to
+ *     Unregister a bus object.  Do enable this, we run through our list of
+ *     Java bus objects in the BusAttachment finalizer and unregister all of the
+ *     bus objects.  This is okay since the BusAttachment is completely stopped
+ *     and we know we'll never call out to the correcponding Java objects again.
+ *     This way, a memory leak in a Java BusObject just leaks the user object.
+ *
+ *     The tricky bit is that the JBusAttachment is reference counted, so it is
+ *     only deleted when its reference count is decremented to zero; but each of
+ *     the BusObjects hods a reference to the JBusAttachment.  We have to
+ *     release the BusObject reference counts in order to get the destructor to
+ *     run, so these releases must happen elsewhere.  Elsewhere is in the bus
+ *     attachment finalize function out in Java-land, where we call in with a
+ *     destroy method that indicates that a final shutdown is happening.
+ *
  * To summarize, this is quite a bit of complexity for this particular case,
  * but it supports a required API feature, which is that the BusObject be an
  * interface.
@@ -1936,7 +1956,7 @@ JBusObject* GetBackingObject(jobject jbusObject)
 
 /**
  * Given a Java object that someone is claiming has been registered as a bus
- * object with a bus attachment; return the corresponding stron reference to it
+ * object with a bus attachment; return the corresponding strong reference to it
  * that we must have saved.
  */
 jobject GetGlobalRefForObject(jobject jbusObject)
@@ -3133,7 +3153,6 @@ JAuthListener::~JAuthListener()
      */
     QCC_DbgPrintf(("JAuthListener::~JAuthListener(): Refcount on busPtr before decrement is %d", busPtr->GetRef()));
     busPtr->DecRef();
-    QCC_DbgPrintf(("JAuthListener::~JAuthListener(): Refcount on busPtr after decrement is %d", busPtr->GetRef()));
     busPtr = NULL;
 
     if (jauthListener) {
@@ -3576,30 +3595,13 @@ JBusAttachment::~JBusAttachment()
 {
     QCC_DbgPrintf(("JBusAttachment::~JBusAttachment()"));
 
-    JNIEnv* env = GetEnv();
-
     /*
-     * We've got to release references to the Bus Objects that this particular Bus Attachment
-     * holds.
+     * Note that the Bus Objects for this Bus Attachment are assumed to have
+     * previously been released, since they will have held references to the
+     * bus attachment that would have prevented its reference count from
+     * going to zero and thus kept the bus attachment alive.
      */
-    QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): Releasing BusObjects"));
-    for (list<jobject>::iterator i = busObjects.begin(); i != busObjects.end(); ++i) {
-        /*
-         * If we are the last BusAttachment to use this bus Object, we acquire
-         * the memory management responsibility for the associated C++ object.
-         */
-        QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): DecRefBackingObject on %p", *i));
-        JBusObject* cppObject = DecRefBackingObject(*i);
-        if (cppObject) {
-            QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): deleting cppObject %p", cppObject));
-            delete cppObject;
-            cppObject = NULL;
-        }
-
-        QCC_DbgPrintf(("JBusAttachment::~JBusAttachment(): Releasing strong global reference to Bus Object %p", *i));
-        env->DeleteGlobalRef(*i);
-    }
-    busObjects.clear();
+    assert(busObjects.size() == 0);
 }
 
 /**
@@ -3738,7 +3740,6 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Taking Bus Attachment common lock"));
     baCommonLock.Lock();
-
 
     /*
      * Release any strong references we may hold to Java bus listener objects.
@@ -4353,7 +4354,6 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jo
          */
         QCC_DbgPrintf(("BusAttachment_create(): Refcount on busPtr before decrement is %d", busPtr->GetRef()));
         busPtr->DecRef();
-        QCC_DbgPrintf(("BusAttachment_create(): Refcount on busPtr after decrement is %d", busPtr->GetRef()));
         busPtr = NULL;
     }
 }
@@ -4391,20 +4391,69 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_destroy(JNIEnv* env,
     QCC_DbgPrintf(("BusAttachment_destroy()"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    if (env->ExceptionCheck() || busPtr == NULL) {
-        QCC_DbgPrintf(("BusAttachment_destroy(): Exception or already destroyed. Returning."));
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_destroy(): Exception"));
         return;
     }
+
+    if (busPtr == NULL) {
+        QCC_DbgPrintf(("BusAttachment_destroy(): Already destroyed. Returning."));
+        return;
+    }
+
+    /*
+     * We want to allow users to forget the BusAttachent in Java by setting a
+     * reference to null.  We want to reclaim all of our resources, including
+     * those held by BusObjects which hold references to our bus attachment.  We
+     * don't want to force our user to explicitly unregister those bus objects,
+     * which is the only way we can get an indication that the BusObject is
+     * going away.  This is becuase BusObjects are interfaces and we have no way
+     * to hook the finalize on those objects and drive release of the underlying
+     * resources.
+     *
+     * So we want to and can use this method (destroy) to drive the release of
+     * all of the Java bus object C++ backing objects.  Since the garbage
+     * collector has run on the bus attachment (we are running here) we know
+     * there is no way for a user to access the bus attachment.  We assume that
+     * the BusAttachment release() and or finalize() methods have ensured that
+     * the BusAttachment is disconnected and stopped, so it will never call out
+     * to any of its associated objects.
+     *
+     * So, we release references to the Bus Objects that this particular Bus
+     * Attachment holds now.  The theory is that nothing else can be accessing
+     * the bus attachment or the bus obejcts, so we don't need to take the
+     * multithread locks any more than the bus attachment destructor will.
+     */
+    QCC_DbgPrintf(("BusAttachment_destroy(): Releasing BusObjects"));
+    for (list<jobject>::iterator i = busPtr->busObjects.begin(); i != busPtr->busObjects.end(); ++i) {
+        /*
+         * If we are the last BusAttachment to use this bus Object, we acquire
+         * the memory management responsibility for the associated C++ object.
+         * This is a vestige of an obsolete idea, but we still need to do it.
+         * We expect we will always have the memory management responsibility.
+         */
+        QCC_DbgPrintf(("BusAttachment_destroy(): DecRefBackingObject on %p", *i));
+        JBusObject* cppObject = DecRefBackingObject(*i);
+        if (cppObject) {
+            QCC_DbgPrintf(("BusAttachment_destroy(): deleting cppObject %p", cppObject));
+            delete cppObject;
+            cppObject = NULL;
+        }
+
+        QCC_DbgPrintf(("BusAttachment_destroy(): Releasing strong global reference to Bus Object %p", *i));
+        env->DeleteGlobalRef(*i);
+    }
+    busPtr->busObjects.clear();
 
     /*
      * We don't want to directly delete a reference counted object, we want to
      * decrement the refererence count.  As soon as this refcount goes to zero
      * the object on the heap will be deallocated via a delete this, so we must
-     * forget it now and forever.
+     * forget it now and forever.  Since we just released all of the bus object
+     * references, we assume that the bus attachment actually goes away now.
      */
     QCC_DbgPrintf(("BusAttachment_destroy(): Refcount on busPtr is %d before decrement", busPtr->GetRef()));
     busPtr->DecRef();
-    QCC_DbgPrintf(("BusAttachment_destroy(): Refcount on busPtr is %d after decrement", busPtr->GetRef()));
     SetHandle(thiz, NULL);
 }
 
@@ -4547,7 +4596,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusListener_create(JNIEnv* env, jobj
 
     assert(GetHandle<JBusListener*>(thiz) == NULL);
     if (env->ExceptionCheck()) {
-        QCC_DbgPrintf(("BusListener_create(): Exception."));
+        QCC_LogError(ER_FAIL, ("BusAttachment_create(): Exception"));
         return;
     }
 
@@ -4918,7 +4967,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
     }
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("BusAttachment_findAdvertsiedName(): FindAdvertisedName() fails"));
+        QCC_LogError(status, ("BusAttachment_findAdvertisedName(): FindAdvertisedName() fails"));
     }
 
     return JStatus(status);
@@ -5800,7 +5849,6 @@ JOnJoinSessionListener::~JOnJoinSessionListener()
     if (busPtr) {
         QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Refcount on busPtr before decrement is %d", busPtr->GetRef()));
         busPtr->DecRef();
-        QCC_DbgPrintf(("JOnJoinSessionListener::~JOnJoinSessionListener(): Refcount on busPtr after decrement is %d", busPtr->GetRef()));
         busPtr = NULL;
     }
 }
@@ -6631,20 +6679,27 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env
 {
     QCC_DbgPrintf(("BusAttachment_disconnect()"));
 
-    JString connectArgs(jconnectArgs);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): Exception"));
-        return;
-    }
-
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): Exception"));
         return;
     }
 
+    /*
+     * It is possible that having a NULL busPtr at this point is perfectly legal.
+     * This would happen if the client explitly called release() before giving
+     * up its Java pointer.  In this case, by definition, the underlying C++
+     * object has been released and our busPtr will be NULL.  We print a debug
+     * message in case this is unexpected, but do not produce an error.
+     */
     if (busPtr == NULL) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): NULL bus pointer"));
+        QCC_DbgPrintf(("BusAttachment_disconnect(): NULL bus pointer"));
+        return;
+    }
+
+    JString connectArgs(jconnectArgs);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_disconnect(): Exception"));
         return;
     }
 
@@ -6789,7 +6844,6 @@ JBusObject::~JBusObject()
 
     QCC_DbgPrintf(("JBusObject::~JBusObject(): Refcount on busPtr before decrement is %d", busPtr->GetRef()));
     busPtr->DecRef();
-    QCC_DbgPrintf(("JBusObject::~JBusObject(): Refcount on busPtr after decrement is %d", busPtr->GetRef()));
     busPtr = NULL;
 }
 
@@ -8267,10 +8321,9 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_destroy(JNIEnv* env, 
      * base class (BusObject) finishes its destruction process.
      */
     JBusAttachment* busPtr = proxyBusObj->busPtr;
-    QCC_DbgPrintf(("ProxyBusObject_destroy(): Refcount on busPtr before decrement is %d", busPtr->GetRef()));
     delete proxyBusObj;
+    QCC_DbgPrintf(("ProxyBusObject_destroy(): Refcount on busPtr before decrement is %d", busPtr->GetRef()));
     busPtr->DecRef();
-    QCC_DbgPrintf(("ProxyBusObject_destroy(): Refcount on busPtr after decrement is %d", busPtr->GetRef()));
     SetHandle(thiz, NULL);
 }
 

@@ -736,6 +736,7 @@ public class BusAttachment {
      * after the release() method has been called.
      */
     public void release() {
+        disconnect();
         if (dbusbo != null) {
             dbusbo.release();
             dbusbo = null;
@@ -748,6 +749,7 @@ public class BusAttachment {
      * Let the Java garbage collector release resources.
      */
     protected void finalize() throws Throwable {
+        disconnect();
         try {
             dbusbo = null;
             dbus = null;
