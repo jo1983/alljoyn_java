@@ -628,6 +628,9 @@ public class BusAttachment {
     /** Specify if the default key store is shared */
     private boolean isShared;
 
+    /** Specify if the attachment is connected */
+    private boolean isConnected;
+
     private Method foundAdvertisedName;
 
     private ExecutorService executor;
@@ -656,6 +659,7 @@ public class BusAttachment {
      */
     public BusAttachment(String applicationName, RemoteMessage policy) {
         isShared = false;
+        isConnected = false;
         this.allowRemoteMessages = (policy == RemoteMessage.Receive);
         busAuthListener = new AuthListenerInternal();
         try {
@@ -736,7 +740,9 @@ public class BusAttachment {
      * after the release() method has been called.
      */
     public void release() {
-        disconnect();
+        if (isConnected == true) {
+            disconnect();
+        }
         if (dbusbo != null) {
             dbusbo.release();
             dbusbo = null;
@@ -749,7 +755,9 @@ public class BusAttachment {
      * Let the Java garbage collector release resources.
      */
     protected void finalize() throws Throwable {
-        disconnect();
+        if (isConnected == true) {
+            disconnect();
+        }
         try {
             dbusbo = null;
             dbus = null;
@@ -813,7 +821,11 @@ public class BusAttachment {
             address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
         }
         if (address != null) {
-            return connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName, isShared);
+            Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName, isShared);
+            if (status == Status.OK) {
+                isConnected = true;
+            }
+            return status;
         } else {
             return Status.INVALID_CONNECT_ARGS;
         }
@@ -827,6 +839,7 @@ public class BusAttachment {
 //            unregisterSignalHandler(this, foundAdvertisedName);
 //            unregisterSignalHandler(this, lostAdvertisedName);
             disconnect(address);
+            isConnected = false;
         }
     }
 
