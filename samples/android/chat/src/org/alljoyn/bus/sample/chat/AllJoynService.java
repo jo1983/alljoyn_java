@@ -1070,6 +1070,7 @@ public class AllJoynService extends Service implements Observer {
              	mUseChannelState = UseChannelState.JOINED;
               	mChatApplication.useSetChannelState(mUseChannelState);
         		mJoinedToSelf = true;
+                return;
         	}
         }
        	/*
