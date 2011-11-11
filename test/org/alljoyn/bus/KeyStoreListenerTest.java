@@ -83,6 +83,17 @@ public class KeyStoreListenerTest extends TestCase {
         if ( System.getProperty("os.name").startsWith("Windows")) {
             assertEquals(Status.OK, 
                     bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener));
+        } else if ( System.getProperty("java.vm.name").startsWith("Dalvik")) {
+            /*
+             * on some Android devices File.createTempFile trys to create a file in 
+             * a location we do not have permission to write to.  Resulting in a 
+             * java.io.IOException: Permission denied error.
+             * This code assumes that the junit tests will have file IO permission
+             * for /data/data/org.alljoyn.bus
+             */
+            assertEquals(Status.OK, 
+                    bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener,
+                            "/data/data/org.alljoyn.bus/files/alljoyn.ks"));
         } else {
             assertEquals(Status.OK, 
                     bus.registerAuthListener("ALLJOYN_SRP_KEYX", authListener,
@@ -97,6 +108,17 @@ public class KeyStoreListenerTest extends TestCase {
         if ( System.getProperty("os.name").startsWith("Windows")) {
             assertEquals(Status.OK, 
                     otherBus.registerAuthListener("ALLJOYN_SRP_KEYX", otherAuthListener));
+        } else if ( System.getProperty("java.vm.name").startsWith("Dalvik")) {
+            /*
+             * on some Android devices File.createTempFile trys to create a file in 
+             * a location we do not have permission to write to.  Resulting in a 
+             * java.io.IOException: Permission denied error.
+             * This code assumes that the junit tests will have file IO permission
+             * for /data/data/org.alljoyn.bus
+             */
+            assertEquals(Status.OK, 
+                    otherBus.registerAuthListener("ALLJOYN_SRP_KEYX", otherAuthListener,
+                            "/data/data/org.alljoyn.bus/files/alljoyn_other.ks"));
         } else {
             assertEquals(Status.OK, 
                     otherBus.registerAuthListener("ALLJOYN_SRP_KEYX", otherAuthListener,
