@@ -3702,6 +3702,12 @@ void JBusAttachment::Disconnect(const char* connectArgs)
         if (ER_OK != status) {
             QCC_LogError(status, ("Stop failed"));
         }
+
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): calling Join()"));
+        status = Join();
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Join failed"));
+        }
     }
 
     /*
