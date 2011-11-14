@@ -332,8 +332,9 @@ public class BusAttachmentTest extends TestCase {
         status = bus.requestName("org.alljoyn.bus.BusAttachmentTest", 0);
         assertEquals(Status.OK, status);
 
-        bus.disconnect();
+        bus.release();
 
+        bus = new BusAttachment(getClass().getName());
         status = bus.connect();
         assertEquals(Status.OK, status);
 
