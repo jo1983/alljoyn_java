@@ -8497,7 +8497,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
     jobject jreplyArg = NULL;
 
     if (!Marshal(inputSig.c_str(), jargs, &args)) {
-        busPtr->baProxyLock.Unlock();
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_methodCall(): Marshal failure"));
         return jreplyArg;
     }
