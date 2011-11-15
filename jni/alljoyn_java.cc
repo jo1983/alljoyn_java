@@ -8488,6 +8488,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         return NULL;
     }
 
+    busPtr->baProxyLock.Unlock();
+
     MsgArg args;
     QStatus status;
     const MsgArg* replyArgs;
@@ -8540,7 +8542,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         }
     }
 
-    busPtr->baProxyLock.Unlock();
     if (env->ExceptionCheck()) {
         return NULL;
     } else {
