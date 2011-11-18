@@ -25,3 +25,8 @@ addressbook - This sample shows how to make AllJoyn method calls that take and
               also shows how to enable authentication and encryption for a 
               given AllJoyn interface.
 
+JavaSDKDoc  - This is a large collection of samples that were written to 
+              correspond with the 'Guide to AllJoyn Development Using the Java SDK'
+              document that can be found on https://www.alljoyn.org/docs-and-downloads.
+              This section contains several projects that can be imported into the
+              Eclipse IDE. 
