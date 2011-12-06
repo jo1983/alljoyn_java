@@ -4203,18 +4203,19 @@ void JBusAttachment::UnregisterBusObject(jobject jbusObject)
     }
 
     /*
-     * If AllJoyn doesn't have a hold on the Java Bus Object, we shouldn't
-     * correspondingly have a hold on it.
+     * AllJoyn shouldn't be remembering the Java Bus Object as a bus
+     * object associated with this bus attachment.  We've now changed
+     * the structure of the busObjects list so the iterator is
+     * invalid, so mark it as such.
+     */
+    ForgetLocalBusObject(jo);
+
+    /*
+     * And we shouldn't correspondingly have a hold on the Java
+     * reference.
      */
     QCC_DbgPrintf(("JBusAttachment::UnregisterBusObject(): Deleting global reference to  %p", jo));
     GetEnv()->DeleteGlobalRef(jo);
-
-    /*
-     * And we shouldn't be remembering it as a bus object associated with this
-     * bus attachment.  We've now changed the structure of the busObjects list
-     * so the iterator is invalid, so mark it as such.
-     */
-    ForgetLocalBusObject(jo);
 
     /*
      * We've successfully arranged for our AllJoyn Bus Attachment to stop using
