@@ -575,6 +575,12 @@ using namespace ajn;
  * but it supports a required API feature, which is that the BusObject be an
  * interface.
  *
+ * One final note is that in all of the classes you will find below, unless
+ * there is an explicit need, copy constructors and assignment operators will be
+ * declared private with no provided implementation.  This is so that the
+ * compiler generates an error instead of generating a most likely incorrect
+ * default implementation if someone decides to use one unexpectedly.
+ *
  * Multithread safety sidebar
  * --------------------------
  *
@@ -968,6 +974,9 @@ class JScopedEnv {
     ~JScopedEnv();
     JNIEnv* operator->() { return env; }
   private:
+    JScopedEnv(const JScopedEnv& other);
+    JScopedEnv& operator =(const JScopedEnv& other);
+
     JNIEnv* env;
     jint detached;
 };
@@ -1008,6 +1017,9 @@ class JString {
     ~JString();
     const char* c_str() { return str; }
   private:
+    JString(const JString& other);
+    JString& operator =(const JString& other);
+
     jstring jstr;
     const char* str;
 };
@@ -1331,6 +1343,9 @@ class JBusAttachment : public BusAttachment {
     }
 
   private:
+    JBusAttachment(const JBusAttachment& other);
+    JBusAttachment& operator =(const JBusAttachment& other);
+
     /*
      * An intrusive reference count
      */
@@ -1386,6 +1401,9 @@ class JBusListener : public BusListener {
     void BusStopping();
 
   private:
+    JBusListener(const JBusListener& other);
+    JBusListener& operator =(const JBusListener& other);
+
     jweak jbusListener;
     jmethodID MID_foundAdvertisedName;
     jmethodID MID_lostAdvertisedName;
@@ -1433,6 +1451,9 @@ class JSessionListener : public SessionListener {
     void SessionMemberRemoved(SessionId sessionId, const char* uniqueName);
 
   private:
+    JSessionListener(const JSessionListener& other);
+    JSessionListener& operator =(const JSessionListener& other);
+
     jweak jsessionListener;
     jmethodID MID_sessionLost;
     jmethodID MID_sessionMemberAdded;
@@ -1476,6 +1497,9 @@ class JSessionPortListener : public SessionPortListener {
     void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner);
 
   private:
+    JSessionPortListener(const JSessionPortListener& other);
+    JSessionPortListener& operator =(const JSessionPortListener& other);
+
     jweak jsessionPortListener;
     jmethodID MID_acceptSessionJoiner;
     jmethodID MID_sessionJoined;
@@ -1557,6 +1581,8 @@ class JKeyStoreListener : public KeyStoreListener {
     QStatus LoadRequest(KeyStore& keyStore);
     QStatus StoreRequest(KeyStore& keyStore);
   private:
+    JKeyStoreListener(const JKeyStoreListener& other);
+    JKeyStoreListener& operator =(const JKeyStoreListener& other);
     jweak jkeyStoreListener;
     jmethodID MID_getKeys;
     jmethodID MID_getPassword;
@@ -1605,6 +1631,9 @@ class JAuthListener : public AuthListener {
     void SecurityViolation(QStatus status, const Message& msg);
     void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
   private:
+    JAuthListener(const JAuthListener& other);
+    JAuthListener& operator =(const JAuthListener& other);
+
     JBusAttachment* busPtr;
     jweak jauthListener;
     jmethodID MID_requestCredentials;
@@ -1638,6 +1667,9 @@ class PendingAsyncJoin {
     jobject jsessionListener;
     jobject jonJoinSessionListener;
     jobject jcontext;
+  private:
+    PendingAsyncJoin(const PendingAsyncJoin& other);
+    PendingAsyncJoin& operator =(const PendingAsyncJoin& other);
 };
 
 /**
@@ -1684,6 +1716,9 @@ class JOnJoinSessionListener : public BusAttachment::JoinSessionAsyncCB {
     void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& sessionOpts, void* context);
 
   private:
+    JOnJoinSessionListener(const JOnJoinSessionListener& other);
+    JOnJoinSessionListener& operator =(const JOnJoinSessionListener& other);
+
     jmethodID MID_onJoinSession;
     JBusAttachment* busPtr;
 };
@@ -1725,6 +1760,9 @@ class JBusObject : public BusObject {
     void ObjectRegistered();
     void ObjectUnregistered();
   private:
+    JBusObject(const JBusObject& other);
+    JBusObject& operator =(const JBusObject& other);
+
     struct Property {
         String signature;
         jobject jget;
@@ -1984,6 +2022,9 @@ class JProxyBusObject : public ProxyBusObject {
     JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId);
     ~JProxyBusObject();
     JBusAttachment* busPtr;
+  private:
+    JProxyBusObject(const JProxyBusObject& other);
+    JProxyBusObject& operator =(const JProxyBusObject& other);
 };
 
 class JSignalHandler : public MessageReceiver {
@@ -1995,6 +2036,9 @@ class JSignalHandler : public MessageReceiver {
     void Unregister(BusAttachment& bus);
     void SignalHandler(const InterfaceDescription::Member* member, const char* sourcePath, Message& msg);
   private:
+    JSignalHandler(const JSignalHandler& other);
+    JSignalHandler& operator =(const JSignalHandler& other);
+
     jweak jsignalHandler;
     jobject jmethod;
     const InterfaceDescription::Member* member;
@@ -2018,6 +2062,9 @@ class MessageContext {
     static Message GetMessage();
     MessageContext(const Message& msg);
     ~MessageContext();
+  private:
+    MessageContext(const MessageContext& other);
+    MessageContext& operator =(const MessageContext& other);
 };
 
 map<Thread*, Message> gMessageMap;
@@ -7704,7 +7751,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
     }
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    QCC_DbgPrintf(("BusAttachment_registerNativeSignalHandler(): Refcount on busPtr is %d", busPtr->GetRef()));
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_registerNativeSignalHandler(): Exception"));
         return NULL;
@@ -7719,6 +7765,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerNativeSigna
         env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
         return NULL;
     }
+
+    QCC_DbgPrintf(("BusAttachment_registerNativeSignalHandler(): Refcount on busPtr is %d", busPtr->GetRef()));
 
     QStatus status = busPtr->RegisterSignalHandler(ifaceName.c_str(), signalName.c_str(), jsignalHandler, jmethod, srcPath);
     if (env->ExceptionCheck()) {
