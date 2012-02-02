@@ -32,6 +32,7 @@ import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -818,7 +819,17 @@ public class BusAttachment {
         if ( System.getProperty("os.name").startsWith("Windows")) {
             address = System.getProperty("org.alljoyn.bus.address", "tcp:addr=127.0.0.1,port=9955");
         } else {
-            address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
+            try{
+                Class cls = Class.forName("org.alljoyn.bus.alljoyn.DaemonInit"); 
+                Field field = cls.getField("sConnectSpec");
+                if (field != null) {
+                    address = (String)field.get(null);
+                }
+            } catch (Exception e) {
+            }
+            if (address == null) {
+                address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
+            }
         }
         if (address != null) {
             Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName, isShared);
