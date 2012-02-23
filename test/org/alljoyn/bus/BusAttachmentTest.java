@@ -1167,6 +1167,31 @@ public class BusAttachmentTest extends TestCase {
         this.wait(4 * 1000);
         assertEquals(true, sessionLost);
     }
+
+    /* ALLJOYN-958 */
+    public synchronized void testUnregisterBusListener() throws Exception {
+        boolean thrown = false;
+        bus = new BusAttachment(getClass().getName());
+
+        BusListener testBusListener = new FindNewNameBusListener();
+        bus.registerBusListener(testBusListener);
+
+        assertEquals(Status.OK, bus.connect());
+
+        /* This is the actual test- unregister the bus listener */
+        /* The Exception catch will only catch java exceptions and will not catch jni crashes. So, if jni crashes, the whole junit will stop. */
+        try {
+          bus.unregisterBusListener(testBusListener);
+          /* This wait is to ensure that the unregister operation has completed successfully. There are no jni crashes like the one found in ALLJOYN-958 */
+          this.wait(1 * 1000);
+       } catch (Exception ex) {
+            thrown = true;
+       } finally {
+            assertTrue(!thrown);
+       }
+
+    }
+
     /*
      *  TODO
      *  Verify that all of the BusAttachment methods are tested
