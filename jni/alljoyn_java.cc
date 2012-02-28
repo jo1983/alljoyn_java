@@ -4587,7 +4587,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusListener(
     for (list<jobject>::iterator i = busPtr->busListeners.begin(); i != busPtr->busListeners.end(); ++i) {
         if (env->IsSameObject(*i, jlistener)) {
             QCC_DbgPrintf(("BusAttachment_unregisterBusListener(): Releasing strong global reference to BusListener %p", jlistener));
-            env->DeleteGlobalRef(jlistener);
+            env->DeleteGlobalRef(*i);
             busPtr->busListeners.erase(i);
             break;
         }
