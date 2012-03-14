@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 set -x
 killall -v alljoyn-daemon
-rm -rf alljoyn-daemon.log
+rm -rf alljoyn-daemon.log junit.log
 
 # set ALLJOYN_JAVA and/or ALLJOYN_DIST either through environment variables...
 # .. or by putting ALLJOYN_JAVA=something and/or ALLJOYN_DIST=something as commandline parameters
@@ -130,7 +130,7 @@ date
 	if cygpath -wa . > /dev/null 2>&1
 	then
 		: Cygwin
-		ant \
+		ant > test_report/junit.log 2>&1 < /dev/null \
 			-Dtest="$( cygpath -wa "$test" )" \
 			-Dbuild="$( cygpath -wa "$build" )" \
 			-Ddist="$( cygpath -wa "$ALLJOYN_DIST/java" )" \
@@ -140,7 +140,7 @@ date
 		xit=$?
 	else
 		: Linux
-		ant \
+		ant > test_report/junit.log 2>&1 < /dev/null \
 			-Dtest="$test" \
 			-Dbuild="$build" \
 			-Ddist="$ALLJOYN_DIST/java" \
