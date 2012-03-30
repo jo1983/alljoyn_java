@@ -44,6 +44,7 @@ if not env.has_key('_ALLJOYNCORE_'):
 
 # Make alljoyn_java dist a sub-directory of the alljoyn dist.  This avoids any conflicts with alljoyn dist targets.
 env['JAVA_DISTDIR'] = env['DISTDIR'] + '/java'
+env['JAVA_TESTDIR'] = env['TESTDIR'] + '/java'
 
 # Tell dependent dirs where to stick classes
 env.Append(CLASSDIR='$OBJDIR/classes')
