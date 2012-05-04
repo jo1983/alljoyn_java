@@ -817,19 +817,9 @@ public class BusAttachment {
          * decide the value of org.alljoyn.bus.address.
          */
         if ( System.getProperty("os.name").startsWith("Windows")) {
-            address = System.getProperty("org.alljoyn.bus.address", "tcp:addr=127.0.0.1,port=9955");
+            address = System.getProperty("org.alljoyn.bus.address", "tcp:addr=127.0.0.1,port=9956");
         } else {
-            try{
-                Class cls = Class.forName("org.alljoyn.bus.alljoyn.DaemonInit"); 
-                Field field = cls.getField("sConnectSpec");
-                if (field != null) {
-                    address = (String)field.get(null);
-                }
-            } catch (Exception e) {
-            }
-            if (address == null) {
-                address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
-            }
+            address = System.getProperty("org.alljoyn.bus.address", "unix:abstract=alljoyn");
         }
         if (address != null) {
             Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName, isShared);
