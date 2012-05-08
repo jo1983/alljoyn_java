@@ -22,6 +22,7 @@ objs = env.SharedObject(srcs)
 # JNI library
 bdenv = env.Clone()
 bdenv.Prepend(LIBS = env['bdlib'])
+bdenv.Prepend(LIBS = env['bdobj'])
 
 liballjoyn_java = bdenv.SharedLibrary('alljoyn_java', objs)
 
