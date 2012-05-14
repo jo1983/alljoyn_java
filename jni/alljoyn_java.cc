@@ -7983,8 +7983,6 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setKeyExpiration(JN
         return NULL;
     }
 
-    QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Refcount on busPtr is %d", busPtr->GetRef()));
-
     /*
      * We don't want to force the user to constantly check for NULL return
      * codes, so if we have a problem, we throw an exception.
@@ -7994,6 +7992,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_setKeyExpiration(JN
         env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
         return NULL;
     }
+
+    QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Refcount on busPtr is %d", busPtr->GetRef()));
 
     QCC_DbgPrintf(("BusAttachment_setKeyExpiration(): Call SetKeyExpiration(%s, %d)", guid.c_str(), jtimeout));
 
