@@ -1399,6 +1399,7 @@ class JBusListener : public BusListener {
     void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
     void BusStopping();
+    void BusDisconnected();
 
   private:
     JBusListener(const JBusListener& other);
@@ -1409,6 +1410,7 @@ class JBusListener : public BusListener {
     jmethodID MID_lostAdvertisedName;
     jmethodID MID_nameOwnerChanged;
     jmethodID MID_busStopping;
+    jmethodID MID_busDisconnected;
 };
 
 /**
@@ -2407,6 +2409,11 @@ JBusListener::JBusListener(jobject jlistener)
     if (!MID_busStopping) {
         QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find busStopping() in jbusListener"));
     }
+
+    MID_busDisconnected = env->GetMethodID(clazz, "busDisconnected", "()V");
+    if (!MID_busDisconnected) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find busDisconnected() in jbusListener"));
+    }
 }
 
 /**
@@ -2676,6 +2683,50 @@ void JBusListener::BusStopping(void)
     }
 
     QCC_DbgPrintf(("JBusListener::BusStopping(): Return"));
+}
+
+/**
+ * Handle the C++ BusDisconnected callback from the AllJoyn system.
+ *
+ * Called when a BusAttachment this listener is registered with is has become disconnected from
+ * the bus
+ *
+ * This is a callback returning void, with no formal parameters, so we just
+ * call the corresponding Java method in the listener object.
+ */
+void JBusListener::BusDisconnected(void)
+{
+    QCC_DbgPrintf(("JBusListener::BusDisconnected()"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    /*
+     * The weak global reference jbusListener cannot be directly used.  We have to get
+     * a "hard" reference to it and then use that.  If you try to use a weak reference
+     * directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jbusListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::BusDisconnected(): Can't get new local reference to SessionListener"));
+        return;
+    }
+
+    /*
+     * This call out to BusDisconnected implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
+    QCC_DbgPrintf(("JBusListener::BusDisconnected(): Call out to listener object and method"));
+    env->CallVoidMethod(jo, MID_busDisconnected);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::busDisconnected(): Exception"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JBusListener::BusDisconnected(): Return"));
 }
 
 /**

@@ -139,6 +139,16 @@ public class BusListener {
     public void busStopping() {}
 
     /**
+     * Called when a BusAttachment this listener is registered with is has become disconnected from
+     * the bus
+     *
+     * Any implementation of this function must be multithread safe.  See the
+     * class documentation for details.
+     */
+    public void busDisconnected() {}
+    
+    
+    /**
      * The opaque pointer to the underlying C++ object which is actually tied
      * to the AllJoyn code.
      */
