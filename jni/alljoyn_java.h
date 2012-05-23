@@ -516,7 +516,7 @@ extern "C" {
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription
  * Method:    create
- * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/String;Z)Lorg/alljoyn/bus/Status;
+ * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/String;ZII)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create
   (JNIEnv *, jobject, jobject, jstring, jboolean, jint, jint);
@@ -524,10 +524,18 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription
  * Method:    addMember
- * Signature: (ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Lorg/alljoyn/bus/Status;
+ * Signature: (ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember
   (JNIEnv *, jobject, jint, jstring, jstring, jstring, jint, jstring);
+
+/*
+ * Class:     org_alljoyn_bus_InterfaceDescription
+ * Method:    addMemberANnotation
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMemberAnnotation
+  (JNIEnv *, jobject, jstring, jstring, jstring);
 
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription

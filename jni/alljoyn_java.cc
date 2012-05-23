@@ -7294,7 +7294,8 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
 {
     QCC_DbgPrintf(("JBusObject::MethodReply()"));
 
-    if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
+    qcc::String val;
+    if (member->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val) && val == "true") {
         return ER_OK;
     } else {
         return BusObject::MethodReply(msg, status);
@@ -7305,7 +7306,8 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
 {
     QCC_DbgPrintf(("JBusObject::MethodReply()"));
 
-    if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
+    qcc::String val;
+    if (member->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val) && val == "true") {
         if (!jreply) {
             return ER_OK;
         } else {
@@ -8235,6 +8237,33 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
     }
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_AddAnnotation(JNIEnv* env, jobject thiz, jstring jannotation, jstring jvalue)
+{
+    QCC_DbgPrintf(("InterfaceDescription_AddAnnotation()"));
+
+    InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_AddAnnotation(): Exception"));
+        return NULL;
+    }
+    assert(intf);
+
+    JString annotation(jannotation);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_AddAnnotation(): Exception"));
+        return NULL;
+    }
+
+    JString value(jvalue);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_AddAnnotation(): Exception"));
+        return NULL;
+    }
+
+    QStatus status = intf->AddAnnotation(annotation.c_str(), value.c_str());
+    return JStatus(status);
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JNIEnv* env, jobject thiz, jint type, jstring jname,
                                                                               jstring jinputSig, jstring joutSig, jint annotation, jstring jaccessPerm)
 {
@@ -8282,13 +8311,68 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember(JN
             (member->memberType == (AllJoynMessageType)type) &&
             (member->name == name.c_str()) &&
             (member->signature == inputSig.c_str()) &&
-            (member->returnSignature == outSig.c_str()) &&
-            (member->annotation == annotation)) {
-            status = ER_OK;
+            (member->returnSignature == outSig.c_str())) {
+
+            // for reverse compatibility:
+            // two annotations can be represented in the int variable 'annotation': DEPRECATED and NOREPLY
+            // make sure these int values matches with what's in the full annotations map
+            bool annotations_match = true;
+            if (annotation & MEMBER_ANNOTATE_DEPRECATED) {
+                qcc::String val;
+                if (!member->GetAnnotation(org::freedesktop::DBus::AnnotateDeprecated, val) || val != "true") {
+                    annotations_match = false;
+                }
+            }
+
+            if (annotation & MEMBER_ANNOTATE_NO_REPLY) {
+                qcc::String val;
+                if (!member->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val) || val != "true") {
+                    annotations_match = false;
+                }
+            }
+
+            if (annotations_match) {
+                status = ER_OK;
+            }
         }
     }
     return JStatus(status);
 }
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMemberAnnotation(JNIEnv* env, jobject thiz,
+                                                                                        jstring member, jstring annotation, jstring value)
+{
+    QCC_DbgPrintf(("InterfaceDescription_addMemberAnnotation()"));
+
+    InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMemberAnnotation(): Exception"));
+        return NULL;
+    }
+    assert(intf);
+
+    JString jName(member);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMemberAnnotation(): Exception"));
+        return NULL;
+    }
+
+    JString jAnnotation(annotation);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMemberAnnotation(): Exception"));
+        return NULL;
+    }
+
+    JString jValue(value);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addMemberAnnotation(): Exception"));
+        return NULL;
+    }
+
+    QStatus status = intf->AddMemberAnnotation(jName.c_str(), jAnnotation.c_str(), jValue.c_str());
+    return JStatus(status);
+}
+
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(JNIEnv* env, jobject thiz, jstring jname,
                                                                                 jstring jsignature, jint access)
@@ -8328,6 +8412,40 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty(
             status = ER_OK;
         }
     }
+    return JStatus(status);
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addPropertyAnnotation(JNIEnv* env, jobject thiz,
+                                                                                          jstring property, jstring annotation, jstring value)
+{
+    QCC_DbgPrintf(("InterfaceDescription_addPropertyAnnotation()"));
+
+    InterfaceDescription* intf = GetHandle<InterfaceDescription*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addPropertyAnnotation(): Exception"));
+        return NULL;
+    }
+    assert(intf);
+
+    JString jName(property);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addPropertyAnnotation(): Exception"));
+        return NULL;
+    }
+
+    JString jAnnotation(annotation);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addPropertyAnnotation(): Exception"));
+        return NULL;
+    }
+
+    JString jValue(value);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("InterfaceDescription_addPropertyAnnotation(): Exception"));
+        return NULL;
+    }
+
+    QStatus status = intf->AddPropertyAnnotation(jName.c_str(), jAnnotation.c_str(), jValue.c_str());
     return JStatus(status);
 }
 
@@ -8628,7 +8746,8 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         return jreplyArg;
     }
 
-    if (member->annotation & MEMBER_ANNOTATE_NO_REPLY) {
+    qcc::String val;
+    if (member->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val) && val == "true") {
         status = proxyBusObj->MethodCallAsync(*member, NULL, NULL, args.v_struct.members,
                                               args.v_struct.numMembers, NULL, replyTimeoutMsecs, flags);
         if (ER_OK != status) {

@@ -16,19 +16,19 @@
 
 package org.alljoyn.bus;
 
-import org.alljoyn.bus.annotation.BusInterface;
-import org.alljoyn.bus.annotation.BusMethod;
-import org.alljoyn.bus.annotation.BusProperty;
-import org.alljoyn.bus.annotation.BusSignal;
-import org.alljoyn.bus.annotation.Secure;
-import org.alljoyn.bus.annotation.AccessPermission;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.alljoyn.bus.annotation.AccessPermission;
+import org.alljoyn.bus.annotation.BusInterface;
+import org.alljoyn.bus.annotation.BusMethod;
+import org.alljoyn.bus.annotation.BusProperty;
+import org.alljoyn.bus.annotation.BusSignal;
+import org.alljoyn.bus.annotation.Secure;
 
 /**
  * InterfaceDescription represents a message bus interface.
@@ -84,15 +84,24 @@ class InterfaceDescription {
     }
 
     /** Allocate native resources. */
-    private native Status create(BusAttachment busAttachment, String name, boolean secure, 
-                                 int numProps, int numMembers);
+    private native Status create(BusAttachment busAttachment, String name, boolean secure,
+            int numProps, int numMembers);
 
     /** Add a member to the native interface description. */
     private native Status addMember(int type, String name, String inputSig, String outSig,
-                                    int annotation,  String accessPerm);
+            int annotation,  String accessPerm);
+
+    /** Add an annotation to the specified interface member */
+    private native Status addMemberAnnotation(String member, String annotation, String value);
 
     /** Add a property to the native interface description. */
     private native Status addProperty(String name, String signature, int access);
+
+    /** Add an annotation to the specified interface property */
+    private native Status addPropertyAnnotation(String property, String annotation, String value);
+
+    /** Add an annotation to the interface */
+    private native Status addAnnotation(String annotation, String value);
 
     /** Activate the interface on the bus. */
     private native void activate();
@@ -129,7 +138,7 @@ class InterfaceDescription {
      * @param busAttachment the connection the interface is on
      * @param busInterface the interface
      */
-    public Status create(BusAttachment busAttachment, Class<?> busInterface) 
+    public Status create(BusAttachment busAttachment, Class<?> busInterface)
             throws AnnotationBusException {
         Status status = getProperties(busInterface);
         if (status != Status.OK) {
@@ -140,8 +149,8 @@ class InterfaceDescription {
             return status;
         }
         boolean secure = busInterface.getAnnotation(Secure.class) != null;
-        status = create(busAttachment, getName(busInterface), secure, properties.size(), 
-                        members.size());
+        status = create(busAttachment, getName(busInterface), secure, properties.size(),
+                members.size());
         if (status != Status.OK) {
             return status;
         }
@@ -170,7 +179,7 @@ class InterfaceDescription {
                 if (method.getName().startsWith("get")) {
                     property.get = method;
                 } else if (method.getName().startsWith("set")
-                           && (method.getGenericReturnType().equals(void.class))) {
+                        && (method.getGenericReturnType().equals(void.class))) {
                     property.set = method;
                 } else {
                     return Status.BAD_ANNOTATION;
@@ -220,10 +229,10 @@ class InterfaceDescription {
             }
             if (type != INVALID) {
                 if(ap != null) {
-                   accessPerm = ap.value();
+                    accessPerm = ap.value();
                 }
                 Status status = addMember(type, getName(member), getInputSig(member),
-                                          getOutSig(member), annotation, accessPerm);
+                        getOutSig(member), annotation, accessPerm);
                 if (status != Status.OK) {
                     return status;
                 }
@@ -241,7 +250,7 @@ class InterfaceDescription {
      * @param descs The returned interface descriptions.
      */
     public static Status create(BusAttachment busAttachment, Class<?>[] busInterfaces,
-                                List<InterfaceDescription> descs) throws AnnotationBusException {
+            List<InterfaceDescription> descs) throws AnnotationBusException {
         for (Class<?> intf : busInterfaces) {
             if ("org.freedesktop.DBus.Properties".equals(getName(intf))) {
                 /* The Properties interface is handled automatically by the underlying library. */
