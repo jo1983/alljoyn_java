@@ -68,7 +68,7 @@ env.SConscript('test/SConscript')
 # AllJoyn Java binding docs
 env['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
 env['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
-env['PROJECT_NUMBER'] = 'Version 2.3.2'
+env['PROJECT_NUMBER'] = 'Version 2.5.0'
 env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=os.environ.get('CLASSPATH'))
 
 # AllJoyn samples
