@@ -531,7 +531,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMember
 
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription
- * Method:    addMemberANnotation
+ * Method:    addMemberAnnotation
  * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMemberAnnotation
@@ -544,6 +544,22 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addMemberAnn
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addProperty
   (JNIEnv *, jobject, jstring, jstring, jint);
+
+/*
+ * Class:     org_alljoyn_bus_InterfaceDescription
+ * Method:    addPropertyAnnotation
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addPropertyAnnotation
+  (JNIEnv *, jobject, jstring, jstring, jstring);
+
+/*
+ * Class:     org_alljoyn_bus_InterfaceDescription
+ * Method:    addAnnotation
+ * Signature: (Ljava/lang/String;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addAnnotation
+  (JNIEnv *, jobject, jstring, jstring);
 
 /*
  * Class:     org_alljoyn_bus_InterfaceDescription

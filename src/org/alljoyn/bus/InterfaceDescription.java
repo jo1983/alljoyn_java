@@ -22,8 +22,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import org.alljoyn.bus.annotation.AccessPermission;
+import org.alljoyn.bus.annotation.BusAnnotation;
+import org.alljoyn.bus.annotation.BusAnnotations;
 import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
 import org.alljoyn.bus.annotation.BusProperty;
@@ -48,15 +52,18 @@ class InterfaceDescription {
 
         public String name;
 
+        public TreeMap<String, String> annotations;
+
         public String signature;
 
         public Method get;
 
         public Method set;
 
-        public Property(String name, String signature) {
+        public Property(String name, String signature, TreeMap<String, String> annotations) {
             this.name = name;
             this.signature = signature;
+            this.annotations = annotations;
         }
     }
 
@@ -162,6 +169,17 @@ class InterfaceDescription {
         if (status != Status.OK) {
             return status;
         }
+
+        // now we need to add the DBus annotations for the interface;
+        // this must be done *before* calling create
+        BusAnnotations busAnnotations = busInterface.getAnnotation(BusAnnotations.class);
+        if (busAnnotations != null)
+        {
+            for (BusAnnotation annotation : busAnnotations.value()) {
+                addAnnotation(annotation.name(), annotation.value());
+            }
+        }
+
         activate();
         return Status.OK;
     }
@@ -171,11 +189,22 @@ class InterfaceDescription {
             if (method.getAnnotation(BusProperty.class) != null) {
                 String name = getName(method);
                 Property property = properties.get(name);
+
+                BusAnnotations propertyAnnotations = method.getAnnotation(BusAnnotations.class);
+                TreeMap<String, String> annotations = new TreeMap<String, String>();
+                if (propertyAnnotations != null)
+                {
+                    for (BusAnnotation propertyAnnotation : propertyAnnotations.value()) {
+                        annotations.put(propertyAnnotation.name(), propertyAnnotation.value());
+                    }
+                }
+
                 if (property == null) {
-                    property = new Property(name, getPropertySig(method));
+                    property = new Property(name, getPropertySig(method), annotations);
                 } else if (!property.signature.equals(getPropertySig(method))) {
                     return Status.BAD_ANNOTATION;
                 }
+
                 if (method.getName().startsWith("get")) {
                     property.get = method;
                 } else if (method.getName().startsWith("set")
@@ -196,6 +225,11 @@ class InterfaceDescription {
             Status status = addProperty(property.name, property.signature, access);
             if (status != Status.OK) {
                 return status;
+            }
+
+            // loop through the map of properties and add them via native code
+            for(Entry<String, String> entry : property.annotations.entrySet()) {
+                addPropertyAnnotation(property.name, entry.getKey(), entry.getValue());
             }
         }
         return Status.OK;
@@ -220,6 +254,7 @@ class InterfaceDescription {
             BusMethod m = member.getAnnotation(BusMethod.class);
             BusSignal s = member.getAnnotation(BusSignal.class);
             AccessPermission ap = member.getAnnotation(AccessPermission.class);
+
             if (m != null) {
                 type = METHOD_CALL;
                 annotation = m.annotation();
@@ -231,10 +266,21 @@ class InterfaceDescription {
                 if(ap != null) {
                     accessPerm = ap.value();
                 }
-                Status status = addMember(type, getName(member), getInputSig(member),
+
+                String memberName = getName(member);
+                Status status = addMember(type, memberName, getInputSig(member),
                         getOutSig(member), annotation, accessPerm);
                 if (status != Status.OK) {
                     return status;
+                }
+
+                // pull out the DBus annotations
+                BusAnnotations dbusAnnotations = member.getAnnotation(BusAnnotations.class);
+                if (dbusAnnotations != null)
+                {
+                    for (BusAnnotation busAnnotation : dbusAnnotations.value()) {
+                        addMemberAnnotation(memberName, busAnnotation.name(), busAnnotation.value());
+                    }
                 }
             }
         }
@@ -258,6 +304,7 @@ class InterfaceDescription {
             }
             if (intf.getAnnotation(BusInterface.class) != null) {
                 InterfaceDescription desc = new InterfaceDescription();
+
                 Status status = desc.create(busAttachment, intf);
                 if (status != Status.OK) {
                     return status;

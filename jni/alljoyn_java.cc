@@ -8237,7 +8237,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
     }
 }
 
-JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_AddAnnotation(JNIEnv* env, jobject thiz, jstring jannotation, jstring jvalue)
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_addAnnotation(JNIEnv* env, jobject thiz, jstring jannotation, jstring jvalue)
 {
     QCC_DbgPrintf(("InterfaceDescription_AddAnnotation()"));
 
