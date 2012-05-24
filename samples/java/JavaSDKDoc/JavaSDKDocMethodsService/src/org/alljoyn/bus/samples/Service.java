@@ -35,27 +35,77 @@ public class Service {
 
     public static class SampleService implements SampleInterface, BusObject {
 
-        public String Ping(String str){
+        /** Do not use per-object synchronization since we want Pi() to execute concurrently */
+        public void preDispatch() {
+        }
+
+        /** Do not use per-object synchronization since we want Pi() to execute concurrently */
+        public void postDispatch() {
+        }
+
+        /**
+         * This method is thread safe, but we mark it synchronized just to
+         * illustrate how one would mix and match concurrent and serialized
+         * methods.
+         */
+        public synchronized String Ping(String str) {
             return str;
         }
 
-        public String Concatenate(String arg1, String arg2){
+        /**
+         * This method is thread safe, but we mark it synchronized just to
+         * illustrate how one would mix and match concurrent and serialized
+         * methods.
+         */
+        public synchronized String Concatenate(String arg1, String arg2) {
             return arg1+arg2;
         }
 
-        public int Fibonacci(int arg1){
+        /**
+         * This method is thread safe, but we mark it synchronized just to
+         * illustrate how one would mix and match concurrent and serialized
+         * methods.
+         */
+        public synchronized int Fibonacci(int arg1) {
             int a=0,b=1;
 
-            for (int i=0;i<arg1;i++){
+            for (int i=0;i<arg1;i++) {
                 a=a+b;
                 b=a-b;
             }
             return a;
-        }    
+        }
+        
+        /**
+         * A long running calculation used to illustrate how AllJoyn methods are
+         * in fact dispatched concurrently.  By passing a very large <iterations>
+         * count, this very slowly converging Gregory-Liebniz series can take
+         * many seconds to complete.
+         *
+         * Note that this method must be thread-safe and the object and method not
+         * synchronized/serialized for concurrent method execution to be achieved.
+         */
+        public double Pi(int iterations) {
+            double piOverFour = 0.0;
+            double sign = 1.0;
+            for (int k = 0; k < iterations; ++k) {
+                /*
+                 * (-1)^k
+                 * --------
+                 * (2k + 1)
+                 */
+                double term = 1.0/(2.0 * k + 1);
+                term *= sign;
+                piOverFour += term;
+                sign = -sign;
+            }
+            
+            return piOverFour * 4.0;
+        }
     }
 
     private static class MyBusListener extends BusListener {
-        public void nameOwnerChanged(String busName, String previousOwner, String newOwner){
+        public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
             if ("com.my.well.known.name".equals(busName)) {
                 System.out.println("BusAttachement.nameOwnerChanged(" + busName + ", " + previousOwner + ", " + newOwner);
             }

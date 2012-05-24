@@ -70,7 +70,24 @@ public class Client {
 		}
 		
 	}
-	
+
+    private static class MyRunnable implements Runnable {
+        private int mThreadNumber;
+
+        MyRunnable(int n) {
+            mThreadNumber = n;
+        }
+
+		public void run() {
+            try {
+                System.out.println("Thread " + mThreadNumber + ": Starting callculate P1");
+                System.out.println("Thread " + mThreadNumber + ": Pi(1000000000) = " + mSampleInterface.Pi(1000000000));
+            } catch (BusException e1) {
+                e1.printStackTrace();
+            }
+        }
+    }
+
 	public static void main(String[] args) {
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 		
@@ -82,8 +99,7 @@ public class Client {
 			System.exit(0);
 		}
 		
-		
-		System.out.println("BusAttachment.connect successful on " + System.getProperty("org.alljoyn.bus.address"));
+        System.out.println("BusAttachment.connect successful on " + System.getProperty("org.alljoyn.bus.address"));
 		
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
@@ -104,8 +120,19 @@ public class Client {
 			System.out.println("Concatenate : " + mSampleInterface.Concatenate("The Eagle ", "has landed!"));
 			System.out.println("Fibonacci(4) : " + mSampleInterface.Fibonacci(4));
 		} catch (BusException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
+
+        Thread thread1 = new Thread(new MyRunnable(1));
+        Thread thread2 = new Thread(new MyRunnable(2));
+
+        thread1.start();
+        thread2.start();
+
+        try {
+            thread2.join();
+            thread1.join();
+        } catch (InterruptedException ex) {
+        }
 	}
 }
