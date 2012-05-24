@@ -7283,7 +7283,6 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
 
     JLocalRef<jobject> jreply = env->CallObjectMethod(method->second, mid, jo, (jobjectArray)jargs);
     if (env->ExceptionCheck()) {
-        mapLock.Unlock();
         MethodReply(member, msg, ER_FAIL);
         return;
     }
