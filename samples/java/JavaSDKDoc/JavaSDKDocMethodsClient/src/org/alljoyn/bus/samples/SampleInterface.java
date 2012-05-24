@@ -30,4 +30,7 @@ public interface SampleInterface {
     
     @BusMethod
     public int Fibonacci(int arg1) throws BusException;
+    
+    @BusMethod
+    public double Pi(int iterations) throws BusException;
 }
