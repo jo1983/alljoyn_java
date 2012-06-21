@@ -27,7 +27,7 @@ package org.alljoyn.bus;
  * and destruction.  That is, every thread executing in a listener object's
  * methods 1) gets a unique copy of all temporary data (it is re-entrant); and
  * 2) all shared data -- the object instance's member variables or any globals
- * must contain no read-modify-write access patterns (okay to write or read, 
+ * must contain no read-modify-write access patterns (okay to write or read,
  * just never to read-modify-write).  If such access patterns are required, it
  * is the responsibility of the client to, for example, add the synchronized
  * keyword when overriding one of the listener methods or provide some other
@@ -43,7 +43,7 @@ package org.alljoyn.bus;
  * dealing with multithreaded code.
  *
  * Since listener objects generally run in the context of the AllJoyn thread
- * which manages reception of events, If a blocking AllJoyn call is made in 
+ * which manages reception of events, If a blocking AllJoyn call is made in
  * the context of a notification, the necessary and sufficient conditions for
  * deadlock are established.
  *
@@ -125,10 +125,22 @@ public class BusListener {
      * @param busName        The well-known name that has changed.
      * @param previousOwner  The unique name that previously owned the name or
      *                       NULL if there was no previous owner.
-     * @param newOwner       The unique name that now owns the name or NULL if 
+     * @param newOwner       The unique name that now owns the name or NULL if
      *                       there is no new owner.
      */
     public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {}
+
+    /**
+     * Called by the bus when the value of a property changes if that property has annotation
+     * org.freedesktop.DBus.Properties.PropertiesChanged=true
+     * 
+     * Any implementation of this function must be multithread safe.  See the
+     * class documentation for details.
+     *
+     * @param propName       The well-known name that has changed.
+     * @param propValue      The new value of the property; NULL if not present
+     */
+    public void propertyChanged(String propName, Variant propValue) {}
 
     /**
      * Called when a bus that this listener is registered with is stopping.
@@ -146,12 +158,12 @@ public class BusListener {
      * class documentation for details.
      */
     public void busDisconnected() {}
-    
-    
+
+
     /**
      * The opaque pointer to the underlying C++ object which is actually tied
      * to the AllJoyn code.
      */
     private long handle = 0;
-    
+
 }

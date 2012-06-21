@@ -761,6 +761,10 @@ static jmethodID MID_MsgArg_marshal_array = NULL;
 static jmethodID MID_MsgArg_unmarshal = NULL;
 static jmethodID MID_MsgArg_unmarshal_array = NULL;
 
+
+// predeclare some methods as necessary
+static jobject Unmarshal(const MsgArg* arg, jobject jtype);
+
 /**
  * Get a valid JNIEnv pointer.
  *
@@ -1398,6 +1402,7 @@ class JBusListener : public BusListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
+    void PropertyChanged(const char* propName, const MsgArg* propValue);
     void BusStopping();
     void BusDisconnected();
 
@@ -1409,6 +1414,7 @@ class JBusListener : public BusListener {
     jmethodID MID_foundAdvertisedName;
     jmethodID MID_lostAdvertisedName;
     jmethodID MID_nameOwnerChanged;
+    jmethodID MID_propertyChanged;
     jmethodID MID_busStopping;
     jmethodID MID_busDisconnected;
 };
@@ -2405,6 +2411,11 @@ JBusListener::JBusListener(jobject jlistener)
         QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find nameOwnerChanged() in jbusListener"));
     }
 
+    MID_propertyChanged = env->GetMethodID(clazz, "propertyChanged", "(Ljava/lang/String;Lorg/alljoyn/bus/Variant;)V");
+    if (!MID_propertyChanged) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find propertyChanged() in jbusListener"));
+    }
+
     MID_busStopping = env->GetMethodID(clazz, "busStopping", "()V");
     if (!MID_busStopping) {
         QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find busStopping() in jbusListener"));
@@ -2640,6 +2651,45 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
     }
 
     QCC_DbgPrintf(("JBusListener::NameOwnerChanged(): Return"));
+}
+
+void JBusListener::PropertyChanged(const char* propName, const MsgArg* propValue)
+{
+    // TODO: implement me!
+    QCC_DbgPrintf(("JBusListener::PropertyChanged()"));
+
+    JScopedEnv env;
+    JLocalRef<jstring> jpropName = env->NewStringUTF(propName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::PropertyChanged(): Exception"));
+        return;
+    }
+
+    // The weak global reference jbusListener cannot be directly used.  We have to get
+    // a "hard" reference to it and then use that.  If you try to use a weak reference
+    // directly you will crash and burn.
+    jobject jo = env->NewLocalRef(jbusListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::PropertyChanged(): Can't get new local reference to BusListener"));
+        return;
+    }
+
+    JLocalRef<jobject> obj = NULL;
+    if (propValue != NULL) {
+        obj = Unmarshal(propValue, CLS_Variant);
+    }
+
+    // This call out to PropertyChanged implies that the Java method must be
+    // MT-safe.  This is implied by the definition of the listener.
+    QCC_DbgPrintf(("JBusListener::PropertyChanged(): Call out to listener object and method"));
+    env->CallVoidMethod(jo, MID_propertyChanged, (jstring) jpropName, (jobject) obj);
+
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::propertyChanged(): Exception"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JBusListener::PropertyChanged(): Return"));
 }
 
 /**
