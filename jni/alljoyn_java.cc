@@ -28,6 +28,7 @@
 #include <qcc/atomic.h>
 #include <qcc/String.h>
 #include <qcc/Thread.h>
+#include <qcc/ScopedMutexLock.h>
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/DBusStd.h>
 #include <MsgArgUtils.h>
@@ -764,6 +765,7 @@ static jmethodID MID_MsgArg_unmarshal_array = NULL;
 
 // predeclare some methods as necessary
 static jobject Unmarshal(const MsgArg* arg, jobject jtype);
+static MsgArg* Marshal(const char* signature, jobject jarg, MsgArg* arg);
 
 /**
  * Get a valid JNIEnv pointer.
@@ -2655,7 +2657,6 @@ void JBusListener::NameOwnerChanged(const char* busName, const char* previousOwn
 
 void JBusListener::PropertyChanged(const char* propName, const MsgArg* propValue)
 {
-    // TODO: implement me!
     QCC_DbgPrintf(("JBusListener::PropertyChanged()"));
 
     JScopedEnv env;
@@ -4512,6 +4513,59 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create(JNIEnv* env, jo
         busPtr = NULL;
     }
 }
+
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_emitChangedSignal(
+    JNIEnv* env, jobject thiz, jobject jbusObject, jstring jifaceName, jstring jpropName, jobject jpropValue, jint sessionId)
+{
+    QCC_DbgPrintf(("BusAttachment_emitChangedSignal()"));
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_emitChangedSignal(): Exception"));
+        return;
+    }
+
+    JString ifaceName(jifaceName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_emitChangedSignal(): Exception"));
+        return;
+    }
+
+    JString propName(jpropName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_emitChangedSignal(): Exception"));
+        return;
+    }
+
+    //ScopedMutexLock guard(gBusObjectMapLock);
+    gBusObjectMapLock.Lock();
+    JBusObject* busObject = GetBackingObject(jbusObject);
+
+    if (!busObject) {
+        QCC_DbgPrintf(("BusAttachment_emitChangedSignal(): Releasing global Bus Object map lock"));
+        gBusObjectMapLock.Unlock();
+        QCC_LogError(ER_FAIL, ("BusAttachment_emitChangedSignal(): Exception"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
+        return;
+    }
+
+    MsgArg* arg = NULL;
+    MsgArg value;
+
+    if (jpropValue) {
+        const BusAttachment& bus = busObject->GetBusAttachment();
+        const InterfaceDescription* iface = bus.GetInterface(ifaceName.c_str());
+        assert(iface);
+        const InterfaceDescription::Property* prop = iface->GetProperty(propName.c_str());
+        assert(prop);
+        arg = Marshal(prop->signature.c_str(), jpropValue, &value);
+    }
+
+    busObject->EmitPropChanged(ifaceName.c_str(), propName.c_str(), (jpropValue ? *arg : value), sessionId);
+    gBusObjectMapLock.Unlock();
+    QCC_DbgPrintf(("BusAttachment_emitChangedSignal(): Releasing global Bus Object map lock"));
+}
+
 
 /**
  * The native C++ implementation of the Java class BusAttachment.destroy method

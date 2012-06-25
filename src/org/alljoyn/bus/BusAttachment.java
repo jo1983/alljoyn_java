@@ -16,9 +16,17 @@
 
 package org.alljoyn.bus;
 
-import org.alljoyn.bus.Mutable;
-import org.alljoyn.bus.BusListener;
-import org.alljoyn.bus.OnJoinSessionListener;
+import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.alljoyn.bus.AuthListener.AuthRequest;
 import org.alljoyn.bus.AuthListener.CertificateRequest;
 import org.alljoyn.bus.AuthListener.Credentials;
@@ -31,21 +39,6 @@ import org.alljoyn.bus.AuthListener.VerifyRequest;
 import org.alljoyn.bus.annotation.BusSignalHandler;
 import org.alljoyn.bus.ifaces.DBusProxyObj;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Field;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 /**
  * A connection to a message bus.
  * Using BusAttachment, an application may register objects on the bus for other
@@ -53,6 +46,19 @@ import java.util.concurrent.Executors;
  * objects that have been registered by other processes and/or remote devices.
  */
 public class BusAttachment {
+
+
+    /**
+     * Emit PropertiesChanged to signal the bus that this property has been updated
+     *
+     * @param busObject The BusObject that is the source of this signal
+     * @param ifcName   The name of the interface
+     * @param propName  The name of the property being changed
+     * @param val       The new value of the property
+     * @param sessionId Id of the session we broadcast to (0 for all)
+     */
+    public native void emitChangedSignal(BusObject busObject, String ifcName, String propName, Object val, int sessionId);
+
 
     /**
      * Request a well-known name.
@@ -89,7 +95,7 @@ public class BusAttachment {
     public static final int ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING = 0x02;
 
     /**
-     * Value for requestName flags bit corresponding to a request to 
+     * Value for requestName flags bit corresponding to a request to
      * fail if the name in question cannot be immediately obtained.
      */
     public static final int ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE = 0x04;
@@ -101,7 +107,7 @@ public class BusAttachment {
      *
      * @param name  Well-known name being released.
      *
-     * @return 
+     * @return
      * <ul>
      * <li>OK if the name was released.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
@@ -117,10 +123,10 @@ public class BusAttachment {
      * @param rule  Match rule to be added (see the DBus specification for the
      *              format of this string).
      *
-     * @return 
+     * @return
      * <ul>
-     * <li>OK if the match rule was added.</li>  
-     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li> 
+     * <li>OK if the match rule was added.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure</li>
      * </ul>
      */
@@ -133,10 +139,10 @@ public class BusAttachment {
      * @param rule  Match rule to be removed (see the DBus specification for the
      *              format of this string).
      *
-     * @return 
+     * @return
      * <ul>
-     * <li>OK if the match rule was removed.</li>  
-     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li> 
+     * <li>OK if the match rule was removed.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure</li>
      * </ul>
      */
@@ -152,7 +158,7 @@ public class BusAttachment {
      * @param transports  Set of transports to use for sending advertisment.
      *
      * @return
-     * <ul> 
+     * <ul>
      * <li>OK if the name was advertised.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure </li>
@@ -170,9 +176,9 @@ public class BusAttachment {
      * @param name        A well-known name that was previously advertised via AdvertiseName.
      * @param transports  Set of transports whose name advertisment will be cancelled.
      *
-     * @return 
+     * @return
      * <ul>
-     * <li>OK if the name advertisements were stopped.</li>  
+     * <li>OK if the name advertisements were stopped.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure.</li>
      * </ul>
@@ -187,9 +193,9 @@ public class BusAttachment {
      * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
      *                    notifications about.
      *
-     * @return 
+     * @return
      * <ul>
-     * <li>OK if discovery was started.</li>  
+     * <li>OK if discovery was started.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure.</li>
      * </ul>
@@ -205,7 +211,7 @@ public class BusAttachment {
      * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
      *                    BusListener::FoundAdvertisedName notifications about.
      *
-     * @return 
+     * @return
      * <ul>
      * <li>OK if discovery was cancelled.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
@@ -236,13 +242,13 @@ public class BusAttachment {
      *                    this method to choose an available port. On successful
      *                    return, this value contains the chosen SessionPort.
      *
-     * @param opts        Session options that joiners must agree to in order to                                          
+     * @param opts        Session options that joiners must agree to in order to
      *                    successfully join the session.
      *
      * @param listener    SessionPortListener that will be notified via callback
      *                    when a join attempt is made on the bound session port.
      *
-     * @return 
+     * @return
      * <ul>
      * <li>OK if the new session port was bound.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
@@ -250,10 +256,10 @@ public class BusAttachment {
      * <ul>
      */
     public native Status bindSessionPort(Mutable.ShortValue sessionPort,
-                                         SessionOpts opts,
-                                         SessionPortListener listener);
+            SessionOpts opts,
+            SessionPortListener listener);
 
-    /** 
+    /**
      * When passed to BindSessionPort as the requested port, the system will
      * assign an ephemeral session port
      */
@@ -273,7 +279,7 @@ public class BusAttachment {
      * <ul>
      * <li>OK if the session port was unbound.</li>
      * <li>BUS_NOT_CONNECTED if connection has not been made with the local daemon.</li>
-     * <li>other error status codes indicating a failure</li> 
+     * <li>other error status codes indicating a failure</li>
      */
     public native Status unbindSessionPort(short sessionPort);
 
@@ -285,62 +291,62 @@ public class BusAttachment {
      * interprets the response.
      *
      * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
-     * @param sessionPort   SessionPort of sessionHost to be joined.   
+     * @param sessionPort   SessionPort of sessionHost to be joined.
      * @param sessionId     Set to the unique identifier for session.
      * @param opts          Set to the actual session options of the joined session.
-     * @param listener      Listener to be called when session related asynchronous 
+     * @param listener      Listener to be called when session related asynchronous
      *                      events occur.
      *
      * @return
-     * <ul> 
+     * <ul>
      * <li>OK if the session was joined.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure.</li>
-     * </ul>                                                                                 
+     * </ul>
      */
     public native Status joinSession(String sessionHost,
-                                     short sessionPort,
-                                     Mutable.IntegerValue sessionId,
-                                     SessionOpts opts,
-                                     SessionListener listener);
+            short sessionPort,
+            Mutable.IntegerValue sessionId,
+            SessionOpts opts,
+            SessionListener listener);
 
     /**
      * The JNI loader can't resolve the overloaded joinSession if both the sync and async versions
      * are native.  This is the workaround.
      */
     private native Status joinSessionAsync(String sessionHost,
-                                           short sessionPort,
-                                           SessionOpts opts,
-                                           SessionListener listener,
-                                           OnJoinSessionListener onJoinSession,
-                                           Object context);
+            short sessionPort,
+            SessionOpts opts,
+            SessionListener listener,
+            OnJoinSessionListener onJoinSession,
+            Object context);
 
     /**
      * Asynchronous version of {@link #joinSession(String, short, Mutable.IntegerValue, SessionOpts,
      * SessionListener)}.
      *
      * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
-     * @param sessionPort   SessionPort of sessionHost to be joined.             
+     * @param sessionPort   SessionPort of sessionHost to be joined.
      * @param opts          The requested session options of the session to be joined.
-     * @param listener      Listener to be called when session related asynchronous 
+     * @param listener      Listener to be called when session related asynchronous
      *                      events occur.
      * @param onJoinSession Listener to be called when joinSession completes.
      * @param context       User-defined context object.  Passed through to {@link
      *                      OnJoinSessionListener#onJoinSession(Status, int, SessionOpts, Object)}.
      *
      * @return
-     * <ul> 
+     * <ul>
      * <li>OK iff method call to local daemon response was was successful.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus.</li>
      * <li>Other error status codes indicating a failure.</li>
-     * </ul>                                                                                 
+     * </ul>
      */
     public Status joinSession(String sessionHost,
-                              short sessionPort,
-                              SessionOpts opts,
-                              SessionListener listener,
-                              OnJoinSessionListener onJoinSession,
-                              Object context) {
+            short sessionPort,
+            SessionOpts opts,
+            SessionListener listener,
+            OnJoinSessionListener onJoinSession,
+            Object context) {
         return joinSessionAsync(sessionHost, sessionPort, opts, listener, onJoinSession, context);
     }
 
@@ -353,12 +359,12 @@ public class BusAttachment {
      *
      * @param sessionId     Session id.
      *
-     * @return 
+     * @return
      * <ul>
-     * <li>OK if daemon response was left.</li>  
+     * <li>OK if daemon response was left.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating failures.</li>
-     * </ul>                                                                        
+     * </ul>
      */
     public native Status leaveSession(int sessionId);
 
@@ -373,7 +379,7 @@ public class BusAttachment {
      * @return  ER_OK if successful.
      */
     public native Status setSessionListener(int sessionId, SessionListener listener);
-    
+
     /**
      * Get the file descriptor for a raw (non-message based) session.
      *
@@ -385,8 +391,8 @@ public class BusAttachment {
      * <li>Status.OK if the socket FD was returned.</li>
      * <li>ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure.</li>
-     * </ul> 
-     *                                                                         
+     * </ul>
+     * 
      */
     public native Status getSessionFd(int sessionId, Mutable.IntegerValue sockFd);
 
@@ -426,7 +432,7 @@ public class BusAttachment {
      * @param guid  Mutable value that contains a reference to the returned
      *              GUID string (think C++ [out] parameter.
      *
-     * @return 
+     * @return
      * <ul>
      * <li>OK if the requested GUID was obtained</li>
      * <li>other error status codes indicating a failure</li>
@@ -468,9 +474,9 @@ public class BusAttachment {
      * @param module  the name of the module to generate debug output from.
      * @param level   the debug level to set for the module.
      *
-     * @return 
+     * @return
      * <ul>
-     * <li>OK if debug request was successfully sent to the AllJoyn daemon</li> 
+     * <li>OK if debug request was successfully sent to the AllJoyn daemon</li>
      * <li>BUS_NO_SUCH_OBJECT if daemon was not built in debug mode.</li>
      * </ul>
      */
@@ -493,11 +499,11 @@ public class BusAttachment {
      */
     public native void setDebugLevel(String module, int level);
 
-   /**
-    * Indicate whether AllJoyn logging goes to OS logger or stdout
-    *
-    * @param  useOSLog   true iff OS specific logging should be used rather than print for AllJoyn debug messages.
-    */
+    /**
+     * Indicate whether AllJoyn logging goes to OS logger or stdout
+     *
+     * @param  useOSLog   true iff OS specific logging should be used rather than print for AllJoyn debug messages.
+     */
     public native void useOSLogging(boolean useOSLog);
 
     /**
@@ -520,7 +526,7 @@ public class BusAttachment {
     /** The connect spec. */
     private String address;
 
-    /** 
+    /**
      * {@code true} if this attachment is allowed to receive messages from
      * remote devices.
      */
@@ -559,7 +565,7 @@ public class BusAttachment {
             if (authListener == null) {
                 throw new BusException("No registered application AuthListener");
             }
-            
+
             Credentials credentials = new Credentials();
             List<AuthRequest> requests = new ArrayList<AuthRequest>();
             if ((credMask & PASSWORD) == PASSWORD) {
@@ -584,15 +590,15 @@ public class BusAttachment {
              */
             requests.add(new ExpirationRequest(credentials));
 
-            if (authListener.requested(authMechanism, authPeer, authCount, userName, 
-                                       requests.toArray(new AuthRequest[0]))) {
+            if (authListener.requested(authMechanism, authPeer, authCount, userName,
+                    requests.toArray(new AuthRequest[0]))) {
                 return credentials;
             }
             return null;
         }
 
-        public boolean verifyCredentials(String authMechanism, String peerName, String userName, 
-                                         String cert) throws BusException {
+        public boolean verifyCredentials(String authMechanism, String peerName, String userName,
+                String cert) throws BusException {
             if (authListener == null) {
                 throw new BusException("No registered application AuthListener");
             }
@@ -602,7 +608,7 @@ public class BusAttachment {
              * not immediately reject a request with an authCount of 0.
              */
             return authListener.requested(authMechanism, peerName, 0, userName == null ? "" : userName,
-                                          new AuthRequest[] { new VerifyRequest(cert) });
+                    new AuthRequest[] { new VerifyRequest(cert) });
         }
 
         public void securityViolation(Status status) {
@@ -625,7 +631,7 @@ public class BusAttachment {
 
     /** Default key store file name. */
     private String keyStoreFileName;
-    
+
     /** Specify if the default key store is shared */
     private boolean isShared;
 
@@ -665,24 +671,24 @@ public class BusAttachment {
         busAuthListener = new AuthListenerInternal();
         try {
             foundAdvertisedName = getClass().getDeclaredMethod(
-                "foundAdvertisedName", String.class, Short.class, String.class);
+                    "foundAdvertisedName", String.class, Short.class, String.class);
             foundAdvertisedName.setAccessible(true);
             lostAdvertisedName = getClass().getDeclaredMethod(
-                "lostAdvertisedName", String.class, Short.class, String.class);
+                    "lostAdvertisedName", String.class, Short.class, String.class);
             lostAdvertisedName.setAccessible(true);
         } catch (NoSuchMethodException ex) {
             /* This will not happen */
         }
         create(applicationName, allowRemoteMessages);
-        
+
         /*
          * Create a separate dbus bus object (dbusbo) and interface so we get at
          * it and can quickly release its resources when we're done with it.
          * The corresponding interface (dbus) is what we give the clients.
          */
         dbusbo = new ProxyBusObject(this, "org.freedesktop.DBus", "/org/freedesktop/DBus", SESSION_ID_ANY,
-                                    new Class[] { DBusProxyObj.class });
-        dbus = dbusbo.getInterface(DBusProxyObj.class);        
+                new Class[] { DBusProxyObj.class });
+        dbus = dbusbo.getInterface(DBusProxyObj.class);
         executor = Executors.newSingleThreadExecutor();
     }
 
@@ -702,18 +708,18 @@ public class BusAttachment {
     private synchronized native void destroy();
 
     /** Start and connect to the bus. */
-    private native Status connect(String connectArgs, KeyStoreListener keyStoreListener, 
-                                  String authMechanisms, AuthListenerInternal busAuthListener, 
-                                  String keyStoreFileName, boolean isShared);
+    private native Status connect(String connectArgs, KeyStoreListener keyStoreListener,
+            String authMechanisms, AuthListenerInternal busAuthListener,
+            String keyStoreFileName, boolean isShared);
 
     /** Stop and disconnect from the bus. */
     private native void disconnect(String connectArgs);
 
     private native Status enablePeerSecurity(String authMechanisms,
-        AuthListenerInternal busAuthListener, String keyStoreFileName, Boolean isShared);
+            AuthListenerInternal busAuthListener, String keyStoreFileName, Boolean isShared);
 
     private native Status registerBusObject(String objPath, BusObject busObj,
-                                            InterfaceDescription[] busInterfaces);
+            InterfaceDescription[] busInterfaces);
 
     private native Status registerNativeSignalHandler(String ifaceName, String signalName,
             Object obj, Method handlerMethod, String source);
@@ -755,6 +761,7 @@ public class BusAttachment {
     /**
      * Let the Java garbage collector release resources.
      */
+    @Override
     protected void finalize() throws Throwable {
         if (isConnected == true) {
             disconnect();
@@ -813,7 +820,7 @@ public class BusAttachment {
      */
     public Status connect() {
         /*
-         * os.name is one of the standard system properties will be used to 
+         * os.name is one of the standard system properties will be used to
          * decide the value of org.alljoyn.bus.address.
          */
         if ( System.getProperty("os.name").startsWith("Windows")) {
@@ -837,8 +844,8 @@ public class BusAttachment {
      */
     public void disconnect() {
         if (address != null) {
-//            unregisterSignalHandler(this, foundAdvertisedName);
-//            unregisterSignalHandler(this, lostAdvertisedName);
+            //            unregisterSignalHandler(this, foundAdvertisedName);
+            //            unregisterSignalHandler(this, lostAdvertisedName);
             disconnect(address);
             isConnected = false;
         }
@@ -859,8 +866,8 @@ public class BusAttachment {
     public Status registerBusObject(BusObject busObj, String objPath) {
         try {
             List<InterfaceDescription> descs = new ArrayList<InterfaceDescription>();
-            Status status = InterfaceDescription.create(this, busObj.getClass().getInterfaces(), 
-                                                        descs);
+            Status status = InterfaceDescription.create(this, busObj.getClass().getInterfaces(),
+                    descs);
             if (status != Status.OK) {
                 return status;
             }
@@ -901,9 +908,9 @@ public class BusAttachment {
      * @see org.alljoyn.bus.annotation.BusMethod
      */
     public ProxyBusObject getProxyBusObject(String busName,
-                                            String objPath,
-                                            int sessionId,
-                                            Class[] busInterfaces) {
+            String objPath,
+            int sessionId,
+            Class[] busInterfaces) {
         return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces);
     }
 
@@ -948,9 +955,9 @@ public class BusAttachment {
      * @return OK if the register is succesful
      */
     public Status registerSignalHandler(String ifaceName,
-                                        String signalName,
-                                        Object obj,
-                                        Method handlerMethod) {
+            String signalName,
+            Object obj,
+            Method handlerMethod) {
         return registerSignalHandler(ifaceName, signalName, obj, handlerMethod, "");
     }
 
@@ -968,12 +975,12 @@ public class BusAttachment {
      * @return OK if the register is succesful
      */
     public Status registerSignalHandler(String ifaceName,
-                                        String signalName,
-                                        Object obj,
-                                        Method handlerMethod,
-                                        String source) {
+            String signalName,
+            Object obj,
+            Method handlerMethod,
+            String source) {
         Status status = registerNativeSignalHandler(ifaceName, signalName, obj, handlerMethod,
-                                                    source);
+                source);
         if (status == Status.BUS_NO_SUCH_INTERFACE) {
             try {
                 Class<?> iface = Class.forName(ifaceName);
@@ -985,10 +992,10 @@ public class BusAttachment {
                         Method signal = iface.getMethod(signalName, handlerMethod.getParameterTypes());
                         signalName = InterfaceDescription.getName(signal);
                     } catch (NoSuchMethodException ex) {
-                        // Ignore, use signalName parameter provided 
+                        // Ignore, use signalName parameter provided
                     }
                     status = registerNativeSignalHandler(ifaceName, signalName, obj, handlerMethod,
-                                                         source);
+                            source);
                 }
             } catch (ClassNotFoundException ex) {
                 BusException.log(ex);
@@ -1108,7 +1115,7 @@ public class BusAttachment {
      * @param guid the GUID of a remote authenticated peer
      * @param timeout the time in seconds relative to the current time when the keys will expire
      *
-     * @return  
+     * @return
      * <ul>
      * <li>OK if the expiration time was succesfully set</li>
      * <li>UNKNOWN_GUID if there is no authenticated peer with the specified GUID</li>
@@ -1128,7 +1135,7 @@ public class BusAttachment {
      * <li>An error status indicating that the key store reload failed</li>
      */
     public native Status reloadKeyStore();
-     
+
     /**
      * Registers a user-defined authentication listener class with a specific default key store.
      *
@@ -1143,8 +1150,8 @@ public class BusAttachment {
      *                 all programs must have read/write permissions to the keyStoreFileName file.
      * @return OK if successful
      */
-    public Status registerAuthListener(String authMechanisms, AuthListener listener, 
-                                       String keyStoreFileName, boolean isShared) {
+    public Status registerAuthListener(String authMechanisms, AuthListener listener,
+            String keyStoreFileName, boolean isShared) {
 
         /*
          * It is not possible to register multiple AuthListeners or replace an
@@ -1158,8 +1165,8 @@ public class BusAttachment {
         busAuthListener.setAuthListener(listener);
         this.keyStoreFileName = keyStoreFileName;
         this.isShared = isShared;
-        Status status = enablePeerSecurity(this.authMechanisms, busAuthListener, 
-                                           this.keyStoreFileName, isShared);
+        Status status = enablePeerSecurity(this.authMechanisms, busAuthListener,
+                this.keyStoreFileName, isShared);
         if (status != Status.OK) {
             busAuthListener.setAuthListener(null);
             this.authMechanisms = null;
@@ -1179,11 +1186,11 @@ public class BusAttachment {
      *                         {@link #registerKeyStoreListener(KeyStoreListener)}.
      * @return OK if successful
      */
-    public Status registerAuthListener(String authMechanisms, AuthListener listener, 
-                                       String keyStoreFileName){
+    public Status registerAuthListener(String authMechanisms, AuthListener listener,
+            String keyStoreFileName){
         return registerAuthListener(authMechanisms, listener, keyStoreFileName, false);
     }
-                                       
+
     /**
      * Registers a user-defined authentication listener class.  Under Android, it is recommended to
      * use {@link #registerAuthListener(String, AuthListener, String)} instead to specify the path

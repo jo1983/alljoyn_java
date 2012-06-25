@@ -37,6 +37,14 @@ extern "C" {
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    create
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Lorg/alljoyn/bus/Variant;I)V
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_emitChangedSignal
+  (JNIEnv *, jobject, jobject, jstring, jstring, jobject, jint);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    create
  * Signature: (Ljava/lang/String;Z)V
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_create
