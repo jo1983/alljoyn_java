@@ -8040,7 +8040,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getKeyExpiration(JN
     /*
      * Make the AllJoyn call.
      */
-    uint32_t timeout;
+    uint32_t timeout = 0;
     QCC_DbgPrintf(("BusAttachment_getKeyExpiration(): Call GetKeyExpiration(%s)", guid.c_str()));
 
     QStatus status = busPtr->GetKeyExpiration(guid.c_str(), timeout);
