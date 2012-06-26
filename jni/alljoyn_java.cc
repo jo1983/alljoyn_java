@@ -8191,7 +8191,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
          */
         intf = (InterfaceDescription*)busPtr->GetInterface(name.c_str());
         assert(intf);
-        if ((intf->IsSecure() == secure) &&
+        if ((intf->IsSecure() == static_cast<bool>(secure)) &&
             (intf->GetProperties() == (size_t)numProps) &&
             (intf->GetMembers() == (size_t)numMembers)) {
             status = ER_OK;
