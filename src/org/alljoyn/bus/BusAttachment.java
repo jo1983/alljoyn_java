@@ -1223,6 +1223,24 @@ public class BusAttachment {
     public native MessageContext getMessageContext();
 
     /**
+     * Enable callbacks within the context of the currently executing method
+     * handler, signal handler or other AllJoyn callback.
+     * <p>
+     * This method can ONLY be called from within the body of a signal handler,
+     * method handler or other AllJoyn callback. It allows AllJoyn to dispatch 
+     * a single (additional) callback while the current one is still executing.
+     * This method is typically used when a method, signal handler or other
+     * AllJoyn callback needs to execute for a long period of time or when the 
+     * callback needs to make any kind of blocking call.
+     * <p>
+     * This method MUST be called prior to making any non-asynchronous AllJoyn 
+     * remote procedure calls from within an AllJoyn callback. This includes
+     * calls such as joinSession(), advertiseName(), cancelAdvertisedName(),
+     * findAdvertisedName(), cancelFindAdvertisedName(), setLinkTimeout(), etc.
+     */
+    public native void enableConcurrentCallbacks();
+
+    /**
      * The maximum length of an AllJoyn packet.
      *
      * AllJoyn limits the total size of a packetized Message to 2^17 bytes.

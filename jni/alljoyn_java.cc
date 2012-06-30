@@ -8151,6 +8151,33 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(J
                           (jstring)jsender, sessionId, (jstring)jsignature, (jstring)jauthMechanism);
 }
 
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_enableConcurrentCallbacks(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("BusAttachment_enableConcurrency()"));
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_enableConcurrency(): Exception"));
+        return;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_enableConcurrency(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_enableConcurrency(): Refcount on busPtr is %d", busPtr->GetRef()));
+
+    busPtr->EnableConcurrentCallbacks();
+
+    return;
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEnv* env, jobject thiz, jobject jbus, jstring jname,
                                                                            jboolean secure, jint numProps, jint numMembers)
 {

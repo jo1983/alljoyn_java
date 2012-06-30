@@ -437,6 +437,14 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_reloadKeyStore
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext
   (JNIEnv *, jobject);
 
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    enableConcurrentCallbacks
+ * Signature: ()
+ */
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_enableConcurrentCallbacks
+  (JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif
