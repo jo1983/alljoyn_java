@@ -139,12 +139,10 @@ public class BusAttachmentTest extends TestCase {
 
     public void signalHandler1(String string) throws BusException {
         ++handledSignals1;
-        stopWait();
     }
 
     public void signalHandler2(String string) throws BusException {
         ++handledSignals2;
-        stopWait();
     }
 
     public synchronized void testRegisterMultipleSignalHandlersForOneSignal() throws Exception {
@@ -576,17 +574,27 @@ public class BusAttachmentTest extends TestCase {
     private boolean lost;
 
     public class FindNewNameBusListener extends BusListener {
+        public FindNewNameBusListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             found = true;
+
+            // stopWait seems to block sometimes so we need to enable concurrency
+            bus.enableConcurrentCallbacks();
+
             stopWait();
         }
+
+        private BusAttachment bus;
     }
     
     public synchronized void testFindNewName() throws Exception {
         
         
         bus = new BusAttachment(getClass().getName());
-        BusListener testBusListener = new FindNewNameBusListener();
+        BusListener testBusListener = new FindNewNameBusListener(bus);
         bus.registerBusListener(testBusListener);
         
         assertEquals(Status.OK, bus.connect());
@@ -607,16 +615,30 @@ public class BusAttachmentTest extends TestCase {
     }
     
     public class LostExistingNameBusListener extends BusListener {
+        public LostExistingNameBusListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             //System.out.println("Name is :  "+name);
             found = true;
+
+            // stopWait seems to block sometimes so we need to enable concurrency
+            bus.enableConcurrentCallbacks();
+
             stopWait();
         }
 
         public void lostAdvertisedName(String name, short transport, String namePrefix) {
             lost = true;
+
+            // stopWait seems to block sometimes so we need to enable concurrency
+            bus.enableConcurrentCallbacks();
+
             stopWait();
         }
+
+        private BusAttachment bus;
     }
     
     public synchronized void testLostExistingName() throws Exception {
@@ -624,7 +646,7 @@ public class BusAttachmentTest extends TestCase {
         bus = new BusAttachment(getClass().getName());
         assertEquals(Status.OK, bus.connect());
 
-        BusListener testBusListener = new LostExistingNameBusListener();
+        BusListener testBusListener = new LostExistingNameBusListener(bus);
         bus.registerBusListener(testBusListener);
 
         
@@ -723,6 +745,10 @@ public class BusAttachmentTest extends TestCase {
     }        
 
     public class FindMultipleNamesBusListener extends BusListener {
+        public FindMultipleNamesBusListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             if (name.equals("name.A")) {
                 foundNameA = true;    
@@ -730,8 +756,14 @@ public class BusAttachmentTest extends TestCase {
             if ( name.equals("name.B")) {
                 foundNameB = true;
             }
+
+            // stopWait seems to block sometimes so we need to enable concurrency
+            bus.enableConcurrentCallbacks();
+
             stopWait();
         }
+
+        private BusAttachment bus;
     }
     
     
@@ -741,7 +773,7 @@ public class BusAttachmentTest extends TestCase {
     public synchronized void testFindMultipleNames() throws Exception {
         bus = new BusAttachment(getClass().getName());
         
-        BusListener testBusListener = new FindMultipleNamesBusListener();
+        BusListener testBusListener = new FindMultipleNamesBusListener(bus);
         bus.registerBusListener(testBusListener);
         
         assertEquals(Status.OK, bus.connect());
@@ -1197,7 +1229,7 @@ public class BusAttachmentTest extends TestCase {
         boolean thrown = false;
         bus = new BusAttachment(getClass().getName());
 
-        BusListener testBusListener = new FindNewNameBusListener();
+        BusListener testBusListener = new FindNewNameBusListener(bus);
         bus.registerBusListener(testBusListener);
 
         assertEquals(Status.OK, bus.connect());
