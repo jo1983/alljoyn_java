@@ -935,6 +935,8 @@ public class BusAttachmentTest extends TestCase {
                     sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
                     
                     Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);
+                    // Since we are using blocking form of joinSession, we need to enable concurrency
+                    otherBus.enableConcurrentCallbacks();
                     // Join session once the AdvertisedName has been found
                     joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
                             sessionOpts, new JoinSessionSessionListener());
@@ -1023,7 +1025,8 @@ public class BusAttachmentTest extends TestCase {
     public class LeaveSessionSessionListener extends SessionListener {
         public void sessionLost(int sessionId) {
             sessionLost = true;
-            stopWait();
+            // @@ Seems like stopWait blocks sometimes (Todd?)
+            //stopWait();
         }
     }
     //TODO figure out how to produce the sessionLost signal
@@ -1097,6 +1100,10 @@ public class BusAttachmentTest extends TestCase {
                     sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
                     
                     Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);
+
+                    // Since we are using blocking form of joinSession and setLinKTimeout, we need to enable concurrency
+                    otherBus.enableConcurrentCallbacks();
+
                     // Join session once the AdvertisedName has been found
                     joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
                             sessionOpts, new LeaveSessionSessionListener());
@@ -1141,8 +1148,6 @@ public class BusAttachmentTest extends TestCase {
         sessionAccepted = sessionJoined = false;
         busSessionId = otherBusSessionId = 0;
         
-        
-        
         otherBus.cancelFindAdvertisedName(name);
         otherBus.findAdvertisedName(name);
         
@@ -1163,7 +1168,6 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(Status.OK, bus.leaveSession(busSessionId));
         assertEquals(Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION, otherBus.leaveSession(otherBusSessionId));
         
-
         this.wait(4 * 1000);
         assertEquals(true, sessionLost);
     }
