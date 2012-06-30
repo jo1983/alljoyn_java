@@ -651,20 +651,30 @@ public class BusAttachmentTest extends TestCase {
     }
 
     public class FindExistingNameBusListener extends BusListener {
+        public FindExistingNameBusListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             found = true;
+
+            // stopWait seems to block sometimes so we need to enable concurrency
+            bus.enableConcurrentCallbacks();
+
             stopWait();
         }
 
         public void lostAdvertisedName(String name, short transport, String namePrefix) {
             lost = true;
         }
+        
+        private BusAttachment bus;
     }
     
     public synchronized void testFindExistingName() throws Exception {
         bus = new BusAttachment(getClass().getName());
         
-        BusListener testBusListener = new FindExistingNameBusListener();
+        BusListener testBusListener = new FindExistingNameBusListener(bus);
         bus.registerBusListener(testBusListener);
         
         assertEquals(Status.OK, bus.connect());
@@ -1023,11 +1033,21 @@ public class BusAttachmentTest extends TestCase {
     private boolean sessionLost;
     
     public class LeaveSessionSessionListener extends SessionListener {
+        public LeaveSessionSessionListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
         public void sessionLost(int sessionId) {
             sessionLost = true;
+
+            // stopWait seems to block sometimes so we need to enable concurrency
+            bus.enableConcurrentCallbacks();
+
             // @@ Seems like stopWait blocks sometimes (Todd?)
-            //stopWait();
+            stopWait();
         }
+        
+        private BusAttachment bus;
     }
     //TODO figure out how to produce the sessionLost signal
     public synchronized void testLeaveSession() throws Exception {
@@ -1106,7 +1126,7 @@ public class BusAttachmentTest extends TestCase {
 
                     // Join session once the AdvertisedName has been found
                     joinSessionStatus = otherBus.joinSession(name, (short)42, sessionId, 
-                            sessionOpts, new LeaveSessionSessionListener());
+                            sessionOpts, new LeaveSessionSessionListener(otherBus));
                     otherBusSessionId = sessionId.value;
 
                     // Set a link timeout
