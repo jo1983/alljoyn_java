@@ -580,13 +580,11 @@ public class BusAttachmentTest extends TestCase {
 
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             found = true;
-
-            // stopWait seems to block sometimes so we need to enable concurrency
+            // stopWait seems to block sometimes so enable concurrency.
             bus.enableConcurrentCallbacks();
-
             stopWait();
         }
-
+        
         private BusAttachment bus;
     }
     
@@ -622,19 +620,15 @@ public class BusAttachmentTest extends TestCase {
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             //System.out.println("Name is :  "+name);
             found = true;
-
-            // stopWait seems to block sometimes so we need to enable concurrency
+            // stopWait seems to block sometimes, so enable concurrency.
             bus.enableConcurrentCallbacks();
-
             stopWait();
         }
 
         public void lostAdvertisedName(String name, short transport, String namePrefix) {
             lost = true;
-
-            // stopWait seems to block sometimes so we need to enable concurrency
+            // stopWait seems to block sometimes, so enable concurrency.
             bus.enableConcurrentCallbacks();
-
             stopWait();
         }
 
@@ -648,7 +642,6 @@ public class BusAttachmentTest extends TestCase {
 
         BusListener testBusListener = new LostExistingNameBusListener(bus);
         bus.registerBusListener(testBusListener);
-
         
         otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
         assertEquals(Status.OK, otherBus.connect());
@@ -756,10 +749,8 @@ public class BusAttachmentTest extends TestCase {
             if ( name.equals("name.B")) {
                 foundNameB = true;
             }
-
-            // stopWait seems to block sometimes so we need to enable concurrency
+            // stopWait seems to block sometimes, so enable concurrency.
             bus.enableConcurrentCallbacks();
-
             stopWait();
         }
 
@@ -817,19 +808,28 @@ public class BusAttachmentTest extends TestCase {
     }
 
     public class CancelFindNameInsideListenerBusListener extends BusListener {
+        public CancelFindNameInsideListenerBusListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
         public void foundAdvertisedName(String name, short transport, String namePrefix) {
             if (!found) {
                 found = true;
+                // Prepare for blocking call
+                bus.enableConcurrentCallbacks();
+
                 assertEquals(Status.OK, bus.cancelFindAdvertisedName(namePrefix));
                 stopWait();
             }
         }
+
+        private BusAttachment bus;
     }
     
     public synchronized void testCancelFindNameInsideListener() throws Exception {
         bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
         
-        BusListener testBusListener = new CancelFindNameInsideListenerBusListener();
+        BusListener testBusListener = new CancelFindNameInsideListenerBusListener(bus);
         bus.registerBusListener(testBusListener);
         
         assertEquals(Status.OK, bus.connect());
@@ -936,26 +936,28 @@ public class BusAttachmentTest extends TestCase {
         //bindSessionPort new SessionPortListener
         assertEquals(Status.OK, bus.bindSessionPort(sessionPort, sessionOpts, 
                 new SessionPortListener(){
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                if (sessionPort == 42) {
-                    sessionAccepted = true;
-                    stopWait();
-                    return true;
-                } else {
-                    sessionAccepted = false;
-                    return false;
-                }
-            }
+                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                        if (sessionPort == 42) {
+                            sessionAccepted = true;
+                            // stopWait seems to block sometimes, so enable concurrency.
+                            bus.enableConcurrentCallbacks();
+                            stopWait();
+                            return true;
+                        } else {
+                            sessionAccepted = false;
+                            return false;
+                        }
+                    }
             
-            public void sessionJoined(short sessionPort, int id, String joiner) {
-                if (sessionPort == 42) {
-                    busSessionId = id;
-                    sessionJoined = true;
-                } else {
-                    sessionJoined = false;
-                }
-            }
-        }));
+                    public void sessionJoined(short sessionPort, int id, String joiner) {
+                        if (sessionPort == 42) {
+                            busSessionId = id;
+                            sessionJoined = true;
+                        } else {
+                            sessionJoined = false;
+                        }
+                    }
+                }));
         // Request name from bus
         int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
         assertEquals(Status.OK, bus.requestName(name, flag));
@@ -1034,6 +1036,8 @@ public class BusAttachmentTest extends TestCase {
                 public void foundAdvertisedName(String advertisedName, short transport, String namePrefix) {
                     assertEquals(name, advertisedName);
                     found = true;
+                    // stopWait seems to block sometimes, so enable concurrency.
+                    otherBus.enableConcurrentCallbacks();
                     stopWait();
                 }
             });
@@ -1055,6 +1059,8 @@ public class BusAttachmentTest extends TestCase {
                     int i = ((Integer)context).intValue();
                     assertEquals(0xacceeded, i);
                     onJoined = true;
+                    // stopWait seems to block sometimes, so enable concurrency.
+                    otherBus.enableConcurrentCallbacks();
                     stopWait();
                 }
             }, context));
@@ -1110,26 +1116,28 @@ public class BusAttachmentTest extends TestCase {
         //bindSessionPort new SessionPortListener
         assertEquals(Status.OK, bus.bindSessionPort(sessionPort, sessionOpts, 
                 new SessionPortListener(){
-            public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
-                if (sessionPort == 42) {
-                    sessionAccepted = true;
-                    stopWait();
-                    return true;
-                } else {
-                    sessionAccepted = false;
-                    return false;
-                }
-            }
-
-            public void sessionJoined(short sessionPort, int id, String joiner) {
-                if (sessionPort == 42) {
-                    sessionJoined = true;
-                    busSessionId = id;
-                } else {
-                    sessionJoined = false;
-                }
-            }
-        }));
+                    public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+                        if (sessionPort == 42) {
+                            sessionAccepted = true;
+                            // stopWait seems to block sometimes, so enable concurrency.
+                            bus.enableConcurrentCallbacks();
+                            stopWait();
+                            return true;
+                        } else {
+                            sessionAccepted = false;
+                            return false;
+                        }
+                    }
+                    
+                    public void sessionJoined(short sessionPort, int id, String joiner) {
+                        if (sessionPort == 42) {
+                            sessionJoined = true;
+                            busSessionId = id;
+                        } else {
+                            sessionJoined = false;
+                        }
+                    }
+                }));
         // Request name from bus
         int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
         assertEquals(Status.OK, bus.requestName(name, flag));
