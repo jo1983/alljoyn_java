@@ -8,7 +8,7 @@
   <property name="build" value="${top}/build/${OS}/${CPU}/${VARIANT}" />
   <property name="dist" value="${build}/dist/java" />
   <property name="classes" value="${alljoyn_java}/test/${build}/obj/classes" />
-  <property name="test" value="${alljoyn_java}/${build}/test" />
+  <property name="test" value="${top}/${build}/test" />
   
   <!-- Unknown do we need android,android_donut,maemo, or darwin -->
   <condition property="org.alljoyn.bus.address" value="unix:abstract=alljoyn">
