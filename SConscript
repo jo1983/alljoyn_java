@@ -56,7 +56,7 @@ env.Append(JARDIR='$JAVA_DISTDIR/jar')
 env.VariantDir('$OBJDIR', '.', duplicate = 0)
 
 # AllJoyn Java binding
-env.SConscript('src/SConscript')
+alljoyn_jar = env.SConscript('src/SConscript')
 
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')
