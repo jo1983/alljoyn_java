@@ -142,6 +142,11 @@ public class SessionOpts {
      * Use only a wireless wide area network to communicate with a given session.
      */
     public static final short TRANSPORT_WWAN      = 0x0008;
+    
+    /**
+     * Use only ICE transport to communicate with a given session.
+     */
+    public static final short TRANSPORT_ICE      = 0x0020;
 
     public String toString( ) {
         StringBuilder result = new StringBuilder();
@@ -171,6 +176,7 @@ public class SessionOpts {
         if ((transports & TRANSPORT_BLUETOOTH) != 0) result.append(" TRANSPORT_BLUETOOTH");
         if ((transports & TRANSPORT_WLAN) != 0) result.append(" TRANSPORT_WLAN");
         if ((transports & TRANSPORT_WWAN) != 0) result.append(" TRANSPORT_WWAN");
+        if ((transports & TRANSPORT_ICE) != 0) result.append(" TRANSPORT_ICE");
         
         result.append("}");
         return result.toString();
