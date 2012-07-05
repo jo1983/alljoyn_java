@@ -56,11 +56,18 @@ env.Append(JARDIR='$JAVA_DISTDIR/jar')
 env.VariantDir('$OBJDIR', '.', duplicate = 0)
 
 # AllJoyn Java binding
-env.SConscript('src/SConscript')
+alljoyn_jar = env.SConscript('src/SConscript')
 
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')
 env.Install('$JAVA_DISTDIR/lib', libs)
+# Also install a copy of liballjoyn_java, and junit.jar, alljoyn.jar into 
+# the bin folder so it can be found by the alljoyn_java eclipse project 
+env.Install('bin/libs', libs)
+# since we can use junit 3.8 and newer we will not know the version of junit on 
+# the computer we will just rename it junit.jar with no number.
+env.InstallAs('bin/jar/junit.jar', os.environ.get('CLASSPATH'))
+env.Install('bin/jar', alljoyn_jar)
 
 # AllJoyn Java binding tests
 env.SConscript('test/SConscript')
