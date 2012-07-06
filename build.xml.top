@@ -5,10 +5,10 @@
   <property name="top" value="." />
   <property name="alljoyn_java" value="alljoyn_java" />
   <property name="src" value="${alljoyn_java}/src" />
-  <property name="build" value="${top}/build/${OS}/${CPU}/${VARIANT}" />
-  <property name="dist" value="${build}/dist/java" />
+  <property name="build" value="build/${OS}/${CPU}/${VARIANT}" />
+  <property name="dist" value="${top}/${build}/dist/java" />
   <property name="classes" value="${alljoyn_java}/test/${build}/obj/classes" />
-  <property name="test" value="${top}/${build}/test" />
+  <property name="test" value="${top}/${build}/test/java" />
   
   <!-- Unknown do we need android,android_donut,maemo, or darwin -->
   <condition property="org.alljoyn.bus.address" value="unix:abstract=alljoyn">
