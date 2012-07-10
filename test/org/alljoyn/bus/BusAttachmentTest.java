@@ -1202,7 +1202,8 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(busSessionId, otherBusSessionId);
 
         assertEquals(Status.OK, otherBus.leaveSession(otherBusSessionId));
-        assertEquals(Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION, bus.leaveSession(busSessionId));
+        Status status = bus.leaveSession(busSessionId);
+        assertTrue((status == Status.OK) || (status == Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION));
 
         found = false;
         sessionAccepted = sessionJoined = false;
@@ -1226,7 +1227,8 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(busSessionId, otherBusSessionId);
 
         assertEquals(Status.OK, bus.leaveSession(busSessionId));
-        assertEquals(Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION, otherBus.leaveSession(otherBusSessionId));
+        status = otherBus.leaveSession(otherBusSessionId);
+        assertTrue((status == Status.OK) || (status == Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION));
 
         this.wait(4 * 1000);
         assertEquals(true, sessionLost);
