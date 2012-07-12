@@ -61,6 +61,10 @@ env.SConscript('src/SConscript')
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')
 env.Install('$JAVA_DISTDIR/lib', libs)
+# Also install a copy of liballjoyn_java, and junit.jar, alljoyn.jar into 
+# the bin folder so it can be found by the alljoyn_java eclipse project 
+env.Install('bin/libs', libs)
+env.Install('bin/jar', alljoyn_jar)
 
 # AllJoyn Java binding tests
 env.SConscript('test/SConscript')
