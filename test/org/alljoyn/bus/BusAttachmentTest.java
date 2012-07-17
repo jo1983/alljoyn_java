@@ -510,8 +510,8 @@ public class BusAttachmentTest extends TestCase {
                         "    </method>\n" +
                         "    <method name=\"DeprecatedNoReplyMethod\">\n" +
                         "      <arg type=\"s\" direction=\"in\"/>\n" +
-                        "      <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n" +
                         "      <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n" +
+                        "      <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n" +
                         "    </method>\n" +
                         "    <signal name=\"DeprecatedSignal\">\n" +
                         "      <arg type=\"s\" direction=\"out\"/>\n" +
