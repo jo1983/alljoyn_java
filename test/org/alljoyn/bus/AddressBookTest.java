@@ -139,8 +139,6 @@ public class AddressBookTest extends TestCase {
         assertEquals("last", contacts[0].lastName);
         assertEquals("1234567", contacts[0].phoneNumberMap.get("home"));
         assertEquals("7654321", contacts[0].phoneNumberMap.get("work"));
-
-        bus.disconnect();
     }
 }
 
