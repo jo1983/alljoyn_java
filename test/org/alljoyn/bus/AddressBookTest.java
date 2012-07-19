@@ -16,20 +16,13 @@
 
 package org.alljoyn.bus;
 
-import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.BusException;
-import org.alljoyn.bus.BusObject;
-import org.alljoyn.bus.ProxyBusObject;
-import org.alljoyn.bus.Status;
-import org.alljoyn.bus.ifaces.DBusProxyObj;
-
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Vector;
 
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
 import junit.framework.TestCase;
+
+import org.alljoyn.bus.ifaces.DBusProxyObj;
 
 public class AddressBookTest extends TestCase {
 
@@ -56,7 +49,7 @@ public class AddressBookTest extends TestCase {
             }
             return contact;
         }
-    
+
         public Contact[] getContacts(String[] lastNames) {
             Vector<Contact> contactVec = new Vector<Contact>();
             for (String lastName: lastNames) {
@@ -71,8 +64,8 @@ public class AddressBookTest extends TestCase {
 
     public class BusAuthListener implements AuthListener {
 
-        public boolean requested(String mechanism, String authPeer, int count, String userName, 
-                                 AuthRequest[] requests) {
+        public boolean requested(String mechanism, String authPeer, int count, String userName,
+                AuthRequest[] requests) {
             for (AuthRequest request : requests) {
                 if (request instanceof PasswordRequest) {
                     ((PasswordRequest) request).setPassword("123456".toCharArray());
@@ -112,11 +105,11 @@ public class AddressBookTest extends TestCase {
         if (Status.OK != status) {
             throw new BusException("BusAttachment.connect() failed with " + status.toString());
         }
-            
+
         /* Request a well-known name */
         DBusProxyObj control = bus.getDBusProxyObj();
         DBusProxyObj.RequestNameResult res = control.RequestName("org.alljoyn.bus.addressbook",
-                                                                DBusProxyObj.REQUEST_NAME_NO_FLAGS);
+                DBusProxyObj.REQUEST_NAME_NO_FLAGS);
         if (res != DBusProxyObj.RequestNameResult.PrimaryOwner) {
             throw new BusException("Failed to obtain well-known name");
         }
@@ -124,11 +117,11 @@ public class AddressBookTest extends TestCase {
         /* Get a remote object */
         Class[] ifaces = { AddressBookInterface.class };
         ProxyBusObject remoteObj = bus.getProxyBusObject("org.alljoyn.bus.addressbook",
-                                                         "/addressbook",
-                                                         BusAttachment.SESSION_ID_ANY,
-                                                         ifaces);
+                "/addressbook",
+                BusAttachment.SESSION_ID_ANY,
+                ifaces);
         AddressBookInterface proxy = remoteObj.getInterface(AddressBookInterface.class);
-    
+
         /* Add a single contact */
         Contact contact = new Contact();
         contact.firstName = "first";
@@ -146,6 +139,8 @@ public class AddressBookTest extends TestCase {
         assertEquals("last", contacts[0].lastName);
         assertEquals("1234567", contacts[0].phoneNumberMap.get("home"));
         assertEquals("7654321", contacts[0].phoneNumberMap.get("work"));
+
+        bus.disconnect();
     }
 }
 
