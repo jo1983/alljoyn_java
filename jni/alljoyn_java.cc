@@ -4561,7 +4561,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_emitChangedSignal(
         arg = Marshal(prop->signature.c_str(), jpropValue, &value);
     }
 
-    busObject->EmitPropChanged(ifaceName.c_str(), propName.c_str(), (jpropValue ? *arg : value), sessionId);
+    if (busObject) {
+        busObject->EmitPropChanged(ifaceName.c_str(), propName.c_str(), (arg ? *arg : value), sessionId);
+    }
+
     gBusObjectMapLock.Unlock();
     QCC_DbgPrintf(("BusAttachment_emitChangedSignal(): Releasing global Bus Object map lock"));
 }
