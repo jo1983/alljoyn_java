@@ -28,7 +28,7 @@ vars.Update(env)
 
 Help(vars.GenerateHelpText(env))
 
-sys.path.append('../build_core/tools/scons')
+sys.path.append(os.getcwd()+'/../build_core/tools/scons')
 from configurejni import ConfigureJNI
 
 if not ConfigureJNI(env):
