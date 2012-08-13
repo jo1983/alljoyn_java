@@ -173,7 +173,7 @@ public class AllJoynAndroidExt{
 				// stopScanRequested = false;
 				
 					Log.v(TAG," =-=-=-Scan-=-=-= Requested");
-					//wifiMgr = (WifiManager)ctx.getSystemService(Context.WIFI_SERVICE);
+					wifiMgr = (WifiManager)ctx.getSystemService(Context.WIFI_SERVICE);
 					if(wifiMgr == null){
 						Log.v(TAG," Wifi Manager is NULL");	
 					}
