@@ -764,7 +764,7 @@ static jmethodID MID_MsgArg_unmarshal_array = NULL;
 
 // This is used by the Proximity Scanner since it makes calls in the
 // Java framework for wifi scan results
-extern JavaVM *proxJVM;
+extern JavaVM*proxJVM;
 extern JNIEnv* psenv;
 extern jclass CLS_AllJoynAndroidExt;
 extern jmethodID MID_AllJoynAndroidExt_Scan;
@@ -827,8 +827,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
     if (jvm->GetEnv((void**)&env, JNI_VERSION_1_2)) {
         return JNI_ERR;
     } else {
-    	proxJVM = jvm;
-    	psenv = env;
+        proxJVM = jvm;
+        psenv = env;
         jclass clazz;
 
         clazz = env->FindClass("java/lang/Integer");
@@ -947,18 +947,18 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
 
         clazz = env->FindClass("org/alljoyn/bus/ScanResultMessage");
         if (!clazz) {
-        	return JNI_ERR;
+            return JNI_ERR;
         }
         CLS_ScanResultMessage = (jclass)env->NewGlobalRef(clazz);
 
         clazz = env->FindClass("org/alljoyn/bus/AllJoynAndroidExt");
         if (!clazz) {
-        	return JNI_ERR;
+            return JNI_ERR;
         }
         CLS_AllJoynAndroidExt = (jclass)env->NewGlobalRef(clazz);
         MID_AllJoynAndroidExt_Scan = env->GetStaticMethodID(CLS_AllJoynAndroidExt, "Scan", "(Z)[Lorg/alljoyn/bus/ScanResultMessage;");
         if (!MID_AllJoynAndroidExt_Scan) {
-        	return JNI_ERR;
+            return JNI_ERR;
         }
 
         return JNI_VERSION_1_2;
