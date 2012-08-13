@@ -87,22 +87,22 @@ public class AllJoynAndroidExt{
 		// else
 		// Request a scan
 		//
-//		Log.v(TAG,"Calling updateTimer() -=-=-=-=-=-=-=-=-=-=-=-=-=-");
-//		Log.v(TAG,"lastScanTime-=-=-=-=-=-=-=-=-=-=-=-=-=-"+lastScanTime);
-//		currentTime = System.currentTimeMillis();
-//		Log.v(TAG,"currentTime-=-=-=-=-=-=-=-=-=-=-=-=-=-"+currentTime);
-//		long timeSinceLastScan = currentTime - lastScanTime;
-//		Log.v(TAG,"timeSinceLastScan-=-=-=-=-=-=-=-=-=-=-=-=-=-"+timeSinceLastScan);
-//		if(timeSinceLastScan >= 60000){
-//			if(!wifiMgr.isWifiEnabled() || !wifiMgr.startScan()){
-//				Log.v(TAG,"startScan() returned error");
-//				lastScanTime = System.currentTimeMillis();
-//			}
-//			tHandler.postDelayed(tUpdateTimerRunnable, 60000);
-//		} else {
-//			Log.v(TAG,"60secs not over. Sleeping again -=-=-=-=-=-=-=-=-=-=-=-=-=-");
-//			tHandler.postDelayed(tUpdateTimerRunnable, 60000 - timeSinceLastScan);
-//		}
+		Log.v(TAG,"Calling updateTimer() -=-=-=-=-=-=-=-=-=-=-=-=-=-");
+		Log.v(TAG,"lastScanTime-=-=-=-=-=-=-=-=-=-=-=-=-=-"+lastScanTime);
+		currentTime = System.currentTimeMillis();
+		Log.v(TAG,"currentTime-=-=-=-=-=-=-=-=-=-=-=-=-=-"+currentTime);
+		long timeSinceLastScan = currentTime - lastScanTime;
+		Log.v(TAG,"timeSinceLastScan-=-=-=-=-=-=-=-=-=-=-=-=-=-"+timeSinceLastScan);
+		if(timeSinceLastScan >= 60000){
+			if(!wifiMgr.isWifiEnabled() || !wifiMgr.startScan()){
+				Log.v(TAG,"startScan() returned error");
+				lastScanTime = System.currentTimeMillis();
+			}
+			tHandler.postDelayed(tUpdateTimerRunnable, 60000);
+		} else {
+			Log.v(TAG,"60secs not over. Sleeping again -=-=-=-=-=-=-=-=-=-=-=-=-=-");
+			tHandler.postDelayed(tUpdateTimerRunnable, 60000 - timeSinceLastScan);
+		}
 	}
 	
 	public AllJoynAndroidExt(Context sContext){
@@ -112,27 +112,26 @@ public class AllJoynAndroidExt{
 			Log.v(TAG,"startScan() returned error");
 		}
 		
-//		if(tHandler == null){
-//		tHandler = new Handler();
-//		} 
-//	
-//		tUpdateTimerRunnable = new Runnable() {
-//			
-//			@Override
-//			public void run() {
-//				// TODO Auto-generated method stub
-//				updateTimer();
-//			}
-//		};
-//	
-//	tHandler.postDelayed(tUpdateTimerRunnable, 0);
-//
-//	if(alarmMgr == null){
-//		alarmMgr = (AlarmManager)ctx.getSystemService(Context.ALARM_SERVICE);
-//		Intent alarmIntent = new Intent(ctx, ScanResultsReceiver.class);
-//		PendingIntent pi = PendingIntent.getBroadcast(ctx, 0, alarmIntent, 0);
-//		alarmMgr.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 1000 * 60 * 10, pi); // Millisec * Second * Minute
-//	}
+		if(tHandler == null){
+		tHandler = new Handler();
+		} 
+	
+		tUpdateTimerRunnable = new Runnable() {
+
+			public void run() {
+				// TODO Auto-generated method stub
+				updateTimer();
+			}
+		};
+	
+	tHandler.postDelayed(tUpdateTimerRunnable, 0);
+
+	if(alarmMgr == null){
+		alarmMgr = (AlarmManager)ctx.getSystemService(Context.ALARM_SERVICE);
+		Intent alarmIntent = new Intent(ctx, ScanResultsReceiver.class);
+		PendingIntent pi = PendingIntent.getBroadcast(ctx, 0, alarmIntent, 0);
+		alarmMgr.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 1000 * 60 * 10, pi); // Millisec * Second * Minute
+	}
 	}
 	
 	public static void PrepareScanResults(){
