@@ -762,14 +762,18 @@ static jmethodID MID_MsgArg_marshal_array = NULL;
 static jmethodID MID_MsgArg_unmarshal = NULL;
 static jmethodID MID_MsgArg_unmarshal_array = NULL;
 
+
+
 // This is used by the Proximity Scanner since it makes calls in the
 // Java framework for wifi scan results
+
+#if defined(QCC_OS_ANDROID)
 extern JavaVM*proxJVM;
 extern JNIEnv* psenv;
 extern jclass CLS_AllJoynAndroidExt;
 extern jmethodID MID_AllJoynAndroidExt_Scan;
 extern jclass CLS_ScanResultMessage;
-
+#endif
 
 /**
  * Get a valid JNIEnv pointer.
@@ -827,10 +831,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
     if (jvm->GetEnv((void**)&env, JNI_VERSION_1_2)) {
         return JNI_ERR;
     } else {
+#if defined(QCC_OS_ANDROID)
         proxJVM = jvm;
         psenv = env;
+#endif
         jclass clazz;
-
         clazz = env->FindClass("java/lang/Integer");
         if (!clazz) {
             return JNI_ERR;
@@ -943,6 +948,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         if (!clazz) {
             return JNI_ERR;
         }
+#if defined (QCC_OS_ANDROID)
         CLS_SessionOpts = (jclass)env->NewGlobalRef(clazz);
 
         clazz = env->FindClass("org/alljoyn/bus/ScanResultMessage");
@@ -960,7 +966,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         if (!MID_AllJoynAndroidExt_Scan) {
             return JNI_ERR;
         }
-
+#endif
         return JNI_VERSION_1_2;
     }
 }
