@@ -18,25 +18,29 @@ import sys
 sys.path.append('../../build_core/tools/scons')
 from javastatus import JavaStatus
 Import('env')
-from os.path import basename
 
 # AllJoyn Java status codes
 JavaStatus('org/alljoyn/bus/Status')
 
 # AllJoyn Java binding
 #If we are on Linux and Windows
-if env['OS_GROUP'] == 'posix': 
-	proximity_srcs = [ 'AllJoynAndroidExt.java', 'ScanResultMessage.java', 'ScanResultsReceiver.java' ]
-	main_srcs = env.Java('$CLASSDIR', '.', JAVACLASSPATH=os.environ.get('CLASSPATH'))
-	main_classes = [ f for f in main_srcs if basename(str(f)) not in proximity_srcs ]
-if env['OS_GROUP'] == 'android':
-	main_classes = env.Java('$CLASSDIR', '.', JAVACLASSPATH=os.environ.get('CLASSPATH'))
-	
-env.Jar('$JARDIR/alljoyn.jar', main_classes)
+if env['OS'] == 'android':
+	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
+	proximity_classes = env.Java('$CLASSDIR', source = ['../ice'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
+	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes,proximity_classes])
+
+if (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
+	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
+	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
 if env['VARIANT'] == 'debug' :
     # get a listing of the sources
-    env.Jar('$JARDIR/alljoyn-sources.jar', '.')
+    env.Jar('$JARDIR/alljoyn-sources.jar', source = ['.','../ice'])
 Return('alljoyn_jar')
+
+
+	
+	
+
 
 

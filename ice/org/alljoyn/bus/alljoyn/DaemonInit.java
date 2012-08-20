@@ -21,8 +21,6 @@ import android.content.Intent;
 import android.util.Log;
 import android.os.Process;
 
-import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.Status;
 import org.alljoyn.bus.AllJoynAndroidExt;
 import org.alljoyn.bus.ScanResultsReceiver;
 import android.net.wifi.WifiManager;
@@ -61,7 +59,6 @@ public class DaemonInit {
         Log.v(TAG,"Saved Application Context");
         
         // Here could instantiate the AllJoynAndroidExt so the jvm is able to access this class 
-        
         alljoynAndroidExt = new AllJoynAndroidExt(sContext);
         
 		if(receiver == null){
