@@ -23,20 +23,17 @@ Import('env')
 JavaStatus('org/alljoyn/bus/Status')
 
 # AllJoyn Java binding
-main_classes = env.Java('$CLASSDIR', '.', JAVACLASSPATH=os.environ.get('CLASSPATH'))
-alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', main_classes)
-
 if env['OS'] == 'android':
        main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
        proximity_classes = env.Java('$CLASSDIR', source = ['../ice'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
-       env.Jar('$JARDIR/alljoyn.jar', source = [main_classes,proximity_classes])
+       alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes,proximity_classes])
 
 if (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
        main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
-       env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
+       alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
 if env['VARIANT'] == 'debug' :
     # get a listing of the sources
-    env.Jar('$JARDIR/alljoyn-sources.jar', '.')
+    env.Jar('$JARDIR/alljoyn-sources.jar', source = ['.','../ice'])
 Return('alljoyn_jar')
 
