@@ -34,7 +34,6 @@
 #include <MsgArgUtils.h>
 #include <SignatureUtils.h>
 #include "alljoyn_java.h"
-#include <ProximityScanner.h>
 
 #define QCC_MODULE "ALLJOYN_JAVA"
 
