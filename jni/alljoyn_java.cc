@@ -948,8 +948,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         if (!clazz) {
             return JNI_ERR;
         }
-#if defined (QCC_OS_ANDROID)
         CLS_SessionOpts = (jclass)env->NewGlobalRef(clazz);
+
+#if defined (QCC_OS_ANDROID)
 
         clazz = env->FindClass("org/alljoyn/bus/ScanResultMessage");
         if (!clazz) {
