@@ -49,7 +49,7 @@ public class AllJoynAndroidExt{
 	
 	// For logging
 	private static final String TAG = "AllJoynAndroidExt";
-	public static Context ctx;
+	public static Context ctx = null;
 	
 	// Moved here from bus handler
 	
@@ -166,6 +166,11 @@ public class AllJoynAndroidExt{
 			//request_scan = true;
 			
 			Log.v(TAG,"---------------------- Scan results request called -------------------------------------------------------- !!!");
+			if(ctx == null){
+				PrepareScanResults();
+				scanResultMessage = null;
+				return scanResultMessageToBeSent;
+			}
 			// Else wifi is turned on and we can proceed with the scan
 			if(scanResultMessage == null && request_scan){
 				Log.v(TAG,"***************************Requested Scan Results**************************************");
