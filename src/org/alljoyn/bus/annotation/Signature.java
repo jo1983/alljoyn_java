@@ -29,31 +29,33 @@ import java.lang.annotation.Target;
  * <table border="1" width="100%" cellpadding="3" cellspacing="0">
  *   <tr bgcolor="#ccccff" class="tableheadingcolor"><th><b>Type Id</b></th>
  *      <th><b>AllJoyn type</b></th><th><b>Compatible Java types</b></th></tr>
- *   <tr><td>y</td><td>BYTE</td><td>byte, Enum<tt>*</tt></td></tr>
+ *   <tr><td>y</td><td>BYTE</td><td>byte, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
  *   <tr><td>b</td><td>BOOLEAN</td><td>boolean</td></tr>
- *   <tr><td>n</td><td>INT16</td><td>short, Enum<tt>*</tt></td></tr>
- *   <tr><td>q</td><td>UINT16</td><td>short, Enum<tt>*</tt></td></tr>
- *   <tr><td>i</td><td>INT32</td><td>int, Enum<tt>*</tt></td></tr>
- *   <tr><td>u</td><td>UINT32</td><td>int, Enum<tt>*</tt></td></tr>
- *   <tr><td>x</td><td>INT64</td><td>long, Enum<tt>*</tt></td></tr>
- *   <tr><td>t</td><td>UINT64</td><td>long, Enum<tt>*</tt></td></tr>
+ *   <tr><td>n</td><td>INT16</td><td>short, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
+ *   <tr><td>q</td><td>UINT16</td><td>short, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
+ *   <tr><td>i</td><td>INT32</td><td>int, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
+ *   <tr><td>u</td><td>UINT32</td><td>int, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
+ *   <tr><td>x</td><td>INT64</td><td>long, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
+ *   <tr><td>t</td><td>UINT64</td><td>long, Enum<a href="#note-1"><sup>[1]</sup></a></td></tr>
  *   <tr><td>d</td><td>DOUBLE</td><td>double</td></tr>
- *   <tr><td>s</td><td>STRING</td><td>String<tt>**</tt></td></tr>
- *   <tr><td>o</td><td>OBJECT_PATH</td><td>String<tt>**</tt></td></tr>
- *   <tr><td>g</td><td>SIGNATURE</td><td>String<tt>**</tt></td></tr>
+ *   <tr><td>s</td><td>STRING</td><td>String<a href="#note-2"><sup>[2]</sup></a></td></tr>
+ *   <tr><td>o</td><td>OBJECT_PATH</td><td>String<a href="#note-2"><sup>[2]</sup></a></td></tr>
+ *   <tr><td>g</td><td>SIGNATURE</td><td>String<a href="#note-2"><sup>[2]</sup></a></td></tr>
  *   <tr><td>a</td><td>ARRAY</td><td>Array. The array type code must be followed by a <em>single
  *      complete type</em>.</td></tr>
- *   <tr><td>r</td><td>STRUCT</td><td>User-defined type<tt>***</tt> whose fields are annotated with
+ *   <tr><td>r</td><td>STRUCT</td><td>User-defined type<a href="#note-3"><sup>[3]</sup></a> whose fields are annotated with
  *      {@link Position} and {@link Signature}</td></tr>
  *   <tr><td>v</td><td>VARIANT</td><td>{@link org.alljoyn.bus.Variant}</td></tr>
- *   <tr><td>a{TS}</td><td>DICTIONARY</td><td>Map<JT,JS> where T and S are AllJoyn type ids and JT and
+ *   <tr><td>a{TS}</td><td>DICTIONARY</td><td>Map&lt;JT,JS&gt; where T and S are AllJoyn type ids and JT and
  *      JS are compatible Java types</td></tr>
  * </table>
- * <tt>*</tt> = The ordinal numbers of the enumeration constant must correspond to the values of the
- *      AllJoyn type.<br>
- * <tt>**</tt> = Automatically converted to/from UTF-8(AllJoyn) to UTF-16 (Java).<br>
- * <tt>***</tt> = The user-defined type must supply a parameterless constructor.  Any nested classes
- *        of the user-defined type must be static nested classes.<br>
+ * <ol>
+ * <a name="note-1"><li>The ordinal numbers of the enumeration constant must correspond to the values of the
+ *      AllJoyn type.</li></a>
+ * <a name="note-2"><li>Automatically converted to/from UTF-8(AllJoyn) to UTF-16 (Java).</li></a>
+ * <a name="note-3"><li>The user-defined type must supply a parameterless constructor.  Any nested classes
+ *        of the user-defined type must be static nested classes.</li></a>
+ * </ol>
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
