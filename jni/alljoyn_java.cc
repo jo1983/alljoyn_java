@@ -3931,11 +3931,16 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     /*
      * Release any strong references we may hold to Java bus listener objects.
-     * We assume that since we have done a disconnect, there will never be
-     * a callback firing that expects to call out into one of these puppies.
      */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing BusListeners"));
     for (list<jobject>::iterator i = busListeners.begin(); i != busListeners.end(); ++i) {
+        JBusListener* listener = GetNativeListener<JBusListener*>(env, *i);
+        if (env->ExceptionCheck()) {
+            QCC_LogError(ER_FAIL, ("JBusAttachment::Disconnect(): Exception"));
+            return;
+        }
+        QCC_DbgPrintf(("JBusAttachment::Disconnect(): Call UnregisterBusListener()"));
+        UnregisterBusListener(*listener);
         QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to BusListener %p", *i));
         env->DeleteGlobalRef(*i);
     }
@@ -3943,8 +3948,8 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     /*
      * Release any strong references we may hold to objects passed in through an
-     * async join.  We assume that since we have done a disconnect, there will
-     * never be a callback firing that expects to call out into one of these
+     * async join.  We assume that since we have done a disconnect/stop/join, there
+     * will never be a callback firing that expects to call out into one of these
      * puppies.
      */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing PendingAsyncJoins"));
@@ -3962,12 +3967,13 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     /*
      * Release any strong references we may hold to objects passed in through a
-     * bind.  We assume that since we have done a disconnect, there will never
-     * be a callback firing that expects to call out into one of these puppies.
+     * bind.
      */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing SessionPortListeners"));
     for (map<SessionPort, jobject>::iterator i = sessionPortListenerMap.begin(); i != sessionPortListenerMap.end(); ++i) {
         if (i->second) {
+            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Call UnbindSessionPort(%d)", i->first));
+            UnbindSessionPort(i->first);
             QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionPortListener %p", i->second));
             env->DeleteGlobalRef(i->second);
         }
@@ -3976,13 +3982,13 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     /*
      * Release any strong references we may hold to objects passed in through a
-     * join session.  We assume that since we have done a disconnect, there will
-     * never be a callback firing that expects to call out into one of these
-     * puppies.
+     * join session.
      */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing SessionListeners"));
     for (map<SessionId, jobject>::iterator i = sessionListenerMap.begin(); i != sessionListenerMap.end(); ++i) {
         if (i->second) {
+            QCC_DbgPrintf(("JBusAttachment::Disconnect(): Call SetSessionListener(%d, %p)", i->first, 0));
+            SetSessionListener(i->first, 0);
             QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing strong global reference to SessionListener %p", i->second));
             env->DeleteGlobalRef(i->second);
         }
@@ -3991,12 +3997,13 @@ void JBusAttachment::Disconnect(const char* connectArgs)
 
     /*
      * Release any strong references we may hold to objects passed in through a
-     * security API.  We assume that since we have done a disconnect, there will
-     * never be a callback firing that expects to call out into one of these
-     * puppies.
+     * security API.
      */
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Releasing AuthListener"));
-    delete authListener;
+    if (authListener) {
+        EnablePeerSecurity(0, 0, 0, true);
+        delete authListener;
+    }
     authListener = NULL;
     QCC_DbgPrintf(("JBusAttachment::Disconnect(): Forgetting jauthListenerRef %p", jauthListenerRef));
     env->DeleteGlobalRef(jauthListenerRef);
