@@ -25,12 +25,12 @@ JavaStatus('org/alljoyn/bus/Status')
 # AllJoyn Java binding
 #If we are on Linux and Windows
 if env['OS'] == 'android':
-	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
-	proximity_classes = env.Java('$CLASSDIR', source = ['../ice'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
+	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+	proximity_classes = env.Java('$CLASSDIR', source = ['../ice'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes,proximity_classes])
 
 if (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
-	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=os.environ.get('CLASSPATH'))
+	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
 if env['VARIANT'] == 'debug' :
