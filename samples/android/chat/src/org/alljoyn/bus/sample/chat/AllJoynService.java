@@ -700,6 +700,7 @@ public class AllJoynService extends Service implements Observer {
      */
     private void doConnect() {
         Log.i(TAG, "doConnect()");
+        org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
     	assert(mBusAttachmentState == BusAttachmentState.DISCONNECTED);
     	mBus.useOSLogging(true);
     	mBus.setDebugLevel("ALLJOYN_JAVA", 7);

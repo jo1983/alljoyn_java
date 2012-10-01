@@ -281,6 +281,7 @@ public class Service extends Activity {
              * bus to start our service.
              */
             case CONNECT: { 
+            	org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
                 /*
                  * All communication through AllJoyn begins with a BusAttachment.
                  * A BusAttachment needs a name. The actual name is unimportant

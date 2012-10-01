@@ -215,6 +215,8 @@ public class Client extends Activity {
             switch(msg.what) {
             /* Connect to a remote instance of an object implementing the RawInterface. */
             case CONNECT: {
+            	
+            	org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
                 /*
                  * All communication through AllJoyn begins with a BusAttachment.
                  *

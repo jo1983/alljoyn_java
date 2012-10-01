@@ -75,6 +75,8 @@ public class AllJoynAndroidExt{
 	static boolean scanResultsObtained;
 	static boolean scanRequested = false;
 	static boolean stopScanRequested = false;
+	boolean isFirstScan=true;
+
 
 	// This needs to be accessible by the function which periodically populates results in the map
 	boolean getScanResultsCallCompleted = false;
@@ -205,6 +207,26 @@ public class AllJoynAndroidExt{
 							return scanResultMessage; 
 						} else{
 							Log.v(TAG," Wifi is enabled");
+						}
+					
+						if(isFirstScan){
+							if(wifiEnabled && wifiMgr.getConnectionInfo().getBSSID() != null){
+								isConnected = true;
+							}
+							if(scanResultMessage == null && isConnected){
+								scanResultMessage = new ScanResultMessage[1];
+								scanResultMessage[0] = new ScanResultMessage();
+								
+								String currentBSSID = wifiMgr.getConnectionInfo().getBSSID();
+								String currentSSID = wifiMgr.getConnectionInfo().getSSID();
+								
+								scanResultMessage[0].bssid = currentBSSID;
+								scanResultMessage[0].ssid = currentSSID;
+								scanResultMessage[0].attached = true;
+							}
+							PrepareScanResults();
+							isFirstScan = false;
+							return scanResultMessageToBeSent; 
 						}
 						
 						scanResultsObtained = false;

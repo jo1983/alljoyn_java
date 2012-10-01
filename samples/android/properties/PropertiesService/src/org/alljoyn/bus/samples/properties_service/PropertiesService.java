@@ -332,6 +332,7 @@ public class PropertiesService extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case CONNECT: {
+            	org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
                 mBus = new BusAttachment(getPackageName(), BusAttachment.RemoteMessage.Receive);
                 
                 mBus.registerBusListener(new BusListener());
