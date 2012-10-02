@@ -75,7 +75,7 @@ public class AllJoynAndroidExt{
 	static boolean scanResultsObtained;
 	static boolean scanRequested = false;
 	static boolean stopScanRequested = false;
-	boolean isFirstScan=true;
+	static boolean isFirstScan=true;
 
 
 	// This needs to be accessible by the function which periodically populates results in the map
@@ -174,6 +174,7 @@ public class AllJoynAndroidExt{
 	public static ScanResultMessage[] Scan(boolean request_scan){
 			
 			scanRequested = request_scan;
+			boolean isConnected = false;
 			
 			// For test ony ... always on scan
 			//request_scan = true;
@@ -274,7 +275,7 @@ public class AllJoynAndroidExt{
 					// There is a corner case here where you are not connected to any network and Scan() function is called when 
 					// it is ok to have scanResultMessage = null so we check if we are connected to any network first
 					
-					boolean isConnected = false;
+					isConnected = false;
 					
 					boolean wifiEnabled = wifiMgr.isWifiEnabled(); 
 					
