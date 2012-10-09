@@ -87,6 +87,19 @@ public class BusListener {
     private native void destroy();
 
     /**
+     * Called by the bus when the listener is registered. This give the listener implementation the
+     * opportunity to save a reference to the bus.
+     *
+     * @param bus  The bus the listener is registered with.
+     */
+    public void listenerRegistered(BusAttachment bus) {}
+
+    /**
+     * Called by the bus when the listener is unregistered.
+     */
+    public void listenerUnregistered() {}
+
+    /**
      * Called by the bus when an external bus is discovered that is advertising
      * a well-known name that this attachment has registered interest in via a
      * call to findAdvertisedName

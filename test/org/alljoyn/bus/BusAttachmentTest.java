@@ -1258,6 +1258,41 @@ public class BusAttachmentTest extends TestCase {
 
     }
 
+    public class RegisteredUnregisteredBusListener extends BusListener {
+        public RegisteredUnregisteredBusListener(BusAttachment bus) {
+            this.bus = bus;
+            this.registered = false;
+            this.unregistered = false;
+        }
+
+        @Override
+        public void listenerRegistered(BusAttachment bus) {
+            assertEquals(this.bus, bus);
+            registered = true;
+        }
+
+        @Override
+        public void listenerUnregistered() {
+            unregistered = true;
+        }
+
+        public boolean registered;
+        public boolean unregistered;
+
+        private BusAttachment bus;
+    }
+
+    public void testRegisteredUnregisteredBusListener() throws Exception {
+        bus = new BusAttachment(getClass().getName());
+        assertEquals(Status.OK, bus.connect());
+
+        RegisteredUnregisteredBusListener testBusListener = new RegisteredUnregisteredBusListener(bus);
+        bus.registerBusListener(testBusListener);
+        assertTrue(testBusListener.registered);
+        bus.unregisterBusListener(testBusListener);
+        assertTrue(testBusListener.unregistered);
+    }
+
     /*
      *  TODO
      *  Verify that all of the BusAttachment methods are tested

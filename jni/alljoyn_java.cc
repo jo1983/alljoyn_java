@@ -1432,8 +1432,10 @@ class JBusListener : public BusListener {
     JBusListener(jobject jlistener);
     ~JBusListener();
 
-    void ListenerRegistered(BusAttachment* bus) { }
-    void ListenerUnregistered() { }
+    void Setup(jobject jbusAttachment);
+
+    void ListenerRegistered(BusAttachment* bus);
+    void ListenerUnregistered();
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix);
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner);
@@ -1446,12 +1448,15 @@ class JBusListener : public BusListener {
     JBusListener& operator =(const JBusListener& other);
 
     jweak jbusListener;
+    jmethodID MID_listenerRegistered;
+    jmethodID MID_listenerUnregistered;
     jmethodID MID_foundAdvertisedName;
     jmethodID MID_lostAdvertisedName;
     jmethodID MID_nameOwnerChanged;
     jmethodID MID_propertyChanged;
     jmethodID MID_busStopping;
     jmethodID MID_busDisconnected;
+    jweak jbusAttachment;
 };
 
 /**
@@ -2410,6 +2415,7 @@ QStatus JKeyStoreListener::StoreRequest(KeyStore& keyStore)
  */
 JBusListener::JBusListener(jobject jlistener)
     : jbusListener(NULL)
+    , jbusAttachment(NULL)
 {
     QCC_DbgPrintf(("JBusListener::JBusListener()"));
 
@@ -2429,6 +2435,16 @@ JBusListener::JBusListener(jobject jlistener)
     if (!clazz) {
         QCC_LogError(ER_FAIL, ("JBusListener::JBusListener(): Can't GetObjectClass() for KeyStoreListener"));
         return;
+    }
+
+    MID_listenerRegistered = env->GetMethodID(clazz, "listenerRegistered", "(Lorg/alljoyn/bus/BusAttachment;)V");
+    if (!MID_listenerRegistered) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find listenerRegistered() in jbusListener"));
+    }
+
+    MID_listenerUnregistered = env->GetMethodID(clazz, "listenerUnregistered", "()V");
+    if (!MID_listenerUnregistered) {
+        QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find listenerUnregistered() in jbusListener"));
     }
 
     MID_foundAdvertisedName = env->GetMethodID(clazz, "foundAdvertisedName", "(Ljava/lang/String;SLjava/lang/String;)V");
@@ -2474,11 +2490,110 @@ JBusListener::~JBusListener()
 {
     QCC_DbgPrintf(("JBusListener::~JBusListener()"));
 
+    JNIEnv* env = GetEnv();
+    if (jbusAttachment) {
+        QCC_DbgPrintf(("JBusListener::~JBusListener(): Releasing weak global reference to BusAttachment %p", jbusAttachment));
+        env->DeleteWeakGlobalRef(jbusAttachment);
+        jbusAttachment = NULL;
+    }
     if (jbusListener) {
         QCC_DbgPrintf(("JBusListener::~JBusListener(): Releasing weak global reference to BusListener %p", jbusListener));
-        GetEnv()->DeleteWeakGlobalRef(jbusListener);
+        env->DeleteWeakGlobalRef(jbusListener);
         jbusListener = NULL;
     }
+}
+
+void JBusListener::Setup(jobject jbusAttachment)
+{
+    QCC_DbgPrintf(("JBusListener::Setup()"));
+
+    /*
+     * We need to be able to get back at the bus attachment in the ListenerRegistered callback.
+     */
+    QCC_DbgPrintf(("JBusListener::Setup(): Taking weak global reference to BusAttachment %p", jbusAttachment));
+    this->jbusAttachment = GetEnv()->NewWeakGlobalRef(jbusAttachment);
+}
+
+void JBusListener::ListenerRegistered(BusAttachment* bus)
+{
+    QCC_DbgPrintf(("JBusListener::ListenerRegistered()"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    jobject jba = env->NewLocalRef(jbusAttachment);
+    if (!jba) {
+        QCC_LogError(ER_FAIL, ("JBusListener::ListenerRegistered(): Can't get new local reference to BusAttachment"));
+        return;
+    }
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jba);
+    if (env->ExceptionCheck() || busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("JBusListener::ListenerRegistered(): Exception or NULL bus pointer"));
+        return;
+    }
+    assert(bus == busPtr);
+
+    /*
+     * The weak global reference jbusListener cannot be directly used.  We have to get
+     * a "hard" reference to it and then use that.  If you try to use a weak reference
+     * directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jbusListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::ListenerRegistered(): Can't get new local reference to BusListener"));
+        return;
+    }
+
+    /*
+     * This call out to listenerRegistered implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
+    QCC_DbgPrintf(("JBusListener::ListenerRegistered(): Call out to listener object and method"));
+    env->CallVoidMethod(jo, MID_listenerRegistered, jba);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::ListenerRegistered(): Exception"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JBusListener::ListenerRegistered(): Return"));
+}
+
+void JBusListener::ListenerUnregistered()
+{
+    QCC_DbgPrintf(("JBusListener::ListenerUnregistered()"));
+
+    /*
+     * JScopedEnv will automagically attach the JVM to the current native
+     * thread.
+     */
+    JScopedEnv env;
+
+    /*
+     * The weak global reference jbusListener cannot be directly used.  We have to get
+     * a "hard" reference to it and then use that.  If you try to use a weak reference
+     * directly you will crash and burn.
+     */
+    jobject jo = env->NewLocalRef(jbusListener);
+    if (!jo) {
+        QCC_LogError(ER_FAIL, ("JBusListener::ListenerUnregistered(): Can't get new local reference to BusListener"));
+        return;
+    }
+
+    /*
+     * This call out to listenerUnregistered implies that the Java method must be
+     * MT-safe.  This is implied by the definition of the listener.
+     */
+    QCC_DbgPrintf(("JBusListener::ListenerUnregistered(): Call out to listener object and method"));
+    env->CallVoidMethod(jo, MID_listenerUnregistered);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("JBusListener::ListenerUnregistered(): Exception"));
+        return;
+    }
+
+    QCC_DbgPrintf(("JBusListener::ListenerUnregistered(): Return"));
 }
 
 /**
@@ -4560,8 +4675,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_emitChangedSignal(
     QCC_DbgPrintf(("BusAttachment_emitChangedSignal()"));
 
     JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
-    if (env->ExceptionCheck()) {
-        QCC_LogError(ER_FAIL, ("BusAttachment_emitChangedSignal(): Exception"));
+    if (env->ExceptionCheck() || busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_emitChangedSignal(): Exception or NULL bus pointer"));
         return;
     }
 
@@ -4776,6 +4891,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusListener(JN
     }
 
     assert(listener);
+    listener->Setup(thiz);
 
     /*
      * Make the call into AllJoyn.
