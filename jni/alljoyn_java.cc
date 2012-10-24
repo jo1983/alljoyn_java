@@ -7122,7 +7122,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_enablePeerSecurity(
  * JBusObject pair.
  */
 JBusObject::JBusObject(JBusAttachment* jbap, const char* path, jobject jobj)
-    : BusObject(*jbap, path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_unregistered(NULL)
+    : BusObject(path), jbusObj(NULL), MID_generateIntrospection(NULL), MID_registered(NULL), MID_unregistered(NULL)
 {
     QCC_DbgPrintf(("JBusObject::JBusObject()"));
 
@@ -7632,7 +7632,7 @@ QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const c
 {
     QCC_DbgPrintf(("JBusObject::Signal()"));
 
-    const InterfaceDescription* intf = bus.GetInterface(ifaceName);
+    const InterfaceDescription* intf = bus->GetInterface(ifaceName);
     if (!intf) {
         return ER_BUS_OBJECT_NO_SUCH_INTERFACE;
     }
