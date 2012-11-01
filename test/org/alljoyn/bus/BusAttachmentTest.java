@@ -125,6 +125,20 @@ public class BusAttachmentTest extends TestCase {
         this.notifyAll();
     }
 
+    public class Lambda {
+        public boolean func() { return false; }
+    }
+    
+    public boolean waitForLambda(long waitMs, Lambda expression) throws Exception {
+        boolean ret = expression.func();
+        long endMs = System.currentTimeMillis() + waitMs;
+        while (!ret && (System.currentTimeMillis() <= endMs)) {
+            Thread.sleep(5);
+            ret = expression.func();
+        }
+        return ret;
+    }
+
     public void testEmitSignalFromUnregisteredSource() throws Exception {
         boolean thrown = false;
         try {
@@ -1074,12 +1088,6 @@ public class BusAttachmentTest extends TestCase {
         @Override
         public void sessionLost(int sessionId) {
             sessionLost = true;
-
-            // stopWait seems to block sometimes so we need to enable concurrency
-            bus.enableConcurrentCallbacks();
-
-            // @@ Seems like stopWait blocks sometimes (Todd?)
-            stopWait();
         }
 
         private BusAttachment bus;
@@ -1117,9 +1125,6 @@ public class BusAttachmentTest extends TestCase {
             public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
                 if (sessionPort == 42) {
                     sessionAccepted = true;
-                    // stopWait seems to block sometimes, so enable concurrency.
-                    bus.enableConcurrentCallbacks();
-                    stopWait();
                     return true;
                 } else {
                     sessionAccepted = false;
@@ -1130,8 +1135,8 @@ public class BusAttachmentTest extends TestCase {
             @Override
             public void sessionJoined(short sessionPort, int id, String joiner) {
                 if (sessionPort == 42) {
-                    sessionJoined = true;
                     busSessionId = id;
+                    sessionJoined = true;
                 } else {
                     sessionJoined = false;
                 }
@@ -1152,7 +1157,6 @@ public class BusAttachmentTest extends TestCase {
         otherBus.registerBusListener(new BusListener() {
             @Override
             public void foundAdvertisedName(String name, short transport, String namePrefix) {
-                found = true;
                 SessionOpts sessionOpts = new SessionOpts();
                 sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
                 sessionOpts.isMultipoint = false;
@@ -1179,28 +1183,21 @@ public class BusAttachmentTest extends TestCase {
                         }
                     }
                 }
-
-                stopWait();
+                // must be last
+                found = true;
             }
         });
 
         // find the AdvertisedName
         assertEquals(Status.OK, otherBus.findAdvertisedName(name));
 
-        this.wait(4 * 1000);
+        // Make sure name was found and session was joined
+        assertEquals(true, waitForLambda(4 * 1000, new Lambda() { 
+                @Override
+                public boolean func() { return found && sessionAccepted && sessionJoined && (joinSessionStatus == Status.OK); }
+            }));
 
-        assertEquals(true, found);
-
-        this.wait(4 * 1000);
-        if(!sessionAccepted || !sessionJoined) {
-            this.wait(4 * 1000);
-        }
-
-        assertEquals(Status.OK, joinSessionStatus);
-        assertEquals(true, sessionAccepted);
-        assertEquals(true, sessionJoined);
         assertEquals(busSessionId, otherBusSessionId);
-
         assertEquals(Status.OK, otherBus.leaveSession(otherBusSessionId));
         Status status = bus.leaveSession(busSessionId);
         assertTrue((status == Status.OK) || (status == Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION));
@@ -1212,26 +1209,25 @@ public class BusAttachmentTest extends TestCase {
         otherBus.cancelFindAdvertisedName(name);
         otherBus.findAdvertisedName(name);
 
-        this.wait(4 * 1000);
-
-        assertEquals(true, found);
-
-        this.wait(4 * 1000);
-        if(!sessionAccepted || !sessionJoined) {
-            this.wait(4 * 1000);
-        }
-
+        // Wait for found name and session joined
+        assertEquals(true, waitForLambda(4 * 1000, new Lambda() {
+                @Override
+                public boolean func() { return found && sessionAccepted && sessionJoined; }
+            }));
+        
         assertEquals(Status.OK, joinSessionStatus);
         assertEquals(true, sessionAccepted);
         assertEquals(true, sessionJoined);
         assertEquals(busSessionId, otherBusSessionId);
-
+        
         assertEquals(Status.OK, bus.leaveSession(busSessionId));
         status = otherBus.leaveSession(otherBusSessionId);
         assertTrue((status == Status.OK) || (status == Status.ALLJOYN_LEAVESESSION_REPLY_NO_SESSION));
 
-        this.wait(4 * 1000);
-        assertEquals(true, sessionLost);
+        // Wait for session lost
+        assertEquals(true, waitForLambda(4 * 1000, new Lambda() {
+                public boolean func() { return sessionLost; }
+            }));
     }
 
     /* ALLJOYN-958 */
