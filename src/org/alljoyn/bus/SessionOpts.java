@@ -202,6 +202,7 @@ public class SessionOpts {
         if ((transports & TRANSPORT_WLAN) != 0) result.append(" TRANSPORT_WLAN");
         if ((transports & TRANSPORT_WWAN) != 0) result.append(" TRANSPORT_WWAN");
         if ((transports & TRANSPORT_ICE) != 0) result.append(" TRANSPORT_ICE");
+        if ((transports & TRANSPORT_WFD) != 0) result.append(" TRANSPORT_WFD");
         
         result.append("}");
         return result.toString();
