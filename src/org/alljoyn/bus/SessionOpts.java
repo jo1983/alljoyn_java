@@ -119,11 +119,6 @@ public class SessionOpts {
     public static final short TRANSPORT_NONE      = 0x0000;
 
     /**
-     * Use any available transport to communicate with a given session.
-     */
-    public static final short TRANSPORT_ANY       = (short)0xffff;
-
-    /**
      * Use only the local transport to communicate with a given session.
      */
     public static final short TRANSPORT_LOCAL     = 0x0001;
@@ -144,9 +139,39 @@ public class SessionOpts {
     public static final short TRANSPORT_WWAN      = 0x0008;
     
     /**
+     * Use only a wired local area network to communicate with a given session.
+     */
+    public static final short TRANSPORT_LAN      = 0x0010;
+    
+    /**
      * Use only ICE transport to communicate with a given session.
      */
     public static final short TRANSPORT_ICE      = 0x0020;
+
+    /**
+     * Use only the Wi-Fi Direct transport to communicate with a given session.
+     */
+    public static final short TRANSPORT_WFD      = 0x0080;
+
+    /**
+     * Use any available transport to communicate with a given session.
+     *
+     * It is the case that (1) certain topologies of AllJoyn distributed
+     * applications can cause problems when run on Wi-Fi Direct substrate
+     * networks; (2) the specifics of authentication in Wi-Fi Direct networks
+     * can also produce surprising results in some AllJoyn topologies; and (3)
+     * there are implementation problems in existing Wi-Fi Direct systems that
+     * prevent certain AllJoyn topologies from forming.  Because these issues
+     * might produce surprising results in existing applications that are
+     * unaware of the limitations, we do no enable Wi-Fi Direct automatically.
+     *
+     * Selecting ANY transport really means selecting ANY but Wi-Fi Direct.  In
+     * order to enable discovery over Wi-Fi Direct, and use of the Wi-Fi Direct
+     * transport an application author must positively act and OR in the
+     * TRANSPORT_WFD bit.
+     */
+    public static final short TRANSPORT_ANY       = (short)0xffff & ~TRANSPORT_WFD;
+
 
     public String toString( ) {
         StringBuilder result = new StringBuilder();
