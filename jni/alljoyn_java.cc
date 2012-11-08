@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -969,6 +969,10 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
         CLS_AllJoynAndroidExt = (jclass)env->NewGlobalRef(clazz);
         MID_AllJoynAndroidExt_Scan = env->GetStaticMethodID(CLS_AllJoynAndroidExt, "Scan", "(Z)[Lorg/alljoyn/bus/ScanResultMessage;");
         if (!MID_AllJoynAndroidExt_Scan) {
+            return JNI_ERR;
+        }
+        clazz = env->FindClass("org/alljoyn/bus/p2p/service/P2pHelperService");
+        if (!clazz) {
             return JNI_ERR;
         }
 #endif

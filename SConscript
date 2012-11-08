@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -55,8 +55,12 @@ env.Append(JARDIR='$JAVA_DISTDIR/jar')
 # Add support for mulitiple build targets in the same workset
 env.VariantDir('$OBJDIR', '.', duplicate = 0)
 
+
 # AllJoyn Java binding
 alljoyn_jar = env.SConscript('src/SConscript')
+
+# Get P2P jni file from core
+#env.Install('jni', '../alljoyn_core/alljoyn_android/alljoyn_android_p2pservice/jni/P2pHelperService.cc')
 
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')

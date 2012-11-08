@@ -10,3 +10,8 @@ libs
 .metadata
 test_report/reports
 MANIFEST.MF
+#jni/P2pHelperService.cc
+#p2p/org/alljoyn/bus/p2p/service/P2pHelperService.java
+#p2p/org/alljoyn/bus/p2p/service/P2pInterface.java
+#p2p/org/alljoyn/bus/p2p/service/P2pManager.java
+#p2p/org/alljoyn/bus/p2p/service/P2pReceiver.java
