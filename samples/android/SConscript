@@ -51,7 +51,8 @@ env.Install('$JAVA_DISTDIR/samples', 'README.txt')
 # samples loop shown above.
 for sample in ['secure/sharedks/service',
                'secure/sharedks/srpclientA',
-               'secure/sharedks/srpclientB']:
+               'secure/sharedks/srpclientB',
+               'sessions']:
     if env['OS'] == 'android' and env['CPU'] == 'arm':
         env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
         env.Install('%s/libs/armeabi' % sample, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
