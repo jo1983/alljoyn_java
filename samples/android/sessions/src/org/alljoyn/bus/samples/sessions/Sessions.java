@@ -462,7 +462,7 @@ private static final String TAG = "Sessions";
                         finish();
                         return;
                     }
-                    org.alljoyn.bus.p2p.service.P2pHelperInit.PrepareP2pHelper(getApplicationContext());
+                    org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
                     Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
                     
                     SessionOpts sessionOpts = new SessionOpts();
