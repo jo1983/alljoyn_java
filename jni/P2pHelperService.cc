@@ -672,11 +672,13 @@ class P2pService : public BusObject {
         return static_cast<int>(status);
     }
 
-    int sendOnLinkEstablished(int handle) {
-        MsgArg arg("i", handle);
+    int sendOnLinkEstablished(int handle, const char*interfaceName) {
+        MsgArg args[2];
+        args[0].Set("i", handle);
+        args[1].Set("s", interfaceName);
 
-        LOGI("sendOnLinkEstablished(%d)", handle);
-        QStatus status = Signal(NULL, sessionId, *onLinkEstablishedMember, &arg, 1, 0);
+        LOGI("sendOnLinkEstablished(%d, %s)", handle, interfaceName);
+        QStatus status = Signal(NULL, sessionId, *onLinkEstablishedMember, args, 2, 0);
         if (ER_OK != status) {
             LOGE("sendOnLinkEstablished: Error sending signal (%s)", QCC_StatusText(status));
         }
@@ -788,7 +790,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jni
 
             p2pIntf->AddSignal("OnFoundAdvertisedName",      "ssss", "name,namePrefix,guid,device");
             p2pIntf->AddSignal("OnLostAdvertisedName",       "ssss", "name,namePrefix,guid,device");
-            p2pIntf->AddSignal("OnLinkEstablished",          "i",    "handle");
+            p2pIntf->AddSignal("OnLinkEstablished",          "is",    "handle,interfaceName");
             p2pIntf->AddSignal("OnLinkError",                "ii",   "handle,error");
             p2pIntf->AddSignal("OnLinkLost",                 "i",    "handle");
 
@@ -912,11 +914,13 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLo
     return static_cast<int>(status);
 }
 
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle, jstring name) {
     int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
-        status = s_obj->sendOnLinkEstablished(handle);
+        const char* cName = env->GetStringUTFChars(name, NULL);
+        status = s_obj->sendOnLinkEstablished(handle, cName);
+        env->ReleaseStringUTFChars(name, cName);
     }
     return static_cast<int>(status);
 }
