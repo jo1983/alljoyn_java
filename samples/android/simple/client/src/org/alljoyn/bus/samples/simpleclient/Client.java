@@ -25,6 +25,7 @@ import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.Status;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.os.Bundle;
@@ -44,6 +45,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+@TargetApi(3)
 public class Client extends Activity {
     /* Load the native alljoyn_java library. */
     static {
@@ -230,7 +232,9 @@ public class Client extends Activity {
                     	 * sessions is not shown in this sample. 
                     	 */
                     	if(!mIsConnected) {
-                    	    Message msg = obtainMessage(JOIN_SESSION, name);
+                    	    Message msg = obtainMessage(JOIN_SESSION);
+                    	    msg.arg1 = transport;
+                    	    msg.obj = name;
                     	    sendMessage(msg);
                     	}
                     }
@@ -277,6 +281,7 @@ public class Client extends Activity {
                  */
                 short contactPort = CONTACT_PORT;
                 SessionOpts sessionOpts = new SessionOpts();
+                sessionOpts.transports = (short)msg.arg1;
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                 
                 Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener() {

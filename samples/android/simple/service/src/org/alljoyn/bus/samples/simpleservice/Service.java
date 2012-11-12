@@ -232,7 +232,17 @@ public class Service extends Activity {
                 sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
                 sessionOpts.isMultipoint = false;
                 sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-                sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+                /*
+                 * Explicitly add the Wi-Fi Direct transport into our
+                 * advertisements.  This sample is typically used in a "cable-
+                 * replacement" scenario and so it should work well over that
+                 * transport.  It may seem odd that ANY actually excludes Wi-Fi
+                 * Direct, but there are topological and advertisement/
+                 * discovery problems with WFD that make it problematic to
+                 * always enable.
+                 */
+                sessionOpts.transports = SessionOpts.TRANSPORT_ANY + SessionOpts.TRANSPORT_WFD;
 
                 status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
                     @Override
@@ -263,7 +273,7 @@ public class Service extends Activity {
                 	 * If we successfully obtain a well-known name from the bus 
                 	 * advertise the same well-known name
                 	 */
-                	status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
+                	status = mBus.advertiseName(SERVICE_NAME, sessionOpts.transports);
                     logStatus(String.format("BusAttachement.advertiseName(%s)", SERVICE_NAME), status);
                     if (status != Status.OK) {
                     	/*
