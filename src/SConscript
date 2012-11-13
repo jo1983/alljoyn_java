@@ -26,17 +26,15 @@ JavaStatus('org/alljoyn/bus/Status')
 #If we are on Linux and Windows
 if env['OS'] == 'android':
 	# Get P2P java files from core
-	#p2p_sources = env.Install('../p2p/org/alljoyn/bus/p2p/service', '../../alljoyn_core/alljoyn_android/alljoyn_android_p2pservice/src/org/alljoyn/bus/p2p/service/P2pHelperService.java')
-	#p2p_sources += env.Install('../p2p/org/alljoyn/bus/p2p/service', '../../alljoyn_core/alljoyn_android/alljoyn_android_p2pservice/src/org/alljoyn/bus/p2p/service/P2pManager.java')
-	#p2p_sources += env.Install('../p2p/org/alljoyn/bus/p2p/service', '../../alljoyn_core/alljoyn_android/alljoyn_android_p2pservice/src/org/alljoyn/bus/p2p/service/P2pInterface.java')
-	#p2p_sources += env.Install('../p2p/org/alljoyn/bus/p2p/service', '../../alljoyn_core/alljoyn_android/alljoyn_android_p2pservice/src/org/alljoyn/bus/p2p/service/P2pReceiver.java')
-
 	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
-	proximity_classes = env.Java('$CLASSDIR', source = ['../helper'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+        main_classes += env.Java('$CLASSDIR', source = ['../ice'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+	
+	if '16' == env.subst('$ANDROID_API_LEVEL'):
+		main_classes += env.Java('$CLASSDIR', source = ['../helper_jb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['ice'])
+	else:
+		main_classes += env.Java('$CLASSDIR', source = ['../helper_gb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['ice'])
 
-	#env.Depends(p2p_classes, p2p_sources)
-
-	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes,proximity_classes])
+	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
 if (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
 	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
@@ -44,7 +42,7 @@ if (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
 
 if env['VARIANT'] == 'debug' :
     # get a listing of the sources
-    env.Jar('$JARDIR/alljoyn-sources.jar', source = ['.','../helper'])
+    env.Jar('$JARDIR/alljoyn-sources.jar', source = ['.'])
 Return('alljoyn_jar')
 
 
