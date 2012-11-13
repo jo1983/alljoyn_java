@@ -108,7 +108,7 @@ public interface P2pInterface {
      * successful completion of a link establishment procedure from the Android
      * framework back to the AllJoyn daemon.
      */
-    public void OnLinkEstablished(int handle);
+    public void OnLinkEstablished(int handle, String p2pInterfaceName);
 
     /*
      * The AllJoyn dameon begins the process of a session join by calling the

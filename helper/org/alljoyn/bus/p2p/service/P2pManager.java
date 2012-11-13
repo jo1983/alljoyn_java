@@ -509,6 +509,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             startAdvertisements();
         }
 
+        String p2pInterfaceName = getInterfaceNameFromHandle(0);
+
+        Log.d(TAG, "Interface Name " + p2pInterfaceName);
+
     }
 
     private int getHandle(String addr) {
@@ -521,17 +525,29 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     synchronized public void onGroupInfoAvailable(WifiP2pGroup group) {
         Log.d(TAG, "onGroupInfoAvaialble");
+
         synchronized (mPeerState) {
                 if (mPeerState.get() != PeerState.CONNECTED)
                     return;
         }
+
+        int handle = 0;
+        String p2pInterfaceName = group.getInterface();
+
+        Log.d (TAG, "interface " + p2pInterfaceName);
+
         mGroupOwner =group.getOwner();
         if (mGroupOwner != null)
             Log.d(TAG, "Group owner " + mGroupOwner.deviceAddress);
+
+        if (mPeerConfig != null)
+            handle = getHandle(mPeerConfig.deviceAddress);
+
+        busInterface.OnLinkEstablished(handle, p2pInterfaceName);
+
     }
 
     public void onConnectionInfoAvailable(WifiP2pInfo info) {
-
         Log.d(TAG, "onConnectionInfoAvailable()");
         Log.d(TAG, "Group Formed: " + info.groupFormed);
         Log.d(TAG, "Is Group Owner: " + info.isGroupOwner);
@@ -553,7 +569,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             if (info.groupFormed) {
                 mPeerState.set(PeerState.CONNECTED);
                 manager.requestGroupInfo(channel, this);
-                busInterface.OnLinkEstablished(getHandle(mPeerConfig.deviceAddress));
             } else {
                 int handle = 0;
                 if (mPeerConfig != null) {
@@ -620,7 +635,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 }
 
                 mPendingConnect = false;
-                busInterface.OnLinkEstablished(0);
 
             } else {
                 int handle = 0;
@@ -1008,7 +1022,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         // Workaround for an issue when only one advertised service can be consistenly discovered.
         // The logic for keeping track of advertisements in mAdvertisementNames is currently
         // unused due to bug in the deeper layers preventing consistent discovery of more than
-        // one advertised service. However. We will keep it intact in optmistic hopes that
+        // one advertised service. However. we will keep it intact in optmistic hopes that
         // this issue will be fixed in future.
         synchronized (mAdvertisedNames) {
             if (!mAdvertisedNames.isEmpty()) {
@@ -1162,7 +1176,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         isInitiator = true;
 
         // if no connection, initiate connect;
-        // else if connection exists to the same device, call onLinkEstablished
+        // else if connection exists to the same device, request group info,
         // else if connection exists to a different device and the current app is in foreground, 
         // tear the existing connection down and initiate a new one.
 
@@ -1179,7 +1193,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         if (mPeerState.get() == PeerState.CONNECTED && mGroupOwner != null) {
             if (mGroupOwner.deviceAddress.equals(deviceAddress)) {
                 Log.d(TAG, "Connection to " + deviceAddress + " already exists");
-                busInterface.OnLinkEstablished(getHandle(mPeerConfig.deviceAddress));
+                manager.requestGroupInfo(channel, this);
             } else {
                 if (isForeground()) {
                     mPendingConnect = true;

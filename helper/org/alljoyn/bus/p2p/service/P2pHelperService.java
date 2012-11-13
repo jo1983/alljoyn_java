@@ -27,7 +27,7 @@ public class P2pHelperService implements P2pInterface {
     private native void jniOnDestroy();
     private native int jniOnFoundAdvertisedName(String name, String namePrefix, String guid, String device);
     private native int jniOnLostAdvertisedName(String name, String namePrefix, String guid, String device);
-    private native int jniOnLinkEstablished(int handle);
+    private native int jniOnLinkEstablished(int handle, String interfaceName);
     private native int jniOnLinkError(int handle, int error);
     private native int jniOnLinkLost(int handle);
 
@@ -129,10 +129,10 @@ public class P2pHelperService implements P2pInterface {
         }
     }
 
-    public void OnLinkEstablished(int handle) {
+    public void OnLinkEstablished(int handle, String interfaceName) {
         if (jniConnected) {
-            Log.i(TAG, "OnLinkEstablished(" + handle + "): Sending signal");
-            if (0 != jniOnLinkEstablished(handle)) {
+            Log.i(TAG, "OnLinkEstablished(" + handle + "), interface " + interfaceName);
+            if (0 != jniOnLinkEstablished(handle, interfaceName)) {
                 jniFailed();
             }
         } else {
