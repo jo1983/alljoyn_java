@@ -27,12 +27,12 @@ JavaStatus('org/alljoyn/bus/Status')
 if env['OS'] == 'android':
 	# Get P2P java files from core
 	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
-        main_classes += env.Java('$CLASSDIR', source = ['../ice'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+    	main_classes += env.Java('$CLASSDIR', source = ['../common'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 	
 	if '16' == env.subst('$ANDROID_API_LEVEL'):
-		main_classes += env.Java('$CLASSDIR', source = ['../helper_jb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['ice'])
+		main_classes += env.Java('$CLASSDIR', source = ['../helper_jb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['common'])
 	else:
-		main_classes += env.Java('$CLASSDIR', source = ['../helper_gb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['ice'])
+		main_classes += env.Java('$CLASSDIR', source = ['../helper_gb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['common'])
 
 	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
