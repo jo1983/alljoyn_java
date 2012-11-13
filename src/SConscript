@@ -30,9 +30,9 @@ if env['OS'] == 'android':
     	main_classes += env.Java('$CLASSDIR', source = ['../common'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 	
 	if '16' == env.subst('$ANDROID_API_LEVEL'):
-		main_classes += env.Java('$CLASSDIR', source = ['../helper_jb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['common'])
+		main_classes += env.Java('$CLASSDIR', source = ['../helper_jb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=[Dir('../common').get_abspath()])
 	else:
-		main_classes += env.Java('$CLASSDIR', source = ['../helper_gb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=['common'])
+		main_classes += env.Java('$CLASSDIR', source = ['../helper_gb'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'), JAVASOURCEPATH=[Dir('../common').get_abspath()])
 
 	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
