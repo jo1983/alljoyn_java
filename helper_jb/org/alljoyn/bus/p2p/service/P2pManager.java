@@ -217,8 +217,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         mAdvertisedNames = new HashMap<String, LocalServiceInfo>();
         mDeviceServices = new HashMap<String, ArrayList<FoundServiceInfo> >();
 
-        //Object groupApprover = DialogListenerProxy.newDialogListener(manager, channel);
-        //DialogListenerProxy.setDialogListener(manager, channel, groupApprover);
     }
 
     public void startup() {
@@ -1031,10 +1029,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             }
         }
 
-        Map<String, String> txt = new HashMap<String, String>();
         int timer = 255;
-        txt.put("GUID", guid);
-        txt.put("TIMER", Integer.toString(timer));
 
         LocalServiceInfo info = new LocalServiceInfo(guid, timer);
 
