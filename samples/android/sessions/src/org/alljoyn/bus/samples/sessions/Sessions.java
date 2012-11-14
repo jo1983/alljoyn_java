@@ -78,6 +78,8 @@ private static final String TAG = "Sessions";
 	private String serviceToBeCancelAdvertised;
 	
 	private boolean discoverStatus;
+	
+	private short transportFoundOn;
 
 	private WifiConfiguration myConf;
 	private int networkId = 0;
@@ -469,7 +471,7 @@ private static final String TAG = "Sessions";
                     sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
                     sessionOpts.isMultipoint = false;
                     sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-                    sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+                    sessionOpts.transports = AdvertiseOn;
 
                     status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
                         @Override
@@ -525,6 +527,8 @@ private static final String TAG = "Sessions";
                         	Log.e(TAG, String.format("org.alljoyn.Bus.FoundName signal detected."));
                 			discoverStatus = true;
 
+                			transportFoundOn = transport;
+                			
                 			if (!discoveredList.contains(name))
                 				discoveredList.add(name);
                 			
@@ -613,6 +617,8 @@ private static final String TAG = "Sessions";
                 case JOIN: {
                     SessionOpts sessionOpts = new SessionOpts();
                     Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+                    
+                    sessionOpts.transports = transportFoundOn;
                     
                     Status status = mBus.joinSession(connectTo, CONTACT_PORT, sessionId, sessionOpts, new SessionListener() {
                         public void sessionLost(final int sessionId) {
