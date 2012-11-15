@@ -59,9 +59,6 @@ env.VariantDir('$OBJDIR', '.', duplicate = 0)
 # AllJoyn Java binding
 alljoyn_jar = env.SConscript('src/SConscript')
 
-# Get P2P jni file from core
-#env.Install('jni', '../alljoyn_core/alljoyn_android/alljoyn_android_p2pservice/jni/P2pHelperService.cc')
-
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')
 env.Install('$JAVA_DISTDIR/lib', libs)
