@@ -59,6 +59,7 @@ static const char* P2P_SERVICE_NAME = "org.alljoyn.bus.p2p";
 
 static BusAttachment* s_bus = NULL;
 static P2pService* s_obj = NULL;
+static bool isStandalone = true;
 
 class P2pService : public BusObject {
   public:
@@ -831,7 +832,9 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jni
                         env->ReleaseStringUTFChars(connectSpec, cSpec);
                         return false;
                     } else {
-                        LOGE("BusAttachment::Connect(\"%s\") SUCCEEDED (%s)", cSpec, QCC_StatusText(status));
+                        const char*cConnectSpec = s_bus->GetConnectSpec().c_str();
+                        isStandalone = (strcmp(cConnectSpec, "null:") == 0) ? true  : false;
+                        LOGE("BusAttachment::Connect(\"%s\") SUCCEEDED (%s)", cConnectSpec, QCC_StatusText(status));
                     }
                     env->ReleaseStringUTFChars(connectSpec, cSpec);
                 }
@@ -943,7 +946,15 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLi
     return static_cast<int>(status);
 }
 
+/*
+ * Class:     org_alljoyn_bus_p2p_service_P2pHelperService
+ * Method:    jniInit
+ * Signature: (Ljava/lang/String;)I
+ */
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniCheckStandalone(JNIEnv*env, jobject jobj) {
+    return isStandalone;
+}
+
 #ifdef __cplusplus
 }
 #endif
-

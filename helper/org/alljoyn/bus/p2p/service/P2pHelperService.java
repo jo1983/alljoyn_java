@@ -24,6 +24,7 @@ public class P2pHelperService implements P2pInterface {
     private static final String TAG = "P2pHelperService";
 
     private native boolean jniOnCreate(String daemonAddr);
+    private native boolean jniCheckStandalone();
     private native void jniOnDestroy();
     private native int jniOnFoundAdvertisedName(String name, String namePrefix, String guid, String device);
     private native int jniOnLostAdvertisedName(String name, String namePrefix, String guid, String device);
@@ -32,10 +33,12 @@ public class P2pHelperService implements P2pInterface {
     private native int jniOnLinkLost(int handle);
 
     private boolean jniConnected = false;
+    private boolean isStandalone = true;
 
     private P2pManager mP2pManager = null;
     private Context mContext = null;
     private String mDaemonAddr = null;
+    private String mConnectContext = null;
 
     public P2pHelperService(Context context, String daemonAddr) {
         mContext = context;
@@ -47,7 +50,8 @@ public class P2pHelperService implements P2pInterface {
         if (!jniConnected) {
             jniConnected = jniOnCreate(mDaemonAddr);
             if (jniConnected) {
-                mP2pManager.startup();
+                isStandalone = jniCheckStandalone();
+                mP2pManager.startup(isStandalone);
             }
         }
     }
