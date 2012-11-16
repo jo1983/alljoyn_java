@@ -113,7 +113,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     private boolean mPendingConnect = false;
     private boolean isInitiator = false;
-    private boolean isBundled = false;
+    private boolean isStandalone = true;
 
     private static final long periodicInterval = 40000;
     private static final long connectionTimeout = 150000;
@@ -219,7 +219,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     }
 
-    public void startup() {
+    public void startup(boolean isStandalone) {
+
+        this.isStandalone = isStandalone;
+        Log.d(TAG, "Using preinstalled daemon " + !isStandalone);
 
         mHandler = new Handler();
 
@@ -429,7 +432,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     private boolean isForeground() {
         // Treat the case of preinstalled daemon as always in foreground
-        if (!isBundled)
+        if (!isStandalone)
             return true;
 
         String name = context.getPackageName();
