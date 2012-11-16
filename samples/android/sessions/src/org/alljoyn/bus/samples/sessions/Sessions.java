@@ -369,6 +369,7 @@ private static final String TAG = "Sessions";
                      					   if (dis != null) {
                      						   connectTo = dis;
                      						   mBusHandler.sendEmptyMessage(BusHandler.JOIN);
+                     						   mRemoteConnect.setChecked(false);
                      						   DisplayProgress("Connecting to remote Peer, please wait...", null, null, 10000);
                      					   }
                      				   }
@@ -620,7 +621,7 @@ private static final String TAG = "Sessions";
                     
                     sessionOpts.transports = transportFoundOn;
                     
-                    Status status = mBus.joinSession(connectTo, CONTACT_PORT, sessionId, sessionOpts, new SessionListener() {
+                    final Status status = mBus.joinSession(connectTo, CONTACT_PORT, sessionId, sessionOpts, new SessionListener() {
                         public void sessionLost(final int sessionId) {
                         	runOnUiThread (new Runnable() {
                 	            public void run() {
@@ -637,11 +638,18 @@ private static final String TAG = "Sessions";
             	            public void run() {
             	            	final ToggleButton mRemoteConnect = (ToggleButton)findViewById(R.id.RemoteConnect);
                                 mRemoteConnect.setChecked(false);
-                                makeAToast("!!!  ERROR  !!!\n\n"+"Session NOT Established.", "High");
+                                makeAToast("!!!  ERROR  !!!\n\n"+"Session NOT Established.\n(Error Code = " + status.toString() + ")", "High");
             	            }
             	         });
+                    	Log.d (TAG, status.toString());
                     	return;
                     }
+                    runOnUiThread (new Runnable() {
+        	            public void run() {
+        	            	final ToggleButton mRemoteConnect = (ToggleButton)findViewById(R.id.RemoteConnect);
+                            mRemoteConnect.setChecked(true);
+        	            }
+        	         });
                     logStatus("BusAttachment.joinSession() - sessionId: " + sessionId.value, status);
                 	connectID = sessionId.value;
                 	runOnUiThread (new Runnable() {
