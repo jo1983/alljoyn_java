@@ -23,6 +23,7 @@ import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.Status;
+import org.alljoyn.bus.p2p.WifiDirectAutoAccept;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -54,6 +55,8 @@ public class Service extends Activity {
     private ListView mListView;
     private Menu menu;
     
+    private WifiDirectAutoAccept mWfdAutoAccept;
+
     private Handler mHandler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
@@ -90,6 +93,11 @@ public class Service extends Activity {
         mListView = (ListView) findViewById(R.id.ListView);
         mListView.setAdapter(mListViewArrayAdapter);
         
+        /* Prepare the auto-accept object.  It will not automatically
+         * accept any connections until its intercept() method is called.
+         */
+        mWfdAutoAccept = new WifiDirectAutoAccept(getApplicationContext());
+
         /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
@@ -98,6 +106,23 @@ public class Service extends Activity {
         /* Start our service. */
         mSimpleService = new SimpleService();
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        /* The auto-accept handler is automatically deregistered
+         * when the application goes in to the background, so
+         * it must be registered again here in onResume().
+         *
+         * Since any push-button group formation request will be
+         * accepted while the auto-accept object is intercepting
+         * requests, only call intercept(true) when the application is
+         * expecting incoming connections.  Call intercept(false) as soon
+         * as incoming connections are not expected.
+         */
+        mWfdAutoAccept.intercept(true);
     }
 
     @Override
@@ -121,9 +146,23 @@ public class Service extends Activity {
 	}
     
     @Override
+    protected void onStop() {
+        super.onStop();
+
+        /* While the auto-accept handler can automatically de-register
+         * when the app goes in to the background or stops, it's a
+         * good idea to explicitly de-register here so the handler is
+         * in a known state if the application restarts.
+         */
+        mWfdAutoAccept.intercept(false);
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         
+        mWfdAutoAccept.intercept(false);
+
         /* Disconnect to prevent any resource leaks. */
         mBusHandler.sendEmptyMessage(BusHandler.DISCONNECT);        
     }
