@@ -62,9 +62,24 @@ public class Sessions extends Activity {
 private static final String TAG = "Sessions";
     
     /* Configure the following three variables to suit your needs */
+
+        /* Which transport(s) would you like to advertise on? */
         private short AdvertiseOn = SessionOpts.TRANSPORT_WFD;
+
+        /* Enter the network credentials if you wish to connect AP from the application. */
         private String networkName = "Enter SSID";
-	    private String networkPassword = "Enter Password";
+        private String networkPassword = "Enter Password";
+
+        /* Are you finding other devices running the same application?
+         * If so, modify this variable and your service names will be personalized!
+         * 
+         * For e.g.: The default service names are "cool.app.uno, cool.app.dos, etc.
+         * 
+         * Modifying the string to "foo" will cause the service names
+         * to be "cool.foo.uno", "cool.foo.dos", etc.
+         */
+        private String personalizeMyServices = "app";
+
 	/* Configuration ends here */
 
 	private static final int MESSAGE_POST_TOAST = 1;
@@ -87,9 +102,9 @@ private static final String TAG = "Sessions";
 	private int connectID = 0;
 	private String connectTo;
 	
-	private String deviceName = "s" + android.os.Build.SERIAL;
-	
-    ArrayList<String> advertisingList = new ArrayList<String>();
+	private String deviceName = "s" + android.os.Build.SERIAL.toLowerCase();
+
+	ArrayList<String> advertisingList = new ArrayList<String>();
 	ArrayList<String> discoveringList = new ArrayList<String>();
 	ArrayList<String> discoveredList = new ArrayList<String>();
     
@@ -134,14 +149,28 @@ private static final String TAG = "Sessions";
         
 	public void ServiceNameAlertBuilder(final String operation) {
 
-		final CharSequence[] items = {"cool.app.uno", "cool.app.dos", "cool.app.tres"};
+		CharSequence[] advItems = {"cool."+personalizeMyServices+".uno", "cool."+personalizeMyServices+".dos", "cool."+personalizeMyServices+".tres"};
+		CharSequence[] disItems = {"cool."+personalizeMyServices+".uno", "cool."+personalizeMyServices+".dos", "cool."+personalizeMyServices+".tres", "cool."+personalizeMyServices+" (Prefix)", "* (All)"};
+		
+		final CharSequence[] items;
+		
+		if (operation == "Find" || operation == "CancelFind") {
+		    items = disItems;
+		} else {
+			items = advItems;
+		}
 		
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		builder.setTitle("Please select a service name...");
 		builder.setItems(items, new DialogInterface.OnClickListener() {
 		    public void onClick(DialogInterface dialog, int item) {
 	        	if (operation == "Find") {
-	        		serviceToBeDiscovered = items[item].toString();
+	        		if (items[item].toString().contains("Prefix"))
+	        			serviceToBeDiscovered = "cool."+personalizeMyServices;
+	        		else if (items[item].toString().contains("All"))
+	        			serviceToBeDiscovered = "";
+	        		else
+	        			serviceToBeDiscovered = items[item].toString();
 	        		mBusHandler.sendEmptyMessage(BusHandler.FIND);
 	        		DisplayProgress("Enabling selected discovery, please wait...", null, "Discover", 4000);
 	        	}
@@ -151,7 +180,12 @@ private static final String TAG = "Sessions";
 	        		DisplayProgress("Enabling selected advertisement, please wait...", "Advertisements for "+serviceToBeAdvertised+"."+deviceName+" are now enabled.", "Advertise", 4000);
 	        	}
 	        	else if (operation == "CancelFind") {
-	        		serviceToBeCancelDiscovered = items[item].toString();
+	        		if (items[item].toString().contains("Prefix"))
+	        			serviceToBeCancelDiscovered = "cool."+personalizeMyServices;
+	        		else if (items[item].toString().contains("All"))
+	        			serviceToBeCancelDiscovered = "";
+	        		else
+	        			serviceToBeCancelDiscovered = items[item].toString();
 	        		mBusHandler.sendEmptyMessage(BusHandler.CANCELFIND);
 	        		DisplayProgress("Disabling selected discovery, please wait...", "Discovery for "+serviceToBeCancelDiscovered+" is now disabled.", null, 4000);
 	        	}
@@ -544,12 +578,12 @@ private static final String TAG = "Sessions";
                         	Log.e(TAG, String.format("org.alljoyn.Bus.LostName signal detected."));
                 			discoverStatus = false;
 
-                			if (!discoveredList.contains(name))
+                			if (discoveredList.contains(name))
                 				discoveredList.remove(name);
                 			
                 			runOnUiThread (new Runnable() {
                 	            public void run() {
-                                	makeAToast("###  SUCCESS  ###\n\nThe '"+serviceToBeDiscovered+"' service was lost.\n\n", "Low");
+                                	makeAToast("###  SUCCESS  ###\n\nThe '"+serviceToBeDiscovered+"' service was lost.", "Low");
                 	            }
                 	         });
                         }
@@ -620,6 +654,7 @@ private static final String TAG = "Sessions";
                     Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
                     
                     sessionOpts.transports = transportFoundOn;
+                    Log.d(TAG, "Join Session initiated over the "+sessionOpts.transports+" transport.");
                     
                     final Status status = mBus.joinSession(connectTo, CONTACT_PORT, sessionId, sessionOpts, new SessionListener() {
                         public void sessionLost(final int sessionId) {
