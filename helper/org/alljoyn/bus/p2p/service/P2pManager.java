@@ -139,10 +139,12 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private class LocalServiceInfo {
         public String guid;
         public int timer;
+        public String encName;
 
-        LocalServiceInfo (String guid, int timer) {
+        LocalServiceInfo (String guid, int timer, String encName) {
             this.guid = guid;
             this.timer = timer;
+            this.encName = encName;
         }
     }
 
@@ -245,7 +247,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                              }
 
                                              public void onFailure(int reasonCode) {
-                                                 Log.d(TAG, "Service discovery failed: " + reasonCode);
+                                                 Log.e(TAG, "Service discovery failed: " + reasonCode);
                                                  if (reasonCode == WifiP2pManager.NO_SERVICE_REQUESTS)
                                                      startServiceSearch(false);
                                              }
@@ -312,7 +314,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                       }
 
                                       public void onFailure(int reasonCode) {
-                                          Log.d(TAG, "addServiceRequest (" + name + ") failed: " + reasonCode);
+                                          Log.e(TAG, "addServiceRequest (" + name + ") failed: " + reasonCode);
                                           synchronized (mServiceRequestList) {
                                               mServiceRequestList.remove(name);
                                           }
@@ -343,14 +345,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                       }
 
                                       public void onFailure(int reasonCode) {
-                                          Log.d(TAG, "addServiceRequest (find all AJN) failed: " + reasonCode);
+                                          Log.e(TAG, "addServiceRequest (find all AJN) failed: " + reasonCode);
                                       }
                                   });
-
-        synchronized (mRequestedNames) {
-            for (int i = 0; i <  mRequestedNames.size(); i++)
-                addServiceRequest(mRequestedNames.get(i));
-        }
 
         if (start)
             doDiscoverServices(true);
@@ -372,7 +369,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     }
 
                                     public void onFailure(int reasonCode) {
-                                        Log.d(TAG, "AddLocalServiceName ( " + name + " ) fail. Reason : " + reasonCode);
+                                        Log.e(TAG, "AddLocalServiceName ( " + name + " ) fail. Reason : " + reasonCode);
                                     }
                                 });
     }
@@ -387,7 +384,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         for (String name: mAdvertisedNames.keySet()) {
             LocalServiceInfo info = mAdvertisedNames.get(name);
-            addLocalServiceName(name, info.guid, info.timer);
+            addLocalServiceName(info.encName, info.guid, info.timer);
         }
     }
 
@@ -479,7 +476,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                             }
 
                             public void onFailure(int reasonCode) {
-                                Log.d(TAG, "connect failed: " + reasonCode);
+                                Log.e(TAG, "connect failed: " + reasonCode);
                                 int handle = getHandle(mPeerConfig.deviceAddress);
                                 mPeerState.set(PeerState.DISCONNECTED);
                                 isInitiator = false;
@@ -585,7 +582,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                           }
 
                                           public void onFailure(int reasonCode) {
-                                              Log.d(TAG, "cancel connection creation" + reasonCode);
+                                              Log.e(TAG, "cancel connection creation" + reasonCode);
                                           }
                                       });
 
@@ -794,6 +791,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         int timer =  255;
         String namePrefix = null;
         String name = fullDomainName;
+        String decName = fullDomainName;
 
         if (txtRecordMap.containsKey("TIMER"))
             timer = Integer.parseInt(txtRecordMap.get("TIMER"));
@@ -804,22 +802,23 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         if (index > 0)
             name = fullDomainName.substring(0, index);
 
+        decName = decodeName(name);
+
         // Cycle through the outstanding name discovery requests to find the name prefix.
         synchronized (mServiceRequestList) {
             for (int i = 0; i < mServiceRequestList.size(); i++) {
                 String current = mServiceRequestList.get(i);
                 Log.d(TAG, "Found outstanding request for " + current);
-                //TODO This should not be case insensitive, but somewhere
-                // in frameworks the case is being converted to lower...
-                if (fullDomainName.regionMatches(true, 0, current, 0, current.length())) {
-                    namePrefix = current;
+
+                if (fullDomainName.regionMatches(false, 0, current, 0, current.length())) {
+                    namePrefix = decodeName(current);
                     break;
                 }
             }
         }
 
         if (namePrefix == null) {
-            Log.d(TAG, "No request found for" + name + ". Ignore");
+            Log.e(TAG, "No request found for" + name + ". Ignore");
             return;
         }
 
@@ -828,13 +827,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         for (Map.Entry entry : txtRecordMap.entrySet())
             Log.d(TAG, (entry.getKey() + ", " + entry.getValue()));
 
-        updateDeviceServiceList(name, namePrefix, guid, timer, srcDevice.deviceAddress);
+        updateDeviceServiceList(decName, namePrefix, guid, timer, srcDevice.deviceAddress);
 
         if (timer != 0)
-            busInterface.OnFoundAdvertisedName(name, namePrefix, guid, /*timer,*/ srcDevice.deviceAddress);
+            busInterface.OnFoundAdvertisedName(decName, namePrefix, guid, /*timer,*/ srcDevice.deviceAddress);
         else {
             removeServiceRequestFromList(name);
-            busInterface.OnLostAdvertisedName(name, namePrefix, guid, srcDevice.deviceAddress);            
+            busInterface.OnLostAdvertisedName(decName, namePrefix, guid, srcDevice.deviceAddress);
         }
     }
 
@@ -854,7 +853,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         final String namePrefix;
 
         if (!isEnabled) {
-            Log.d(TAG, "findAdvertisedName(): P2P is OFF");
+            Log.e(TAG, "findAdvertisedName(): P2P is OFF");
             return -Status.P2P_DISABLED.getErrorCode();
         }
 
@@ -866,8 +865,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         else
             namePrefix = name;
 
+        final String encName = encodeName(namePrefix);
+
         synchronized (mRequestedNames) {
-            if (!mRequestedNames.isEmpty() && mRequestedNames.contains(namePrefix)) {
+            if (!mRequestedNames.isEmpty() && mRequestedNames.contains(encName)) {
                 Log.d(TAG, "Request for " + namePrefix + " already added");
                 if (mFindState.get() != FindState.DISCOVERING)
                     doDiscoverServices(true);
@@ -875,7 +876,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             }
 
             // Keep track of outstanding Service Discovery requests.
-            mRequestedNames.add(namePrefix);
+            mRequestedNames.add(encName);
         }
 
         // Find all AllJoyn services first.  If we are already in discovery mode, then
@@ -895,9 +896,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                       }
 
                                       public void onFailure(int reasonCode) {
-                                          Log.d(TAG, "addServiceRequest (find all AJN) failed: " + reasonCode);
+                                          Log.e(TAG, "addServiceRequest (find all AJN) failed: " + reasonCode);
                                           synchronized (mRequestedNames) {
-                                              mRequestedNames.remove(namePrefix);
+                                              mRequestedNames.remove(encName);
                                           }
                                       }
                                   });
@@ -924,7 +925,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                              }
 
                                              public void onFailure(int reasonCode) {
-                                                 Log.d(TAG, "removeServiceRequest for " + name + " failed: " + reasonCode);
+                                                 Log.e(TAG, "removeServiceRequest for " + name + " failed: " + reasonCode);
                                              }
                                          });
 
@@ -949,7 +950,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "cancelFindAdvertisedName( "  + namePrefix + " )");
 
         if (!isEnabled) {
-            Log.d(TAG, "cancelFindAdvertisedName(): P2P is OFF");
+            Log.e(TAG, "cancelFindAdvertisedName(): P2P is OFF");
             return -Status.P2P_DISABLED.getErrorCode();
         }
 
@@ -997,6 +998,45 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         manager.requestPeers(channel, this);
     }
 
+    private String encodeName(String name) {
+        String encName = new String();
+
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (Character.isUpperCase(c) || (c == '-'))
+                encName += "-";
+                encName += Character.toLowerCase(c);
+        }
+        return encName;
+    }
+
+   private String decodeName(String name) {
+        String decName = new String();
+        char c;
+        char next = name.charAt(0);
+        int i;
+
+        for (i = 0; i < name.length() - 1;) {
+            c = name.charAt(i);
+            next = name.charAt(i + 1);
+            if ((c == '-')) {
+                if (next != '-')
+                    decName += Character.toUpperCase(next);
+                else
+                    decName += next;
+                i += 2;
+            } else {
+                decName += c;
+                i++;
+            }
+        }
+        // handle the last character
+        if (i == name.length() - 1)
+            decName += next;
+
+        return decName;
+    }
+
     /**
      * Advertise the existence of a well-known name to other (possibly
      * disconnected) AllJoyn daemons.
@@ -1016,31 +1056,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "advertiseName(): " + name + ", " + guid + " _alljoyn._tcp");
 
         if (!isEnabled) {
-            Log.d(TAG, "advertisedName(): P2P is OFF");
+            Log.e(TAG, "advertisedName(): P2P is OFF");
             return -Status.P2P_DISABLED.getErrorCode();
         }
 
-        // Workaround for an issue when only one advertised service can be consistenly discovered.
-        // The logic for keeping track of advertisements in mAdvertisementNames is currently
-        // unused due to bug in the deeper layers preventing consistent discovery of more than
-        // one advertised service. However. we will keep it intact in optmistic hopes that
-        // this issue will be fixed in future.
-        synchronized (mAdvertisedNames) {
-            if (!mAdvertisedNames.isEmpty()) {
-                Log.d(TAG, "Remove the previous advertisement before adding a new one");
-                return -Status.P2P.getErrorCode();
-            }
-        }
-
         int timer = 255;
+        String encName = encodeName(name);
 
-        LocalServiceInfo info = new LocalServiceInfo(guid, timer);
+        LocalServiceInfo info = new LocalServiceInfo(guid, timer, encName);
 
         synchronized (mAdvertisedNames) {
             mAdvertisedNames.put(name, info);
         }
 
-        addLocalServiceName(name, guid, timer);
+        addLocalServiceName(encName, guid, timer);
 
         return Status.OK.getErrorCode();
     }
@@ -1063,7 +1092,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "cancelAdvertiseName(" + name + ")");
 
         if (!isEnabled) {
-            Log.d(TAG, "cancelAdvertisedName(): P2P is OFF");
+            Log.e(TAG, "cancelAdvertisedName(): P2P is OFF");
             return -Status.P2P_DISABLED.getErrorCode();
         }
 
@@ -1087,7 +1116,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     }
 
                                     public void onFailure(int reasonCode) {
-                                        Log.d(TAG, "addLocalService (timer 0) failed: " + reasonCode);
+                                        Log.e(TAG, "addLocalService (timer 0) failed: " + reasonCode);
                                     }
                                 });
 
@@ -1117,7 +1146,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                                }
 
                                                public void onFailure(int reasonCode) {
-                                                   Log.d(TAG, "removeLocalService failed: " + reasonCode);
+                                                   Log.e(TAG, "removeLocalService failed: " + reasonCode);
                                                }
                                            });
 
@@ -1157,7 +1186,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "establishLink(): " + deviceAddress);
 
         if (!isEnabled) {
-            Log.d(TAG, "establishLink(): P2P is OFF");
+            Log.e(TAG, "establishLink(): P2P is OFF");
             return -Status.P2P_DISABLED.getErrorCode();
         }
 
@@ -1227,7 +1256,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "releaseLink()");
 
         if (!isEnabled) {
-            Log.d(TAG, "releaseLink(): P2P is OFF");
+            Log.e(TAG, "releaseLink(): P2P is OFF");
             return -Status.P2P_DISABLED.getErrorCode();
         }
 
@@ -1255,7 +1284,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                       }
 
                                       public void onFailure(int reasonCode) {
-                                          Log.d(TAG, "cancelConnect failed: " + reasonCode);
+                                          Log.e(TAG, "cancelConnect failed: " + reasonCode);
 
                                           /* Most likely failure is if the connection completed already,
                                            * but in that case onConnectionInfoAvailable would have called
