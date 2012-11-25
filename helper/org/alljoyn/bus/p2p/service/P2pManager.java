@@ -999,19 +999,21 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     }
 
     private String encodeName(String name) {
-        String encName = new String();
+        StringBuffer encName = new StringBuffer();
 
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
-            if (Character.isUpperCase(c) || (c == '-'))
-                encName += "-";
-                encName += Character.toLowerCase(c);
+            if (Character.isUpperCase(c) || (c == '-')) {
+                encName.append('-');
+                encName.append(Character.toLowerCase(c));
+            } else
+                encName.append(c);
         }
-        return encName;
+        return encName.toString();
     }
 
    private String decodeName(String name) {
-        String decName = new String();
+        StringBuffer decName = new StringBuffer();
         char c;
         char next = name.charAt(0);
         int i;
@@ -1021,20 +1023,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             next = name.charAt(i + 1);
             if ((c == '-')) {
                 if (next != '-')
-                    decName += Character.toUpperCase(next);
+                    decName.append(Character.toUpperCase(next));
                 else
-                    decName += next;
+                    decName.append(next);
                 i += 2;
             } else {
-                decName += c;
+                decName.append(c);;
                 i++;
             }
         }
         // handle the last character
         if (i == name.length() - 1)
-            decName += next;
+            decName.append(next);
 
-        return decName;
+        return decName.toString();
     }
 
     /**
