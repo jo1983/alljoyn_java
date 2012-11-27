@@ -857,9 +857,10 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jni
 /*
  * Class:     org_alljoyn_bus_p2p_service_P2pHelperService
  * Method:    jniOnDestroy
- * Signature: ()V
+ * Signature: (Ljava/lang/String;)V
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnDestroy(JNIEnv* env, jobject jobj, jstring connectSpec) {
+
     LOGI("jniOnDestroy");
 
     const char* cSpec = env->GetStringUTFChars(connectSpec, NULL);
