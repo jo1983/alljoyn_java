@@ -52,7 +52,6 @@ public class ScanResultsReceiver extends BroadcastReceiver{
 	public void onReceive(Context c, Intent intent){
 		
 		if(intent.getAction().equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)){
-			Log.v("ScanResultsReceiver", "************************************Yes !!!!!!!!!!!!!******************************* ");
 			Log.v("ScanResultsReceiver", "SCAN_RESULTS_AVAILABLE_ACTION received");
 			
 			List<ScanResult> scanResults = jniProximity.wifiMgr.getScanResults();

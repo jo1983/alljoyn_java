@@ -90,12 +90,8 @@ public class AllJoynAndroidExt{
 		// Request a scan
 		//
 		try{
-			Log.v(TAG,"Calling updateTimer() -=-=-=-=-=-=-=-=-=-=-=-=-=-");
-			Log.v(TAG,"lastScanTime-=-=-=-=-=-=-=-=-=-=-=-=-=-"+lastScanTime);
 			currentTime = System.currentTimeMillis();
-			Log.v(TAG,"currentTime-=-=-=-=-=-=-=-=-=-=-=-=-=-"+currentTime);
 			long timeSinceLastScan = currentTime - lastScanTime;
-			Log.v(TAG,"timeSinceLastScan-=-=-=-=-=-=-=-=-=-=-=-=-=-"+timeSinceLastScan);
 			if(timeSinceLastScan >= 60000){
 				if(!wifiMgr.isWifiEnabled() || !wifiMgr.startScan()){
 					Log.v(TAG,"startScan() returned error");
@@ -103,7 +99,6 @@ public class AllJoynAndroidExt{
 				}
 				tHandler.postDelayed(tUpdateTimerRunnable, 60000);
 			} else {
-				Log.v(TAG,"60secs not over. Sleeping again -=-=-=-=-=-=-=-=-=-=-=-=-=-");
 				tHandler.postDelayed(tUpdateTimerRunnable, 60000 - timeSinceLastScan);
 			}
 		} catch (SecurityException se){
