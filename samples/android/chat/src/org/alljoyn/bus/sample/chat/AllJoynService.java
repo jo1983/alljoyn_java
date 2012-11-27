@@ -431,7 +431,7 @@ public class AllJoynService extends Service implements Observer {
          */
         public void disconnect() {
             Log.i(TAG, "mBackgroundHandler.disconnect()");
-        	Message msg = mBackgroundHandler.obtainMessage(CONNECT);
+        	Message msg = mBackgroundHandler.obtainMessage(DISCONNECT);
             mBackgroundHandler.sendMessage(msg);
         }
 
