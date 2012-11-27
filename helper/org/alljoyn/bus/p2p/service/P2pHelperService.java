@@ -19,7 +19,7 @@ import android.content.Context;
 
 import android.util.Log;
 
-class P2pHelperService implements P2pInterface {
+public class P2pHelperService implements P2pInterface {
 
     private static final String TAG = "P2pHelperService";
 
