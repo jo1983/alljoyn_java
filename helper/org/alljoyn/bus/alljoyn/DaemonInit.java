@@ -23,7 +23,7 @@ import android.os.Process;
 
 import org.alljoyn.bus.AllJoynAndroidExt;
 import org.alljoyn.bus.ScanResultsReceiver;
-import org.alljoyn.bus.p2p.service.P2pHelperService;
+//import org.alljoyn.bus.p2p.service.P2pHelperService;
 import android.net.wifi.WifiManager;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -41,7 +41,7 @@ public class DaemonInit {
     private static Context sContext;
     public static AllJoynAndroidExt alljoynAndroidExt;
     public static ScanResultsReceiver receiver;
-    public static P2pHelperService sP2pHelper;
+//    public static P2pHelperService sP2pHelper;
     
     public static Context getContext(){
     	return sContext;
@@ -66,8 +66,8 @@ public class DaemonInit {
         Log.v(TAG,"Android version : "+android.os.Build.VERSION.SDK_INT);
         if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN){
 	        // Instantiate and start the P2pHelperService
-	        sP2pHelper = new P2pHelperService(sContext, "null:");
-	        sP2pHelper.startup();
+//	        sP2pHelper = new P2pHelperService(sContext, "null:");
+//	        sP2pHelper.startup();
         }
         
 		if(receiver == null){
