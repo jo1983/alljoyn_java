@@ -29,7 +29,9 @@ for sample in ['simple/client',
                'properties/PropertiesClient',
                'properties/PropertiesService',
                'contacts/ContactsClient',
-               'contacts/ContactsService']:
+               'contacts/ContactsService',
+               'sessionless/client',
+               'sessionless/service']:
     env.Install('$JAVA_DISTDIR/samples/%s' % sample, 
                 ['%s/AndroidManifest.xml' % sample,
                  '%s/.classpath' % sample,

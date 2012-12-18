@@ -30,6 +30,7 @@ public class SignalEmitter {
 
     private static final int GLOBAL_BROADCAST = 0x20;
     private static final int COMPRESSED = 0x40;
+    private static final int SESSIONLESS = 0x10;
 
     private BusObject source;
     private String destination;
@@ -156,6 +157,18 @@ public class SignalEmitter {
     public void setCompressHeader(boolean compress) {
         this.flags = compress ? this.flags | COMPRESSED : this.flags & ~COMPRESSED;
     }
+    
+    /**
+     * Sets the signal to be sent out as a sessionless signal
+     *
+     * @param sessionless if {@code true} the signal is set to be sent out as a sessionless
+     * 					  signal
+     *                 
+     */
+    public void setSessionlessFlag(boolean sessionless) {
+        this.flags = sessionless ? this.flags | SESSIONLESS : this.flags & ~SESSIONLESS;
+    }
+    
 
     /**
      * Gets a proxy to the interface that emits signals.
