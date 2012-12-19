@@ -32,11 +32,13 @@ sys.path.append('../build_core/tools/scons')
 from configurejni import ConfigureJNI
 
 if not ConfigureJNI(env):
-    Exit()
+    if not GetOption('help'):
+        Exit()
 
 if not os.environ.get('CLASSPATH'):
     print "CLASSPATH not set"
-    Exit()
+    if not GetOption('help'):
+        Exit()
 
 # Dependent Projects
 if not env.has_key('_ALLJOYNCORE_'):
