@@ -23,7 +23,7 @@ import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.Status;
-import org.alljoyn.bus.p2p.WifiDirectAutoAccept;
+//import org.alljoyn.bus.p2p.WifiDirectAutoAccept;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -55,7 +55,7 @@ public class Service extends Activity {
     private ListView mListView;
     private Menu menu;
     
-    private WifiDirectAutoAccept mWfdAutoAccept;
+    //private WifiDirectAutoAccept mWfdAutoAccept;
 
     private Handler mHandler = new Handler() {
             @Override
@@ -96,7 +96,7 @@ public class Service extends Activity {
         /* Prepare the auto-accept object.  It will not automatically
          * accept any connections until its intercept() method is called.
          */
-        mWfdAutoAccept = new WifiDirectAutoAccept(getApplicationContext());
+        //mWfdAutoAccept = new WifiDirectAutoAccept(getApplicationContext());
 
         /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
         HandlerThread busThread = new HandlerThread("BusHandler");
@@ -122,7 +122,7 @@ public class Service extends Activity {
          * expecting incoming connections.  Call intercept(false) as soon
          * as incoming connections are not expected.
          */
-        mWfdAutoAccept.intercept(true);
+        //mWfdAutoAccept.intercept(true);
     }
 
     @Override
@@ -154,14 +154,14 @@ public class Service extends Activity {
          * good idea to explicitly de-register here so the handler is
          * in a known state if the application restarts.
          */
-        mWfdAutoAccept.intercept(false);
+        //mWfdAutoAccept.intercept(false);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         
-        mWfdAutoAccept.intercept(false);
+        //mWfdAutoAccept.intercept(false);
 
         /* Disconnect to prevent any resource leaks. */
         mBusHandler.sendEmptyMessage(BusHandler.DISCONNECT);        
