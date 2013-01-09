@@ -1,4 +1,4 @@
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ env.SConscript('test/SConscript')
 # AllJoyn Java binding docs
 env['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
 env['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
-env['PROJECT_NUMBER'] = 'Version 2.3.2'
+env['PROJECT_NUMBER'] = 'Version 3.2.0'
 env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 
 # AllJoyn samples
