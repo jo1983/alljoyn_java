@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010-2011, 2013 Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -14,6 +14,12 @@
 # 
 
 Import('env')
+
+# Set the ABI based on the CPU
+if(env['CPU'] == 'arm'):
+    android_eabi = 'armeabi'
+else:
+    android_eabi = 'x86'
 
 # Application samples
 for sample in ['simple/client', 
@@ -41,9 +47,8 @@ for sample in ['simple/client',
                  '%s/src' % sample])
     env.Install('$JAVA_DISTDIR/samples/%s/libs' % sample, '$JARDIR/alljoyn.jar')
     env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
-    if env['OS'] == 'android' and env['CPU'] == 'arm':
-        env.Install('$JAVA_DISTDIR/samples/%s/libs/armeabi' % sample, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
-        env.Install('%s/libs/armeabi' % sample, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+    env.Install('$JAVA_DISTDIR/samples/%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+    env.Install('%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
 
 env.Install('$JAVA_DISTDIR/samples', 'README.txt')
 
@@ -55,9 +60,8 @@ for sample in ['secure/sharedks/service',
                'secure/sharedks/srpclientA',
                'secure/sharedks/srpclientB',
                'sessions']:
-    if env['OS'] == 'android' and env['CPU'] == 'arm':
-        env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
-        env.Install('%s/libs/armeabi' % sample, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+    env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
+    env.Install('%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
 
 # Unit test runner
 env.Install('$JAVA_TESTDIR',
@@ -69,10 +73,7 @@ env.Install('$JAVA_TESTDIR',
              'test/src'])
 env.Install('$JAVA_TESTDIR' + '/libs', '$JARDIR/alljoyn.jar')
 env.Install('$JAVA_TESTDIR' + '/libs', '$JARDIR/alljoyn_test.jar')
-if env['OS'] == 'android' and env['CPU'] == 'arm':
-    env.Install('$JAVA_TESTDIR' + '/libs/armeabi', '$JAVA_DISTDIR/lib/liballjoyn_java.so')
-    env.Install('./test/libs/armeabi', '$JAVA_DISTDIR/lib/liballjoyn_java.so')
-    env.Install('./test/libs', '$JARDIR/alljoyn.jar')
-    env.Install('./test/libs', '$JARDIR/alljoyn_test.jar')
-
- 
+env.Install('$JAVA_TESTDIR' + '/libs/%s' % android_eabi, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+env.Install('./test/libs/%s' % android_eabi, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+env.Install('./test/libs', '$JARDIR/alljoyn.jar')
+env.Install('./test/libs', '$JARDIR/alljoyn_test.jar')
