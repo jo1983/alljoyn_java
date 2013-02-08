@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ else
 	bus_address="unix:abstract=alljoyn"
 fi
 
-daemon_bin=../../build/$target_os/$target_cpu/$variant/dist/bin
+daemon_bin=../../build/$target_os/$target_cpu/$variant/dist/cpp/bin
 if $start_daemon
 then
 	ls >/dev/null -ld "$daemon_bin/alljoyn-daemon" || ls >/dev/null -ld "$daemon_bin/alljoyn-daemon.exe" || {

@@ -79,7 +79,7 @@ env.SConscript('test/SConscript')
 env['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
 env['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
 env['PROJECT_NUMBER'] = 'Version 0.0.1'
-env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+env.JavaDoc('$JAVA_DISTDIR/docs/html', 'src', JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 
 # AllJoyn samples
 returnValue += env.SConscript('samples/SConscript')
