@@ -23,6 +23,20 @@
   <!-- Default property value if none of the above conditions are met -->
   <property name="org.alljoyn.bus.address" value="unix:abstract=alljoyn" />
   
+  <!-- if we are running a x64 build then specify the StackShadowPages size. 
+       ALLJOYN-1510 when using JRE 1.6.0_34 onwards SIGSEGV are seen when running
+       unit tests.  Thie is directly related to a bug that was fixed in the 1.6.0_64  
+       release of the JRE.  The StackShadowPages were increased from 6 to 20 by 
+       default on Linux computers. 
+       see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=7059899  
+       this "fix" cause us to see the errors that this fix was supposed to address
+       this is a run time issue not a compilation issue. -->
+  <condition property="setStackShadowPages" value="-XX:StackShadowPages=6" >
+  	<equals arg1="${CPU}" arg2="x86_64" />
+  </condition>
+  <!-- Default property value for setStackShadowPages -->
+  <property name="setStackShadowPages" value="" />
+  
   <path id="test.classpath">
     <pathelement location="${classes}" />
     <fileset dir="${dist}">
@@ -42,6 +56,7 @@
       <jvmarg value="-Xcheck:jni" />
       <jvmarg value="-Xmx512m" />
       <jvmarg value="-Dorg.alljoyn.bus.address=${org.alljoyn.bus.address}" />
+      <jvmarg value="${setStackShadowPages}" />
       <sysproperty key="java.library.path" path="${dist}/lib"/>
       <classpath refid="test.classpath" />
       <formatter type="brief" usefile="false" />

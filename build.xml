@@ -1,6 +1,8 @@
 <project>
   
   <property name="src" value="./src" />
+  <!-- if switching the build value to build/linux/x86_64/debug then the StackShadowPages
+       jvm arg must be specified as 6 -->
   <property name="build" value="build/linux/x86/debug" />
   <property name="dist" value="./${build}/dist/java" />
   <property name="classes" value="./test/${build}/obj/classes" />
@@ -28,6 +30,8 @@
     <junit fork="yes" printsummary="false" errorProperty="test.failed" failureProperty="test.failed">
       <jvmarg value="-Xcheck:jni" />
       <jvmarg value="-Xmx512m" />
+      <!-- uncoment this jvmarg if you are doing a x86_64 build -->
+      <!-- <jvmarg value="-XX:StackShadowPages=6" /> -->
       <jvmarg value="-Dorg.alljoyn.bus.address=${org.alljoyn.bus.address}" />
       <jvmarg value="-Dorg.alljoyn.bus.daemonaddress=${org.alljoyn.bus.daemonaddress}" />
       <jvmarg value="-Dorg.alljoyn.bus.daemonremoteaddress=${org.alljoyn.bus.daemonremoteaddress}" />
