@@ -35,7 +35,7 @@
   	<equals arg1="${CPU}" arg2="x86_64" />
   </condition>
   <!-- Default property value for setStackShadowPages -->
-  <property name="setStackShadowPages" value="" />
+  <property name="setStackShadowPages" value="-XX:StackShadowPages=3" />
   
   <path id="test.classpath">
     <pathelement location="${classes}" />
