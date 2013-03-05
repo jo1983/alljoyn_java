@@ -839,6 +839,8 @@ public class BusAttachment {
         }
     }
 
+    public native boolean isConnected();
+
     /**
      * Disconnects from the local daemon and stops the message bus.
      */

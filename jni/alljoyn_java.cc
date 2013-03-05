@@ -2480,6 +2480,7 @@ JBusListener::JBusListener(jobject jlistener)
     if (!MID_busDisconnected) {
         QCC_DbgPrintf(("JBusListener::JBusListener(): Can't find busDisconnected() in jbusListener"));
     }
+
 }
 
 /**
@@ -7045,6 +7046,24 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect(JNIEnv* env
     } else {
         return JStatus(status);
     }
+}
+
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_BusAttachment_isConnected(JNIEnv*env, jobject thiz)
+{
+    QCC_DbgPrintf(("BusAttachment_isConnected()"));
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_isConnected(): Exception"));
+        return false;
+    }
+
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_isConnected(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return false;
+    }
+    return busPtr->IsConnected();
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_disconnect(JNIEnv* env, jobject thiz, jstring jconnectArgs)

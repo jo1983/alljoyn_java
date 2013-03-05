@@ -72,6 +72,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_connect
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    isConnected
+ * Signature: ()Z
+ */
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_BusAttachment_isConnected
+  (JNIEnv *, jobject);
+
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    disconnect
  * Signature: (Ljava/lang/String)V
  */
