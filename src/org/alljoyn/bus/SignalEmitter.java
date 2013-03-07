@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ public class SignalEmitter {
     private int timeToLive;
     private int flags;
     private Object proxy;
+    private MessageContext msgContext;
 
     /** Controls behavior of broadcast signals ({@code null} desintation). */
     public enum GlobalBroadcast {
@@ -73,6 +74,7 @@ public class SignalEmitter {
             : this.flags & ~GLOBAL_BROADCAST;
         proxy = Proxy.newProxyInstance(source.getClass().getClassLoader(),
                                        source.getClass().getInterfaces(), new Emitter());
+        msgContext = new MessageContext();
     }
     
     /**
@@ -110,7 +112,7 @@ public class SignalEmitter {
     /** Sends the signal. */
     private native void signal(BusObject busObj, String destination, int sessionId, String ifaceName,
                                String signalName, String inputSig, Object[] args, int timeToLive,
-                               int flags) throws BusException;
+                               int flags, MessageContext ctx) throws BusException;
 
     private class Emitter implements InvocationHandler {
 
@@ -126,7 +128,8 @@ public class SignalEmitter {
                                InterfaceDescription.getInputSig(m),
                                args,
                                timeToLive,
-                               flags);
+                               flags,
+                               msgContext);
                     }
                 }
             }
@@ -169,6 +172,31 @@ public class SignalEmitter {
         this.flags = sessionless ? this.flags | SESSIONLESS : this.flags & ~SESSIONLESS;
     }
     
+    /**
+     * Get the MessageContext of the last signal sent from this emitter.
+     *
+     * @return  MessageContext of the last signal sent from this emitter.
+     */
+    public MessageContext getMessageContext() {
+        return msgContext;
+    }
+
+    private native Status cancelSessionlessSignal(BusObject busObject, int serialNum);
+
+    /**
+     * Cancel a sessionless signal sent from this SignalEmitter
+     *
+     * @param serialNum   Serial number of message to cancel
+     * @return   
+     * <ul>
+     * <li>OK if request completed successfully.</li>
+     * <li>BUS_NO_SUCH_MESSAGE if message with given serial number could not be located.</li>
+     * <li>BUS_NOT_ALLOWED if message with serial number was sent by a different sender.</li>
+     * </ul>
+     */
+    public Status cancelSessionlessSignal(int serialNum) {
+        return cancelSessionlessSignal(source, serialNum);
+    }
 
     /**
      * Gets a proxy to the interface that emits signals.

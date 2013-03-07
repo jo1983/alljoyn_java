@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -1805,7 +1805,7 @@ class JBusObject : public BusObject {
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
     QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
-                   const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags);
+                   const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags, Message& msg);
     QStatus Get(const char* ifcName, const char* propName, MsgArg& val);
     QStatus Set(const char* ifcName, const char* propName, MsgArg& val);
     String GenerateIntrospection(bool deep = false, size_t indent = 0) const;
@@ -7651,7 +7651,7 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
 }
 
 QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
-                           const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags)
+                           const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags, Message& msg)
 {
     QCC_DbgPrintf(("JBusObject::Signal()"));
 
@@ -7663,7 +7663,7 @@ QStatus JBusObject::Signal(const char* destination, SessionId sessionId, const c
     if (!signal) {
         return ER_BUS_OBJECT_NO_SUCH_MEMBER;
     }
-    return BusObject::Signal(destination, sessionId, *signal, args, numArgs, timeToLive, flags);
+    return BusObject::Signal(destination, sessionId, *signal, args, numArgs, timeToLive, flags, &msg);
 }
 
 QStatus JBusObject::Get(const char* ifcName, const char* propName, MsgArg& val)
@@ -8428,15 +8428,17 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_getMessageContext(J
     }
 
     SessionId sessionId = msg->GetSessionId();
+    uint32_t serial = msg->GetCallSerial();
 
-    jmethodID mid = env->GetMethodID(CLS_MessageContext, "<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)V");
+    jmethodID mid = env->GetMethodID(CLS_MessageContext, "<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;I)V");
     if (!mid) {
         return NULL;
     }
 
     return env->NewObject(CLS_MessageContext, mid, msg->IsUnreliable(), (jstring)jobjectPath,
                           (jstring)jinterfaceName, (jstring)jmemberName, (jstring)jdestination,
-                          (jstring)jsender, sessionId, (jstring)jsignature, (jstring)jauthMechanism);
+                          (jstring)jsender, sessionId, (jstring)jsignature, (jstring)jauthMechanism,
+                          serial);
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_enableConcurrentCallbacks(JNIEnv* env, jobject thiz)
@@ -9254,7 +9256,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jobject thiz, jobject jbusObject, jstring jdestination,
                                                                  jint sessionId, jstring jifaceName, jstring jsignalName,
-                                                                 jstring jinputSig, jobjectArray jargs, jint timeToLive, jint flags)
+                                                                 jstring jinputSig, jobjectArray jargs, jint timeToLive, jint flags,
+                                                                 jobject jmsgContext)
 {
     QCC_DbgPrintf(("SignalEmitter_signal()"));
 
@@ -9312,16 +9315,63 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jo
         return;
     }
 
+    BusAttachment& bus = const_cast<BusAttachment&>(busObject->GetBusAttachment());
+    Message msg(bus);
     QStatus status = busObject->Signal(destination.c_str(), sessionId, ifaceName.c_str(), signalName.c_str(),
-                                       args.v_struct.members, args.v_struct.numMembers, timeToLive, flags);
+                                       args.v_struct.members, args.v_struct.numMembers, timeToLive, flags, msg);
 
     QCC_DbgPrintf(("SignalEmitter_signal(): Releasing global Bus Object map lock"));
     gBusObjectMapLock.Unlock();
+
+    if (ER_OK == status) {
+        /* Update MessageContext */
+        jclass msgCtxClass = env->FindClass("org/alljoyn/bus/MessageContext");
+        jfieldID fid = env->GetFieldID(msgCtxClass, "isUnreliable", "Z");
+        env->SetBooleanField(jmsgContext, fid, msg->IsUnreliable());
+        fid = env->GetFieldID(msgCtxClass, "objectPath", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetObjectPath()));
+        fid = env->GetFieldID(msgCtxClass, "interfaceName", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetInterface()));
+        fid = env->GetFieldID(msgCtxClass, "memberName", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetMemberName()));
+        fid = env->GetFieldID(msgCtxClass, "destination", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetDestination()));
+        fid = env->GetFieldID(msgCtxClass, "sender", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetSender()));
+        fid = env->GetFieldID(msgCtxClass, "sessionId", "I");
+        env->SetIntField(jmsgContext, fid, msg->GetSessionId());
+        fid = env->GetFieldID(msgCtxClass, "serial", "I");
+        env->SetIntField(jmsgContext, fid, msg->GetCallSerial());
+        fid = env->GetFieldID(msgCtxClass, "signature", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetSignature()));
+        fid = env->GetFieldID(msgCtxClass, "authMechanism", "Ljava/lang/String;");
+        env->SetObjectField(jmsgContext, fid, env->NewStringUTF(msg->GetAuthMechanism().c_str()));
+    }
 
     if (ER_OK != status) {
         QCC_LogError(ER_FAIL, ("SignalEmitter_signal(): Exception"));
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_SignalEmitter_cancelSessionlessSignal(JNIEnv* env, jobject thiz, jobject jbusObject, jint serialNum)
+{
+    QCC_DbgPrintf(("SignalEmitter_cancelSessionlessSignal()"));
+
+    gBusObjectMapLock.Lock();
+    JBusObject* busObject = GetBackingObject(jbusObject);
+    if (!busObject) {
+        gBusObjectMapLock.Unlock();
+        QCC_LogError(ER_FAIL, ("SignalEmitter_cancelSessionlessSignal(): Exception"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
+        return NULL;
+    }
+
+    QStatus status = busObject->CancelSessionlessMessage(serialNum);
+
+    gBusObjectMapLock.Unlock();
+
+    return JStatus(status);
 }
 
 JNIEXPORT jobjectArray JNICALL Java_org_alljoyn_bus_Signature_split(JNIEnv* env, jclass clazz, jstring jsignature)

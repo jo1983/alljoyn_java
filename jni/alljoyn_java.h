@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -699,10 +699,18 @@ extern "C" {
 /*
  * Class:     org_alljoyn_bus_SignalEmitter
  * Method:    signal
- * Signature: (Lorg/alljoyn/bus/BusObject;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;II)V
+ * Signature: (Lorg/alljoyn/bus/BusObject;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;IILorg/alljoyn/bus/MessageContext)V
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal
-  (JNIEnv *, jobject, jobject, jstring, jint, jstring, jstring, jstring, jobjectArray, jint, jint);
+(JNIEnv *, jobject, jobject, jstring, jint, jstring, jstring, jstring, jobjectArray, jint, jint, jobject);
+
+/*
+ * Class:     org_alljoyn_bus_SignalEmitter
+ * Method:    cancelSessionlessSignal
+ * Signature: (Lorg/alljoyn/bus/BusObject;I)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_SignalEmitter_cancelSessionlessSignal
+(JNIEnv *, jobject, jobject, jint);
 
 #ifdef __cplusplus
 }

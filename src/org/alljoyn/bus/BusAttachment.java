@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ public class BusAttachment {
      * <li>OK if request completed successfully and primary ownership was granted.</li>
      * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
      * <li>other error status codes indicating a failure.</li>
-     * <ul>
+     * </ul>
      */
     public native Status requestName(String name, int flags);
 

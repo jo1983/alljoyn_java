@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -64,6 +64,11 @@ public final class MessageContext {
     public int sessionId;
 
     /**
+     * The serial number of the message.
+     */
+    public int serial;
+
+    /**
      * The signature for this message.  An empty string if unable to find the
      * AllJoyn signature.
      */
@@ -76,7 +81,7 @@ public final class MessageContext {
 
     private MessageContext(boolean isUnreliable, String objectPath, String interfaceName,
                            String memberName, String destination, String sender, int sessionId,
-                           String signature, String authMechanism) {
+                           String signature, String authMechanism, int serial) {
         this.isUnreliable = isUnreliable;
         this.objectPath = objectPath;
         this.interfaceName = interfaceName;
@@ -86,5 +91,9 @@ public final class MessageContext {
         this.sessionId = sessionId;
         this.signature = signature;
         this.authMechanism = authMechanism;
+        this.serial = serial;
+    }
+
+    public MessageContext() {
     }
 }

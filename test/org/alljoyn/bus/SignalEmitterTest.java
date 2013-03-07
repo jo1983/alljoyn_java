@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -65,8 +65,21 @@ public class SignalEmitterTest extends TestCase {
             global.setCompressHeader(compress); 
         }
 
+        public void setSessionlessFlag(boolean isSessionless) {
+            local.setSessionlessFlag(isSessionless);
+            global.setSessionlessFlag(isSessionless);
+        }
+
         public void setGlobalBroadcast(boolean globalBroadcast) { 
             emitter = globalBroadcast ? global : local;
+        }
+
+        public MessageContext getMessageContext() {
+            return local.getMessageContext();
+        }
+
+        public Status cancelSessionlessSignal(int serialNum) {
+            return local.cancelSessionlessSignal(serialNum);
         }
     }
 
@@ -80,6 +93,10 @@ public class SignalEmitterTest extends TestCase {
         emitter = new Emitter();
         status = bus.registerBusObject(emitter, "/emitter");
         assertEquals(Status.OK, status);
+
+        assertEquals(Status.OK, bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
+                                                          this, getClass().getMethod("signalHandler", 
+                                                                                     String.class)));
     }
 
     public void tearDown() throws Exception {
@@ -90,10 +107,14 @@ public class SignalEmitterTest extends TestCase {
         bus = null;
     }
 
-    private int signalsHandled;
+    private boolean signalReceived = false;
+    private int signalsHandled = 0;
+    private MessageContext rxMessageContext;
 
     public void signalHandler(String string) throws BusException {
+        rxMessageContext = bus.getMessageContext();
         ++signalsHandled;
+        signalReceived = true;
     }
 
     public void testTimeToLive() throws Exception {
@@ -115,6 +136,35 @@ public class SignalEmitterTest extends TestCase {
         emitter.Emit("compressHeaderOff");
 
         // TODO: how to verify?
+    }
+
+    public void testMessageContext() throws Exception {
+        emitter.setGlobalBroadcast(false);
+        emitter.setCompressHeader(false);
+        emitter.setSessionlessFlag(true);
+        emitter.setTimeToLive(0);
+        signalReceived = false;
+        emitter.Emit("sessionless1");
+        MessageContext ctx = emitter.getMessageContext();
+        assertEquals("/emitter", ctx.objectPath);
+        assertEquals("org.alljoyn.bus.EmitterInterface", ctx.interfaceName);
+        assertEquals("Emit", ctx.memberName);
+        assertEquals("", ctx.destination);
+        assertEquals(bus.getUniqueName(), ctx.sender);
+        assertEquals("s", ctx.signature);
+    }
+
+    public void testCancelSessionless() throws Exception {
+        emitter.setCompressHeader(false);
+        emitter.setSessionlessFlag(true);
+        emitter.setTimeToLive(0);
+        signalReceived = false;
+        emitter.Emit("sessionless2");
+        int serial = emitter.getMessageContext().serial;
+        Status status = emitter.cancelSessionlessSignal(serial);
+        assertEquals(Status.OK, status);
+        status = emitter.cancelSessionlessSignal(58585858);
+        assertEquals(Status.BUS_NO_SUCH_MESSAGE, status);
     }
 
     public void testGlobalBroadcast() throws Exception {
