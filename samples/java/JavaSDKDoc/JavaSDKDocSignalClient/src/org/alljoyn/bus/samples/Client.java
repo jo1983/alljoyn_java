@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011, 2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -84,6 +84,8 @@ public class Client {
 				
 				Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
 
+				mBus.enableConcurrentCallbacks();
+				
 				Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener());
 				if (status != Status.OK) {
 					System.exit(0);
@@ -99,9 +101,6 @@ public class Client {
 		}
 		
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
-		
-//		mBus.useOSLogging(true);
-//        mBus.setDebugLevel("ALLJOYN_JAVA", 7);
 		
 		BusListener listener = new MyBusListener();
 		mBus.registerBusListener(listener);

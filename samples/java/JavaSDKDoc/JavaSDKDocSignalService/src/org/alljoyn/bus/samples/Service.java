@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011, 2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -58,9 +58,6 @@ public class Service {
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 		
 		Status status;
-		
-//		mBus.useOSLogging(true);
-//      mBus.setDebugLevel("ALLJOYN", 7);
 		
 		SignalInterface mySignalInterface = new SignalInterface();
 		
@@ -135,9 +132,9 @@ public class Service {
 		}
 		
 		System.out.println(String.format("SignalEmitter sessionID = %d", mSessionId));
-//		SignalEmitter emitter = new SignalEmitter(mySignalInterface, mJoinerName, mSessionId, SignalEmitter.GlobalBroadcast.On);
-//		SignalEmitter emitter = new SignalEmitter(mySignalInterface, SignalEmitter.GlobalBroadcast.On);
-		SignalEmitter emitter = new SignalEmitter(mySignalInterface);
+
+		SignalEmitter emitter = new SignalEmitter(mySignalInterface, mJoinerName, mSessionId, SignalEmitter.GlobalBroadcast.On);
+
 		myInterface = emitter.getInterface(SampleInterface.class);
 		 
 		

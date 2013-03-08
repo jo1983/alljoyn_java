@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011, 2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ public class Client {
 			sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
 			
 			Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+			
+			mBus.enableConcurrentCallbacks();
 			
 			Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener(){
 				public void sessionLost(int sessionId) {
@@ -214,14 +216,13 @@ public class Client {
 			}
 		}
 		
-//		mBus.useOSLogging(true);
-//		mBus.setDebugLevel("ALLJOYN", 7);
-		
 		try {
 			System.out.println("Ping = " + mSecureInterface.Ping("Hello AllJoyn"));
 		} catch (BusException e1) {
 			System.out.println("-----BusException-----");
 			e1.printStackTrace();
 		}
+		
+		mBus.release();
 	}
 }

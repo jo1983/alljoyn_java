@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011, 2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ public class Client {
 			sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
 			
 			Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+			
+			mBus.enableConcurrentCallbacks();
 			
 			Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener());
 			if (status != Status.OK) {
@@ -134,5 +136,6 @@ public class Client {
             thread1.join();
         } catch (InterruptedException ex) {
         }
+        mBus.release();
 	}
 }
