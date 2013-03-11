@@ -1900,7 +1900,7 @@ void NewRefBackingObject(jobject javaObject, JBusObject* cppObject)
         return;
     }
 
-    gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>((uint32_t)1, (JBusObject*)cppObject);
+    gBusObjectMap[javaObject] = make_pair((uint32_t)1, (JBusObject*)cppObject);
 }
 
 /**
@@ -1945,7 +1945,7 @@ void IncRefBackingObject(jobject javaObject)
             QCC_DbgPrintf(("IncRefBackingObject(): Found mapping for Java Bus Object %p.", javaObject));
             uint32_t refCount = i->second.first + 1;
             JBusObject* cppObject = i->second.second;
-            gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>((uint32_t)refCount, (JBusObject*) cppObject);
+            gBusObjectMap[javaObject] = make_pair((uint32_t)refCount, (JBusObject*) cppObject);
             return;
         }
     }
@@ -2001,7 +2001,7 @@ JBusObject* DecRefBackingObject(jobject javaObject)
             uint32_t refCount = i->second.first - 1;
             if (refCount) {
                 QCC_DbgPrintf(("DecRefBackingObject(): More references to %p.", javaObject));
-                gBusObjectMap[javaObject] = make_pair<uint32_t, JBusObject*>((uint32_t)refCount, (JBusObject*)cppObject);
+                gBusObjectMap[javaObject] = make_pair((uint32_t)refCount, (JBusObject*)cppObject);
                 cppObject = NULL;
             } else {
                 QCC_DbgPrintf(("DecRefBackingObject(): Last reference to %p.", javaObject));
