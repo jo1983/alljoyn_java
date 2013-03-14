@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -98,7 +98,9 @@ public class BusAttachmentTest extends TestCase {
         System.setProperty("org.alljoyn.bus.address", address);
 
         if (bus != null) {
+            assertTrue(bus.isConnected());
             bus.disconnect();
+            assertFalse(bus.isConnected());
             bus.release();
             bus = null;
         }
@@ -1287,6 +1289,13 @@ public class BusAttachmentTest extends TestCase {
         assertTrue(testBusListener.registered);
         bus.unregisterBusListener(testBusListener);
         assertTrue(testBusListener.unregistered);
+    }
+
+    public void testIsConnected() throws Exception {
+        bus = new BusAttachment(getClass().getName());
+        assertFalse(bus.isConnected());
+        assertEquals(Status.OK, bus.connect());
+        assertTrue(bus.isConnected());
     }
 
     /*

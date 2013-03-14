@@ -839,6 +839,11 @@ public class BusAttachment {
         }
     }
 
+    /**
+     * Indicate whether bus is currently connected.
+     *
+     * @return true if the bus is connected
+     */
     public native boolean isConnected();
 
     /**
