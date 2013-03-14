@@ -16,6 +16,9 @@
 import os
 import sys
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 Import('env')
 
 vars = Variables();
@@ -63,7 +66,7 @@ alljoyn_jar = env.SConscript('src/SConscript')
 
 # AllJoyn JNI library
 libs = env.SConscript('$OBJDIR/jni/SConscript')
-env.Install('$JAVA_DISTDIR/lib', libs)
+returnValue += env.Install('$JAVA_DISTDIR/lib', libs)
 # Also install a copy of liballjoyn_java, and junit.jar, alljoyn.jar into 
 # the bin folder so it can be found by the alljoyn_java eclipse project 
 env.Install('bin/libs', libs)
@@ -79,5 +82,6 @@ env['PROJECT_NUMBER'] = 'Version 0.0.1'
 env.JavaDoc('$JAVA_DISTDIR/docs', 'src', JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 
 # AllJoyn samples
-env.SConscript('samples/SConscript')
+returnValue += env.SConscript('samples/SConscript')
 
+Return('returnValue')

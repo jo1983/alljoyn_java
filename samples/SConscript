@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,7 +15,12 @@
 
 Import('env')
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 if env['OS'] == 'android':
-    env.SConscript('android/SConscript')
+    returnValue += env.SConscript('android/SConscript')
 elif env['OS'] == 'linux' or env['OS_GROUP'] == 'windows':
-    env.SConscript('java/SConscript')
+    returnValue += env.SConscript('java/SConscript')
+
+Return('returnValue')

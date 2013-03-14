@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2011, 2013 Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -20,5 +20,8 @@ Import('env')
 # AllJoyn Java binding
 test_classes = env.Java('$CLASSDIR', '.', JAVACLASSPATH=os.pathsep.join(
         [env.subst('$JAVACLASSPATH'), env.GetBuildPath(env.subst('$JARDIR/alljoyn.jar'))]))
-env.Jar('$JARDIR/alljoyn_test.jar', test_classes)
+# The return value is the collection of files installed in the build destination.
+returnValue = env.Jar('$JARDIR/alljoyn_test.jar', test_classes)
 env.Requires(test_classes, '$JARDIR/alljoyn.jar')
+
+Return('returnValue')

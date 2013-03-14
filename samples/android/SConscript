@@ -21,6 +21,9 @@ if(env['CPU'] == 'arm'):
 else:
     android_eabi = 'x86'
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 # Application samples
 for sample in ['simple/client', 
                'simple/service', 
@@ -38,19 +41,19 @@ for sample in ['simple/client',
                'contacts/ContactsService',
                'sessionless/client',
                'sessionless/service']:
-    env.Install('$JAVA_DISTDIR/samples/%s' % sample, 
+    returnValue += env.Install('$JAVA_DISTDIR/samples/%s' % sample, 
                 ['%s/AndroidManifest.xml' % sample,
                  '%s/.classpath' % sample,
                  '%s/default.properties' % sample,
                  '%s/.project' % sample,
                  '%s/res' % sample,
                  '%s/src' % sample])
-    env.Install('$JAVA_DISTDIR/samples/%s/libs' % sample, '$JARDIR/alljoyn.jar')
-    env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
-    env.Install('$JAVA_DISTDIR/samples/%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
-    env.Install('%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+    returnValue += env.Install('$JAVA_DISTDIR/samples/%s/libs' % sample, '$JARDIR/alljoyn.jar')
+    returnValue += env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
+    returnValue += env.Install('$JAVA_DISTDIR/samples/%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+    returnValue += env.Install('%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
 
-env.Install('$JAVA_DISTDIR/samples', 'README.txt')
+returnValue += env.Install('$JAVA_DISTDIR/samples', 'README.txt')
 
 # install the alljoyn_java.jar and liballjoyn_java.so into the shared 
 # keystore samples at this time the shared keystore samples are not being placed
@@ -60,8 +63,8 @@ for sample in ['secure/sharedks/service',
                'secure/sharedks/srpclientA',
                'secure/sharedks/srpclientB',
                'sessions']:
-    env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
-    env.Install('%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
+    returnValue += env.Install('%s/libs' % sample, '$JARDIR/alljoyn.jar')
+    returnValue += env.Install('%s/libs/%s' % (sample, android_eabi), '$JAVA_DISTDIR/lib/liballjoyn_java.so')
 
 # Unit test runner
 env.Install('$JAVA_TESTDIR',
@@ -77,3 +80,5 @@ env.Install('$JAVA_TESTDIR' + '/libs/%s' % android_eabi, '$JAVA_DISTDIR/lib/liba
 env.Install('./test/libs/%s' % android_eabi, '$JAVA_DISTDIR/lib/liballjoyn_java.so')
 env.Install('./test/libs', '$JARDIR/alljoyn.jar')
 env.Install('./test/libs', '$JARDIR/alljoyn_test.jar')
+
+Return('returnValue')

@@ -1,4 +1,4 @@
-# Copyright 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2011, 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -34,9 +34,12 @@ env.Jar('$JARDIR/JavaSDKDocMethodsClient.jar', sdk_methodsClient_sample)
 env.Requires(sdk_methodsClient_sample, '$JARDIR/alljoyn.jar')
 
 #add the sample to the dist with out adding the build files.
-env.Install('$JAVA_DISTDIR/samples/JavaSDKDoc/JavaSDKDocMethodsClient', ['src', '.classpath', '.project'])
+# The return value is the collection of files installed in the build destination.
+returnValue = env.Install('$JAVA_DISTDIR/samples/JavaSDKDoc/JavaSDKDocMethodsClient', ['src', '.classpath', '.project'])
 
 #clean up the created manifest file
 env.Clean('.', sdk_methodsClient_sample)
 #clean the build folder that remains after cleaning all other files.
 env.Clean('.', 'build')
+
+Return('returnValue')

@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
 
 Import('env')
 
-env.Install('$JAVA_DISTDIR/samples', 'README.txt')
+# The return value is the collection of files installed in the build destination.
+returnValue = env.Install('$JAVA_DISTDIR/samples', 'README.txt')
 
-env.SConscript('JavaSDKDoc/SConscript')
+returnValue += env.SConscript('JavaSDKDoc/SConscript')
+
+Return('returnValue')
