@@ -140,12 +140,13 @@ public class SignalEmitter {
     /**
      * Sets the time-to-live of future signals sent from this emitter.
      *
-     * @param timeToLive if non-zero this specifies in milliseconds the useful
-     *                   lifetime for this signal. If delivery of the signal is
-     *                   delayed beyond the timeToLive due to network congestion
-     *                   or other factors the signal may be discarded. There is
-     *                   no guarantee that expired signals will not still be
-     *                   delivered.
+     * @param timeToLive if non-zero this specifies the useful lifetime for signals sent
+     *                   by this emitter. The units are in milliseconds for
+     *                   non-sessionless signals and seconds for sessionless signals. If
+     *                   delivery of the signal is delayed beyond the timeToLive due to
+     *                   network congestion or other factors the signal may be
+     *                   discarded. There is no guarantee that expired signals will not
+     *                   still be delivered.
      */
     public void setTimeToLive(int timeToLive) {
         this.timeToLive = timeToLive;
