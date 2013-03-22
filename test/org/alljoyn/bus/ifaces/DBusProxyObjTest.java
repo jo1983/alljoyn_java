@@ -54,6 +54,7 @@ public class DBusProxyObjTest extends TestCase {
         dbus = null;
         
         bus.disconnect();
+        bus.release();
         bus = null;
     }
 
