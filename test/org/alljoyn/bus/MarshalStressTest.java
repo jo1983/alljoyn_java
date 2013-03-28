@@ -134,8 +134,6 @@ public class MarshalStressTest extends TestCase {
 
     private BusAttachment bus;
     private BusAttachment serviceBus;
-    private WeakReference busRef = new WeakReference<BusAttachment>(bus);
-    private WeakReference serviceBusRef = new WeakReference<BusAttachment>(serviceBus);
 
     private Service service;
 
@@ -177,21 +175,12 @@ public class MarshalStressTest extends TestCase {
         service = null;
 
         serviceBus.disconnect();
+        serviceBus.release();
         serviceBus = null;
         
         bus.disconnect();
+        bus.release();
         bus = null;
-        
-        /*
-         * Each BusAttachment is a very heavy object that creates many file 
-         * descripters for each BusAttachment.  This will force Java's Garbage
-         * collector to remove the BusAttachments 'bus' and 'serviceBus' before 
-         * continuing on to the next test.
-         */
-        do{
-            System.gc();
-            Thread.sleep(5);
-        } while (busRef.get() != null && serviceBusRef.get() != null);
     }
 
     public void testInvalidPropy() throws Exception {
