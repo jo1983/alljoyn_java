@@ -112,5 +112,8 @@ public class GameTest extends TestCase {
         assertEquals(100, x);
         assertEquals(200, y);
         assertEquals(180, rotation);
+
+        bus.release();
+        bus = null;
     }
 }

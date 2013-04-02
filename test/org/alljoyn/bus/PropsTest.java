@@ -101,5 +101,8 @@ public class PropsTest extends TestCase {
         Map<String, Variant> map = properties.GetAll("org.alljoyn.bus.PropsInterface");
         assertEquals("MyNewValue", map.get("StringProp").getObject(String.class));
         assertEquals(6, (int)map.get("IntProp").getObject(Integer.class));
+
+        bus.release();
+        bus = null;
    }
 }

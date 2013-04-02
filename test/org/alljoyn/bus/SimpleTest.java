@@ -77,5 +77,8 @@ public class SimpleTest extends TestCase {
 
         /* Call the ping method on the remote object */
         assertEquals("Hello World", proxy.Ping("Hello World"));
+
+        bus.release();
+        bus = null;
     }
 }
