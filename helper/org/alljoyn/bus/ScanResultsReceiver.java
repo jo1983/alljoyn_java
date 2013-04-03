@@ -52,21 +52,14 @@ public class ScanResultsReceiver extends BroadcastReceiver{
 	public void onReceive(Context c, Intent intent){
 		
 		if(intent.getAction().equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)){
-			Log.v("ScanResultsReceiver", "SCAN_RESULTS_AVAILABLE_ACTION received");
-			
 			List<ScanResult> scanResults = jniProximity.wifiMgr.getScanResults();
 			
 			if(scanResults.size() == 0){
-				Log.v("ScanResultsReceiver", "Result size = 0");
 				jniProximity.scanResultsObtained = true;
 				return;
 			}
-			else{
-				Log.v("ScanResultsReceiver", "Result size  = " + Integer.toString(scanResults.size()));
-			}
 			
 			jniProximity.lastScanTime = System.currentTimeMillis();
-			Log.v("ScanResultsReceiver","lastScanTime =-=-=-=-=-=-=-=-="+jniProximity.lastScanTime);
 			
 			jniProximity.scanResultMessage = new ScanResultMessage[scanResults.size()];
 						

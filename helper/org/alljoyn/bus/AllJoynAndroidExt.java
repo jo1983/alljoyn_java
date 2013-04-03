@@ -143,7 +143,7 @@ public class AllJoynAndroidExt{
 	}
 	
 	public static void PrepareScanResults(){
-		Log.v(TAG,"Inside PrepareScanResults()");
+	    //Log.v(TAG,"Inside PrepareScanResults()");
 		
 		// if scanResultMessage is null check whom are we connected to and send that name 
 		
@@ -161,7 +161,7 @@ public class AllJoynAndroidExt{
 			scanResultMessageToBeSent[currentBSSIDIndex].ssid = scanResultMessage[currentBSSIDIndex].ssid;
 			scanResultMessageToBeSent[currentBSSIDIndex].attached = scanResultMessage[currentBSSIDIndex].attached;
 		}
-		Log.v(TAG,"Returning from PrepareScanResults()");	
+		//Log.v(TAG,"Returning from PrepareScanResults()");	
 			
 	}
 		
@@ -173,8 +173,7 @@ public class AllJoynAndroidExt{
 			
 			// For test ony ... always on scan
 			//request_scan = true;
-			
-			Log.v(TAG,"---------------------- Scan results request called -------------------------------------------------------- !!!");
+			// Not requested scan results 
 			if(ctx == null){
 				PrepareScanResults();
 				scanResultMessage = null;
@@ -183,11 +182,9 @@ public class AllJoynAndroidExt{
 			// Else wifi is turned on and we can proceed with the scan
 			try{
 				if(scanResultMessage == null && request_scan){
-					Log.v(TAG,"***************************Requested Scan Results**************************************");
-					// Only a start scan or timeout scan can restart the scan processing so we set this boolean
-					// stopScanRequested = false;
-					
-						Log.v(TAG," =-=-=-Scan-=-=-= Requested");
+				    //Requested Scan Results
+				    // Only a start scan or timeout scan can restart the scan processing so we set this boolean
+				    // stopScanRequested = false;
 						wifiMgr = (WifiManager)ctx.getSystemService(Context.WIFI_SERVICE);
 						if(wifiMgr == null){
 							Log.v(TAG," Wifi Manager is NULL");	
@@ -289,7 +286,6 @@ public class AllJoynAndroidExt{
 						scanResultMessage[0].ssid = currentSSID;
 						scanResultMessage[0].attached = true;
 					}
-					Log.v(TAG,"*************************** NOT REQUESTED Scan Results**************************************");
 					//PrepareScanResults();
 				}
 			}catch (SecurityException se){
@@ -299,12 +295,12 @@ public class AllJoynAndroidExt{
 			PrepareScanResults();
 			scanResultMessage = null;
 			
-			Log.v(TAG,"************************FINAL SCAN RESULTS ****************************************");
-			for(int i=0 ; i < scanResultMessageToBeSent.length ; i++){
-				ScanResultMessage result = scanResultMessageToBeSent[i];
-				Log.v("Entry-->",result.bssid + " " + result.ssid + " " + result.attached);
-			}
-			Log.v(TAG,"*************************************************************************************");
+			//Log.v(TAG,"************************FINAL SCAN RESULTS ****************************************");
+			//for(int i=0 ; i < scanResultMessageToBeSent.length ; i++){
+			//	ScanResultMessage result = scanResultMessageToBeSent[i];
+			//	Log.v("Entry-->",result.bssid + " " + result.ssid + " " + result.attached);
+			//}
+			//Log.v(TAG,"*************************************************************************************");
 			return scanResultMessageToBeSent;
 		}
 	
