@@ -186,7 +186,7 @@ public class BusAttachment {
     public native Status cancelAdvertiseName(String name, short transports);
 
     /**
-     * Register interest in a well-known name prefix for the purpose of discovery.
+     * Register interest in a well-known name prefix for the purpose of discovery over transports included in TRANSPORT_ANY.
      * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.FindAdvertisedName method call to the local daemon
      * and interprets the response.
      *
@@ -203,8 +203,27 @@ public class BusAttachment {
     public native Status findAdvertisedName(String namePrefix);
 
     /**
+     * Register interest in a well-known name prefix for the purpose of discovery over specified transports.
+     * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.FindAdvertisedName method call to the local daemon
+     * and interprets the response.
+     *
+     * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
+     *                    notifications about.
+     * @param transports  Set of transports over which discovery will be enabled.
+     *
+     * @return
+     * <ul>
+     * <li>OK if discovery was started.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a failure.</li>
+     * </ul>
+     */
+    public native Status findAdvertisedNameByTransport(String namePrefix, short transports);
+
+    /**
      * Cancel interest in a well-known name prefix that was previously
-     * registered with FindAdvertisedName.  This method is a shortcut/helper
+     * registered with FindAdvertisedName. This cancels well-known name discovery
+     * over transports included in TRANSPORT_ANY.  This method is a shortcut/helper
      * that issues an org.codeauora.AllJoyn.Bus.CancelFindAdvertisedName method
      * call to the local daemon and interprets the response.
      *
@@ -219,6 +238,26 @@ public class BusAttachment {
      * </ul>
      */
     public native Status cancelFindAdvertisedName(String namePrefix);
+
+    /**
+     * Cancel interest in a well-known name prefix that was previously
+     * registered with FindAdvertisedName. This cancels well-known name discovery
+     * over the specified transports.  This method is a shortcut/helper
+     * that issues an org.codeauora.AllJoyn.Bus.CancelFindAdvertisedName method
+     * call to the local daemon and interprets the response.
+     *
+     * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
+     *                    BusListener::FoundAdvertisedName notifications about.
+     * @param transports  Set of transports over which discovery will be cancelled.
+     *
+     * @return
+     * <ul>
+     * <li>OK if discovery was cancelled.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating a general failure condition.</li>
+     * </ul>
+     */
+    public native Status cancelFindAdvertisedNameByTransport(String namePrefix, short transports);
 
     /**
      * Make a SessionPort available for external BusAttachments to join.

@@ -5345,7 +5345,54 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName(
 
     return JStatus(status);
 }
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedNameByTransport(JNIEnv*env, jobject thiz,
+                                                                                           jstring jname, jshort jtransports)
+{
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedNameByTransport()"));
 
+    /*
+     * Load the C++ well-known name Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedNameByTransport(): Exception"));
+        return NULL;
+    }
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedNameByTransport(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedNameByTransport(): Refcount on busPtr is %d", busPtr->GetRef()));
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_findAdvertisedNameByTransport(): Call FindAdvertisedNameByTransport(%s, %d)", name.c_str(), jtransports));
+
+    QStatus status = busPtr->FindAdvertisedNameByTransport(name.c_str(), jtransports);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_findAdvertisedNameByTransport(): Exception"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_findAdvertisedNameByTransport(): FindAdvertisedNameByTransport() fails"));
+    }
+
+    return JStatus(status);
+}
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName(JNIEnv* env, jobject thiz,
                                                                                       jstring jname)
 {
@@ -5395,6 +5442,54 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertise
     return JStatus(status);
 }
 
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedNameByTransport(JNIEnv*env, jobject thiz,
+                                                                                                 jstring jname, jshort jtransports)
+{
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedNameByTransport()"));
+
+    /*
+     * Load the C++ well-known name Java well-known name.
+     */
+    JString name(jname);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedNameByTransport(): Exception"));
+        return NULL;
+    }
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedNameByTransport(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedNameByTransport(): Refcount on busPtr is %d", busPtr->GetRef()));
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_cancelFindAdvertisedNameByTransport(): Call CancelFindAdvertisedNameByTransport(%s, %d)", name.c_str(), jtransports));
+
+    QStatus status = busPtr->CancelFindAdvertisedNameByTransport(name.c_str(), jtransports);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_cancelFindAdvertisedNameByTransport(): Exception"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("BusAttachment_cancelFindAdvertisedNameByTransport(): CancelFindAdvertisedNameByTransport() fails"));
+    }
+
+    return JStatus(status);
+}
 /**
  * Bind a session port with the BusAttachment.  This makes a SessionPort
  * available for external BusAttachments to join, and enables callbacks to the

@@ -811,6 +811,76 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(false, foundNameB);
     }
 
+    public class FindNamesByTransportListener extends BusListener {
+        public FindNamesByTransportListener(BusAttachment bus) {
+            this.bus = bus;
+        }
+
+        @Override
+        public void foundAdvertisedName(String name, short transport, String namePrefix) {
+            if (name.equals("name.x")) {
+                foundName1 = true;
+                transport1 |= transport;
+            }
+            if ( name.equals("name.y")) {
+                foundName2 = true;
+                transport2 |= transport;
+            }
+            if ( name.equals("name.z")) {
+                foundName3 = true;
+                transport3 |= transport;
+            }
+            // stopWait seems to block sometimes, so enable concurrency.
+            bus.enableConcurrentCallbacks();
+            stopWait();
+        }
+
+        private BusAttachment bus;
+    }
+
+
+    private boolean foundName1;
+    private boolean foundName2;
+    private boolean foundName3;
+    private short transport1;
+    private short transport2;
+    private short transport3;
+    private static final short LOCAL = 0x01;
+    private static final short TCP = 0x04;
+    public synchronized void testFindNameByTransport() throws Exception {
+        foundName1 = false;
+        foundName2 = false;
+        foundName3 = false;
+        transport1 = 0;
+        transport2 = 0;
+        transport3 = 0;
+        bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+
+        BusListener testBusListener = new FindNamesByTransportListener(bus);
+        bus.registerBusListener(testBusListener);
+
+        assertEquals(Status.OK, bus.connect());
+        found = false;
+        assertEquals(Status.OK, bus.findAdvertisedNameByTransport("name.x",TCP));
+        assertEquals(Status.OK, bus.findAdvertisedNameByTransport("name.y",LOCAL));
+        assertEquals(Status.OK, bus.findAdvertisedNameByTransport("name.z",LOCAL));
+        assertEquals(Status.OK, bus.cancelFindAdvertisedNameByTransport("name.z",LOCAL));
+
+        otherBus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
+        assertEquals(Status.OK, otherBus.connect());
+
+        assertEquals(Status.OK, otherBus.advertiseName("name.x", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, otherBus.advertiseName("name.y", SessionOpts.TRANSPORT_ANY));
+        assertEquals(Status.OK, otherBus.advertiseName("name.z", SessionOpts.TRANSPORT_ANY));
+
+        this.wait(2 * 1000);
+        assertEquals(false, foundName1);
+        assertEquals(true, foundName2);
+        assertEquals(LOCAL, transport2);
+        assertEquals(false, foundName3);
+
+    }
+
     public class CancelFindNameInsideListenerBusListener extends BusListener {
         public CancelFindNameInsideListenerBusListener(BusAttachment bus) {
             this.bus = bus;

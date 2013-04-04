@@ -135,7 +135,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_advertiseName
 /*
  * Class:     org_alljoyn_bus_BusAttachment
  * Method:    cancelAdvertiseName
- * Signature: (Ljava/lang/String;Lorg/alljoyn/Mutable$IntegerValue;)Lorg/alljoyn/bus/Status;
+ * Signature: (Ljava/lang/String;S)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelAdvertiseName
   (JNIEnv *, jobject,
@@ -152,12 +152,30 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedName
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    findAdvertisedNameByTransport
+ * Signature: (Ljava/lang/String;S)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_findAdvertisedNameByTransport
+  (JNIEnv *, jobject,
+   jstring, jshort);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
  * Method:    cancelFindAdvertiseName
  * Signature: (Ljava/lang/String;)Lorg/alljoyn/bus/Status;
  */
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedName
   (JNIEnv *, jobject,
    jstring);
+
+/*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    cancelFindAdvertiseNameByTransport
+ * Signature: (Ljava/lang/String;S)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_cancelFindAdvertisedNameByTransport
+  (JNIEnv *, jobject,
+   jstring, jshort);
 
 /*
  * Class:     org_alljoyn_bus_BusAttachment
