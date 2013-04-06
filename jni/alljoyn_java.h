@@ -1446,6 +1446,15 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__JLjava_lang_Stri
 JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__J
   (JNIEnv *, jclass, jlong);
 
+/*
+ * Class:     org_alljoyn_bus_PasswordManager
+ * Method:    setCredentials
+ * Signature: (Ljava/lang/String;Ljava/lang/String;)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_PasswordManager_setCredentials
+  (JNIEnv *, jobject,
+   jstring, jstring);
+
 #ifdef __cplusplus
 }
 #endif

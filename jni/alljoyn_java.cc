@@ -31,6 +31,7 @@
 #include <qcc/ScopedMutexLock.h>
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/DBusStd.h>
+#include <alljoyn/PasswordManager.h>
 #include <MsgArgUtils.h>
 #include <SignatureUtils.h>
 #include "alljoyn_java.h"
@@ -10280,4 +10281,39 @@ JNIEXPORT jlong JNICALL Java_org_alljoyn_bus_MsgArg_setVariant__J(JNIEnv* env, j
     arg->SetOwnershipFlags(MsgArg::OwnsArgs);
     arg->typeId = ALLJOYN_VARIANT;
     return (jlong)arg;
+}
+
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_PasswordManager_setCredentials(JNIEnv*env, jobject,
+                                                                              jstring authMechanism, jstring password)
+{
+    /*
+     * Load the C++ authMechanism Java authMechanism.
+     */
+    JString jauthMechanism(authMechanism);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("PasswordManager_setCredentials(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * Load the C++ password Java password.
+     */
+    JString jpassword(password);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("PasswordManager_setCredentials(): Exception"));
+        return NULL;
+    }
+
+    QStatus status = PasswordManager::SetCredentials(jauthMechanism.c_str(), jpassword.c_str());
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("PasswordManager_setCredentials(): Exception"));
+        return NULL;
+    }
+
+    if (status != ER_OK) {
+        QCC_LogError(status, ("PasswordManager_setCredentials: SetCredentials() fails"));
+    }
+
+    return JStatus(status);
 }
