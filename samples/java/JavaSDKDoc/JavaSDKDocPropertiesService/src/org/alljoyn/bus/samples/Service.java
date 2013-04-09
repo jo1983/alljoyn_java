@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011, 2013 Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ public class Service {
     }
 
     private static final short CONTACT_PORT=42;
-
+    static BusAttachment mBus;
     static boolean sessionEstablished = false;
     static int sessionId;
 
@@ -61,8 +61,12 @@ public class Service {
     }
 
     public static void main(String[] args) {
-
-        BusAttachment mBus;
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                mBus.release();
+            }
+        });
+        
         mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 
         Status status;

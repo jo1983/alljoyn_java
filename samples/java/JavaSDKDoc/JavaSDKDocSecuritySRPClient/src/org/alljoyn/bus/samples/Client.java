@@ -153,6 +153,12 @@ public class Client {
     }
 	
 	public static void main(String[] args) {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                mBus.release();
+            }
+        });
+
 		mBus = new BusAttachment("SRPSecurityClient", BusAttachment.RemoteMessage.Receive);
 		
 		mAuthListener = new SrpKeyXListener();

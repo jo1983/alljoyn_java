@@ -29,7 +29,8 @@ public class Service {
     }
 
     private static final short CONTACT_PORT=42;
-
+    static BusAttachment mBus;
+    
     static boolean sessionEstablished = false;
     static int sessionId;
 
@@ -114,7 +115,12 @@ public class Service {
 
     public static void main(String[] args) {
 
-        BusAttachment mBus;
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				mBus.release();
+			}
+		});
+        
         mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 
         Status status;

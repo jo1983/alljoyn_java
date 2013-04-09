@@ -160,6 +160,12 @@ public class Client {
     }
 
     public static void main(String[] args) {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                mBus.release();
+            }
+        });
+        
         mBus = new BusAttachment("SRPLogonClient", BusAttachment.RemoteMessage.Receive);
 
         SrpLogonListener authListener = new SrpLogonListener();

@@ -32,8 +32,8 @@ public class Service {
 	}
 	
 	private static final short CONTACT_PORT=42;
+	private static BusAttachment mBus;
 	private static SampleInterface myInterface;
-//	static private SignalInterface gSignalInterface;
 	
 	static boolean mSessionEstablished = false;
 	static int mSessionId;
@@ -53,8 +53,12 @@ public class Service {
 	}
 	
 	public static void main(String[] args) {
-		
-		BusAttachment mBus;
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                mBus.release();
+            }
+        });
+
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 		
 		Status status;

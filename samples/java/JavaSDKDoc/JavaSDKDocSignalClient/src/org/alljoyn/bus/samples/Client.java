@@ -71,7 +71,12 @@ public class Client {
 	}
 	
 	public static void main(String[] args) {
-		
+	    Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                mBus.release();
+            }
+        });
+	    
 		class MyBusListener extends BusListener {
 			public void foundAdvertisedName(String name, short transport, String namePrefix) {
 				System.out.println(String.format("BusListener.foundAdvertisedName(%s, %d, %s)", name, transport, namePrefix));

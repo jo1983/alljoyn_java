@@ -91,6 +91,12 @@ public class Client {
     }
 
 	public static void main(String[] args) {
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				mBus.release();
+			}
+		});
+		
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 		
 		BusListener listener = new MyBusListener();
