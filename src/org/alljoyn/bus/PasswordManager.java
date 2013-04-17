@@ -32,7 +32,7 @@ public class PasswordManager {
      *
      * @param authMechanism  Mechanism to use for authentication.
      *
-     * @param password  Set of transports over which discovery will be enabled.
+     * @param password  Password to use for authentication.
      *
      * @return
      * <ul>
