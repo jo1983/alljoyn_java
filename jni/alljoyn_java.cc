@@ -2096,7 +2096,6 @@ class JSignalHandler : public MessageReceiver {
     jobject jmethod;
     const InterfaceDescription::Member* member;
     String source;
-    String rule;
 };
 
 /**
@@ -8096,13 +8095,6 @@ QStatus JSignalHandler::Register(BusAttachment& bus, const char* ifaceName, cons
                                                static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler),
                                                member,
                                                source.c_str());
-    if (ER_OK == status) {
-        rule = "type='signal',interface='" + String(ifaceName) + "',member='" + String(signalName) + "'";
-        if (!source.empty()) {
-            rule += ",path='" + source + "'";
-        }
-        status = bus.AddMatch(rule.c_str());
-    }
     return status;
 }
 
@@ -8113,8 +8105,6 @@ void JSignalHandler::Unregister(BusAttachment& bus)
     }
 
     if (member) {
-        bus.RemoveMatch(rule.c_str());
-
         bus.UnregisterSignalHandler(this,
                                     static_cast<MessageReceiver::SignalHandler>(&JSignalHandler::SignalHandler),
                                     member,

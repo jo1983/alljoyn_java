@@ -123,6 +123,12 @@ public class Client {
 			System.exit(0);
 		}
 		System.out.println("BusAttachment.registerSignalHandlers successful");
+
+		status = mBus.addMatch("type='signal',iface='org.alljoyn.bus.samples.SampleInterface',member='playerPosition'");
+		if (status != Status.OK) {
+			System.exit(0);
+		}
+		System.out.println("BusAttachment.addMatch successful");
 		
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
