@@ -97,11 +97,23 @@ public class SignalEmitterTest extends TestCase {
         assertEquals(Status.OK, bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                                                           this, getClass().getMethod("signalHandler", 
                                                                                      String.class)));
+
+        /* Add rule to receive non-session based signals */
+        status = bus.addMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        if (Status.OK != status) {
+            throw new GameException("Cannot add rule to receive signals");
+        }
     }
 
     public void tearDown() throws Exception {
         bus.unregisterBusObject(emitter);
         emitter = null;
+
+        /* Remove rule to receive non-session based signals */
+        Status status = bus.addMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        if (Status.OK != status) {
+            throw new GameException("Cannot add rule to receive signals");
+        }
 
         bus.disconnect();
         bus = null;

@@ -176,6 +176,8 @@ public class BusAttachmentTest extends TestCase {
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                 this, getClass().getMethod("signalHandler1", String.class));
         assertEquals(Status.OK, status);
+        status = bus.addMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                 this, getClass().getMethod("signalHandler2", String.class));
         assertEquals(Status.OK, status);
@@ -230,6 +232,8 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(0, handledSignals1);
         assertEquals(1, handledSignals2);
         bus.unregisterSignalHandler(this, getClass().getMethod("signalHandler2", String.class));
+        status = bus.removeMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
         emitter = null;
         status = null;
     }
@@ -277,6 +281,8 @@ public class BusAttachmentTest extends TestCase {
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                 this, getClass().getMethod("signalHandler1", String.class));
         assertEquals(Status.OK, status);
+        status = bus.addMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
 
         Emitter emitter = new Emitter();
         status = bus.registerBusObject(emitter, "/emitter");
@@ -287,6 +293,8 @@ public class BusAttachmentTest extends TestCase {
         this.wait(500);
         assertEquals(1, handledSignals1);
         emitter = null;
+        status = bus.removeMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
     }
 
     public synchronized void testRegisterSourcedSignalHandler() throws Exception {
@@ -301,6 +309,8 @@ public class BusAttachmentTest extends TestCase {
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                 this, getClass().getMethod("signalHandler1", String.class),
                 "/emitter");
+        assertEquals(Status.OK, status);
+        status = bus.addMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
         assertEquals(Status.OK, status);
         handledSignals1 = 0;
         emitter.Emit("emit1");
@@ -317,6 +327,8 @@ public class BusAttachmentTest extends TestCase {
         this.wait(500);
         assertEquals(0, handledSignals1);
         emitter = null;
+        status = bus.removeMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
     }
 
     private void signalHandler3(String string) throws BusException {
@@ -395,11 +407,15 @@ public class BusAttachmentTest extends TestCase {
         status = bus.registerSignalHandler("org.alljoyn.bus.EmitterInterface", "Emit",
                 this, getClass().getMethod("signalHandler4", String.class));
         assertEquals(Status.OK, status);
+        status = bus.addMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
 
         emitter.Emit("emit4");
         this.wait(500);
         assertEquals(1, handledSignals4);
         emitter = null;
+        status = bus.removeMatch("type='signal',interface='org.alljoyn.bus.EmitterInterface',member='Emit'");
+        assertEquals(Status.OK, status);
     }
 
     public void testMethodMessageContext() throws Exception {
