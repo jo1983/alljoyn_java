@@ -71,11 +71,6 @@ public class Client {
 	}
 
 	public static void main(String[] args) {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			public void run() {
-				mBus.release();
-			}
-		});
 
 		class MyBusListener extends BusListener {
 			public void foundAdvertisedName(String name, short transport, String namePrefix) {
@@ -93,7 +88,7 @@ public class Client {
 
 				Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener());
 				if (status != Status.OK) {
-					System.exit(0);
+					return;
 				}
 				System.out.println(String.format("BusAttachement.joinSession successful sessionId = %d", sessionId.value));
 			}
@@ -112,7 +107,7 @@ public class Client {
 
 		Status status = mBus.connect();
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		System.out.println("BusAttachment.connect successful");
 
@@ -120,13 +115,13 @@ public class Client {
 
 		status = mBus.registerSignalHandlers(mySignalHandlers);
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		System.out.println("BusAttachment.registerSignalHandlers successful");
 
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		System.out.println("BusAttachment.findAdvertisedName successful " + "com.my.well.known.name");
 		while(true) {

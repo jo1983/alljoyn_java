@@ -37,7 +37,7 @@ public class Service {
     }
 
     private static final short CONTACT_PORT=42;
-    static BusAttachment mBus;
+
     static boolean sessionEstablished = false;
     static int sessionId;
     private static String mPassword;
@@ -130,12 +130,8 @@ public class Service {
     }
 
     public static void main(String[] args) {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                mBus.release();
-            }
-        });
 
+        BusAttachment mBus;
         mBus = new BusAttachment("SRPSecurityService", BusAttachment.RemoteMessage.Receive);
 
         Status status;
@@ -144,7 +140,6 @@ public class Service {
 
         status = mBus.registerBusObject(mySecureService, "/testSrpSecurity");
         if (status != Status.OK) {
-            System.exit(0);
             return;
         }
         System.out.println("BusAttachment.registerBusObject successful");
@@ -155,14 +150,12 @@ public class Service {
         mAuthListener = new SrpKeyXListener();
         status = mBus.registerAuthListener("ALLJOYN_SRP_KEYX", mAuthListener);
         if (status != Status.OK) {
-            System.exit(0);
             return;
         }
         System.out.println("BusAttachment.registerAuthListener successful");
 
         status = mBus.connect();
         if (status != Status.OK) {
-            System.exit(0);
             return;
         }
         System.out.println("BusAttachment.connect successful on " + System.getProperty("org.alljoyn.bus.address"));        
@@ -170,7 +163,6 @@ public class Service {
         int flags = 0; //do not use any request name flags
         status = mBus.requestName("com.my.well.known.name", flags);
         if (status != Status.OK) {
-            System.exit(0);
             return;
         }
         System.out.println("BusAttachment.request 'com.my.well.known.name' successful");
@@ -179,7 +171,6 @@ public class Service {
         if (status != Status.OK) {
             System.out.println("Status = " + status);
             mBus.releaseName("com.my.well.known.name");
-            System.exit(0);
             return;
         }
         System.out.println("BusAttachment.advertiseName 'com.my.well.known.name' successful");
@@ -211,7 +202,6 @@ public class Service {
             }
         });
         if (status != Status.OK) {
-            System.exit(0);
             return;
         }
         System.out.println("BusAttachment.bindSessionPort successful");

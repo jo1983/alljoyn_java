@@ -24,8 +24,11 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.lang.ref.WeakReference;
 
 import org.alljoyn.bus.AuthListener.AuthRequest;
 import org.alljoyn.bus.AuthListener.CertificateRequest;
@@ -704,6 +707,7 @@ public class BusAttachment {
      *               from remote devices
      */
     public BusAttachment(String applicationName, RemoteMessage policy) {
+		
         isShared = false;
         isConnected = false;
         this.allowRemoteMessages = (policy == RemoteMessage.Receive);
@@ -730,7 +734,28 @@ public class BusAttachment {
         dbus = dbusbo.getInterface(DBusProxyObj.class);
         executor = Executors.newSingleThreadExecutor();
     }
+    /* Set of all the connected BusAttachments. Maintain a weakreference so we dont delay garbage collection */
+    static HashSet<WeakReference<BusAttachment>> busAttachmentSet = new HashSet<WeakReference<BusAttachment>>();
 
+    /* Shutdown hook used to release any connected BusAttachments when the VM exits */
+    public static class ShutdownHookThread extends Thread{
+	public void run(){
+
+		/* Iterate through the busAttachmentSet and release any BusAttachments that havent been released yet.*/
+		Iterator<WeakReference<BusAttachment>> iterator = busAttachmentSet.iterator();
+		while(iterator.hasNext()){
+			WeakReference<BusAttachment> temp = iterator.next();
+			BusAttachment temp1 = temp.get();
+			if(temp1 != null){
+				temp1.release();
+			} else{
+				busAttachmentSet.remove(temp);
+			}
+			iterator = busAttachmentSet.iterator();
+		}
+	}
+
+    }
     /**
      * Construct a BusAttachment that will only communicate on the local device.
      *
@@ -786,6 +811,7 @@ public class BusAttachment {
      * after the release() method has been called.
      */
     public void release() {
+	
         if (isConnected == true) {
             disconnect();
         }
@@ -795,6 +821,16 @@ public class BusAttachment {
         }
         dbus = null;
         destroy();
+	/* Remove this bus attachment from the busAttachmentSet */
+	synchronized(busAttachmentSet){
+		Iterator<WeakReference<BusAttachment>> iterator = busAttachmentSet.iterator();
+		while(iterator.hasNext()){
+			BusAttachment temp = iterator.next().get();
+			if(temp!=null && temp.equals(this)){
+				iterator.remove();
+			}
+		}
+	}
     }
 
     /**
@@ -802,6 +838,7 @@ public class BusAttachment {
      */
     @Override
     protected void finalize() throws Throwable {
+
         if (isConnected == true) {
             disconnect();
         }
@@ -847,7 +884,7 @@ public class BusAttachment {
     void execute(Runnable runnable) {
         executor.execute(runnable);
     }
-
+    private static boolean shutdownHookRegistered = false;
     /**
      * Starts the message bus and connects to the local daemon.
      * This method blocks until the connection attempt succeeds or fails.
@@ -870,6 +907,15 @@ public class BusAttachment {
         if (address != null) {
             Status status = connect(address, keyStoreListener, authMechanisms, busAuthListener, keyStoreFileName, isShared);
             if (status == Status.OK) {
+		/* Add this BusAttachment to the busAttachmentSet */
+		synchronized(busAttachmentSet){
+			/* Register a shutdown hook if it is not already registered. */
+			if(shutdownHookRegistered == false){
+				Runtime.getRuntime().addShutdownHook(new ShutdownHookThread());
+				shutdownHookRegistered = true;
+			}
+			busAttachmentSet.add(new WeakReference<BusAttachment>(this));
+		}
                 isConnected = true;
             }
             return status;

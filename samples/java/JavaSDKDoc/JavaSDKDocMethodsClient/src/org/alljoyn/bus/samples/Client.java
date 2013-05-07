@@ -52,7 +52,7 @@ public class Client {
 			
 			Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener());
 			if (status != Status.OK) {
-				System.exit(0);
+				return;
 			}
 			System.out.println(String.format("BusAttachement.joinSession successful sessionId = %d", sessionId.value));
 			
@@ -91,12 +91,6 @@ public class Client {
     }
 
 	public static void main(String[] args) {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			public void run() {
-				mBus.release();
-			}
-		});
-		
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 		
 		BusListener listener = new MyBusListener();
@@ -104,14 +98,14 @@ public class Client {
 		
 		Status status = mBus.connect();
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		
         System.out.println("BusAttachment.connect successful on " + System.getProperty("org.alljoyn.bus.address"));
 		
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		System.out.println("BusAttachment.findAdvertisedName successful " + "com.my.well.known.name");
 		
@@ -142,6 +136,7 @@ public class Client {
             thread1.join();
         } catch (InterruptedException ex) {
         }
-        mBus.release();
+
 	}
 }
+
