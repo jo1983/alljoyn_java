@@ -118,13 +118,10 @@ public class GameTest extends TestCase {
         assertEquals(100, x);
         assertEquals(200, y);
         assertEquals(180, rotation);
-
         /* Remove rule to receive non-session based signals */
         status = bus.removeMatch("type='signal',interface='org.alljoyn.bus.PlayerState',member='PlayerPosition'");
         if (Status.OK != status) {
             throw new GameException("Cannot remove rule");
         }
-        bus.release();
-        bus = null;
     }
 }

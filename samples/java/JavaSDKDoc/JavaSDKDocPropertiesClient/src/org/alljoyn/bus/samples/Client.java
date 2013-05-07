@@ -52,12 +52,10 @@ public class Client {
 			sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
 
 			Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
-
 			mBus.enableConcurrentCallbacks();
-
 			Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener());
 			if (status != Status.OK) {
-				System.exit(0);
+				return;
 			}
 			System.out.println(String.format("BusAttachement.joinSession successful sessionId = %d", sessionId.value));
 
@@ -81,12 +79,6 @@ public class Client {
 	}
 
 	public static void main(String[] args) {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			public void run() {
-				mBus.release();
-			}
-		});
-		
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 
 		BusListener listener = new MyBusListener();
@@ -94,7 +86,7 @@ public class Client {
 
 		Status status = mBus.connect();
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 
 
@@ -102,7 +94,7 @@ public class Client {
 
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		System.out.println("BusAttachment.findAdvertisedName successful " + "com.my.well.known.name");
 
@@ -111,6 +103,7 @@ public class Client {
 				Thread.sleep(10);
 			} catch (InterruptedException e) {
 				System.out.println("Program interupted");
+				return;
 			}
 		}
 
@@ -125,6 +118,5 @@ public class Client {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		mBus.release();
 	}
 }

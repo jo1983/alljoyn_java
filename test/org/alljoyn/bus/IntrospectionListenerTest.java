@@ -79,8 +79,5 @@ public class IntrospectionListenerTest extends TestCase {
             introspection +
             "</node>\n";
         assertEquals(expected, actual);
-
-        bus.release();
-        bus = null;
     }
 }

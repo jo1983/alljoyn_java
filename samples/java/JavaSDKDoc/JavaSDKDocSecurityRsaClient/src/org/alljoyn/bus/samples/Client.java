@@ -59,7 +59,7 @@ public class Client {
             	}
 			});
 			if (status != Status.OK) {
-				System.exit(0);
+				return;
 			}
 			System.out.println(String.format("BusAttachement.joinSession successful sessionId = %d", sessionId.value));
 			
@@ -183,17 +183,12 @@ public class Client {
     }
 	
 	public static void main(String[] args) {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                mBus.release();
-            }
-        });
 		mBus = new BusAttachment("RsaKeyXClient", BusAttachment.RemoteMessage.Receive);
 		
 		RsaKeyXListener authListener = new RsaKeyXListener();
 		Status status = mBus.registerAuthListener("ALLJOYN_RSA_KEYX", authListener);
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		
 		BusListener listener = new MyBusListener();
@@ -201,7 +196,7 @@ public class Client {
 
 		status = mBus.connect();
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		
 		
@@ -209,7 +204,7 @@ public class Client {
 		
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
-			System.exit(0);
+			return;
 		}
 		System.out.println("BusAttachment.findAdvertisedName successful " + "com.my.well.known.name");
 		
@@ -228,6 +223,5 @@ public class Client {
 			e1.printStackTrace();
 		}
 		
-		mBus.release();
 	}
 }
