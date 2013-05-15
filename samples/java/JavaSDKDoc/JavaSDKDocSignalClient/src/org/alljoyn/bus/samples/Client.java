@@ -29,7 +29,7 @@ public class Client {
 	}
 	private static final short CONTACT_PORT=42;
 	static BusAttachment mBus;
-	
+
 	public static class SampleSignalHandler  {
 		@BusSignalHandler(iface="org.alljoyn.bus.samples.SampleInterface", signal="buttonClicked")
 		public void buttonClicked(int id) {
@@ -50,33 +50,33 @@ public class Client {
 
 		@BusSignalHandler(iface="org.alljoyn.bus.samples.SampleInterface", signal="playerPosition")
 		public void playerPosition(int x, int y, int z) {
-		    updatePlayerPosition(x,y,z);
+			updatePlayerPosition(x,y,z);
 		}
-		
+
 		public void startNewGame() {
 			System.out.println("Starting a new Game");
 		}
-		
+
 		public void continueGame() {
 			System.out.println("Continuing Game");
 		}
-		
+
 		public void quitGame() {
 			System.out.println("Quiting Game");
 		}
-		
+
 		public void updatePlayerPosition(int x, int y, int z) {
 			System.out.println(String.format("Players position is %d, %d, %d.", x, y, z));
 		}
 	}
-	
+
 	public static void main(String[] args) {
-	    Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                mBus.release();
-            }
-        });
-	    
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				mBus.release();
+			}
+		});
+
 		class MyBusListener extends BusListener {
 			public void foundAdvertisedName(String name, short transport, String namePrefix) {
 				System.out.println(String.format("BusListener.foundAdvertisedName(%s, %d, %s)", name, transport, namePrefix));
@@ -86,11 +86,11 @@ public class Client {
 				sessionOpts.isMultipoint = false;
 				sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
 				sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
-				
+
 				Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
 
 				mBus.enableConcurrentCallbacks();
-				
+
 				Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,	new SessionListener());
 				if (status != Status.OK) {
 					System.exit(0);
@@ -102,34 +102,28 @@ public class Client {
 					System.out.println("BusAttachement.nameOwnerChagned(" + busName + ", " + previousOwner + ", " + newOwner);
 				}
 			}
-			
+
 		}
-		
+
 		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
-		
+
 		BusListener listener = new MyBusListener();
 		mBus.registerBusListener(listener);
-		
+
 		Status status = mBus.connect();
 		if (status != Status.OK) {
 			System.exit(0);
 		}
 		System.out.println("BusAttachment.connect successful");
-		
+
 		SampleSignalHandler mySignalHandlers = new SampleSignalHandler();
-		
+
 		status = mBus.registerSignalHandlers(mySignalHandlers);
 		if (status != Status.OK) {
 			System.exit(0);
 		}
 		System.out.println("BusAttachment.registerSignalHandlers successful");
 
-		status = mBus.addMatch("type='signal',iface='org.alljoyn.bus.samples.SampleInterface',member='playerPosition'");
-		if (status != Status.OK) {
-			System.exit(0);
-		}
-		System.out.println("BusAttachment.addMatch successful");
-		
 		status = mBus.findAdvertisedName("com.my.well.known.name");
 		if (status != Status.OK) {
 			System.exit(0);
