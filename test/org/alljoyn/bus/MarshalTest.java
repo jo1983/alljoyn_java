@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -1165,40 +1165,56 @@ public class MarshalTest extends TestCase {
         /* Variant types */
         Variant v = new Variant((byte)1);
         assertEquals(v.getObject(byte.class), proxy.Variant(v).getObject(byte.class));
+        assertEquals("y", proxy.Variant(v).getSignature());
         v = new Variant(true);
         assertEquals(v.getObject(boolean.class), proxy.Variant(v).getObject(boolean.class));
+        assertEquals("b", proxy.Variant(v).getSignature());
         v = new Variant((short)2);
         assertEquals(v.getObject(short.class), proxy.Variant(v).getObject(short.class));
+        assertEquals("n", proxy.Variant(v).getSignature());
         v = new Variant(3);
         assertEquals(v.getObject(int.class), proxy.Variant(v).getObject(int.class));
+        assertEquals("i", proxy.Variant(v).getSignature());
         v = new Variant((long)4);
         assertEquals(v.getObject(long.class), proxy.Variant(v).getObject(long.class));
+        assertEquals("x", proxy.Variant(v).getSignature());
         v = new Variant(4.1);
         assertEquals(v.getObject(double.class), proxy.Variant(v).getObject(double.class));
+        assertEquals("d", proxy.Variant(v).getSignature());
         v = new Variant("five");
         assertEquals(v.getObject(String.class), proxy.Variant(v).getObject(String.class));
+        assertEquals("s", proxy.Variant(v).getSignature());
         v = new Variant(new byte[] { 6 });
         assertArrayEquals(v.getObject(byte[].class), proxy.Variant(v).getObject(byte[].class));
+        assertEquals("ay", proxy.Variant(v).getSignature());
         v = new Variant(new boolean[] { true });
         Variant v2 = proxy.Variant(v);
         for (int i = 0; i < v2.getObject(boolean[].class).length; ++i) {
             assertEquals(v2.getObject(boolean[].class)[i], v.getObject(boolean[].class)[i]);
+            assertEquals("ab", proxy.Variant(v).getSignature());
         }
         v = new Variant(new short[] { 7 });
         assertArrayEquals(v.getObject(short[].class), proxy.Variant(v).getObject(short[].class));
+        assertEquals("an", proxy.Variant(v).getSignature());
         v = new Variant(new int[] { 8 });
         assertArrayEquals(v.getObject(int[].class), proxy.Variant(v).getObject(int[].class));
+        assertEquals("ai", proxy.Variant(v).getSignature());
         v = new Variant(new long[] { 10 });
         assertArrayEquals(v.getObject(long[].class), proxy.Variant(v).getObject(long[].class));
+        assertEquals("ax", proxy.Variant(v).getSignature());
         v = new Variant(new double[] { 10.1 });
         assertArrayEquals(v.getObject(double[].class), proxy.Variant(v).getObject(double[].class), 0.01);
+        assertEquals("ad", proxy.Variant(v).getSignature());
         v = new Variant(new String[] { "eleven" });
         assertArrayEquals(v.getObject(String[].class), proxy.Variant(v).getObject(String[].class));
+        assertEquals("as", proxy.Variant(v).getSignature());
         v = new Variant(new InferredTypesInterface.InnerStruct(12));
         assertEquals(v.getObject(InferredTypesInterface.InnerStruct.class),
                      proxy.Variant(v).getObject(InferredTypesInterface.InnerStruct.class));
+        assertEquals("(i)", proxy.Variant(v).getSignature());
         v = new Variant(new Variant(new String("thirteen")));
         assertEquals(v.getObject(Variant.class), proxy.Variant(v).getObject(Variant.class));
+        assertEquals("v", proxy.Variant(v).getSignature());
 
         /* Dictionary types */
         TreeMap<Byte, Byte> aeyy = new TreeMap<Byte, Byte>();

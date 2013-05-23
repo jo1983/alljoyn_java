@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -40,5 +40,43 @@ public class VariantTest extends TestCase {
         } finally {
             assertTrue(thrown);
         }
+    }
+
+    public void testGetSignature() throws Exception {
+    	 Variant v = new Variant((byte)1);
+         assertEquals("y", v.getSignature());
+         v = new Variant(true);
+         assertEquals("b", v.getSignature());
+         v = new Variant((short)2);
+         assertEquals("n", v.getSignature());
+         v = new Variant(3);
+         assertEquals("i", v.getSignature());
+         v = new Variant((long)4);
+         assertEquals("x", v.getSignature());
+         v = new Variant(4.1);
+         assertEquals("d", v.getSignature());
+         v = new Variant("five");
+         assertEquals("s", v.getSignature());
+         v = new Variant(new byte[] { 6 });
+         assertEquals("ay", v.getSignature());
+         v = new Variant(new boolean[] { true });
+         assertEquals("ab", v.getSignature());
+         v = new Variant(new short[] { 7 });
+         assertEquals("an", v.getSignature());
+         v = new Variant(new int[] { 8 });
+         assertEquals("ai", v.getSignature());
+         v = new Variant(new long[] { 10 });
+         assertEquals("ax", v.getSignature());
+         v = new Variant(new double[] { 10.1 });
+         assertEquals("ad", v.getSignature());
+         v = new Variant(new String[] { "eleven" });
+         assertEquals("as", v.getSignature());
+         v = new Variant(new InferredTypesInterface.InnerStruct(12));
+         assertEquals("(i)", v.getSignature());
+         v = new Variant(new Variant(new String("thirteen")));
+         assertEquals("v", v.getSignature());
+         
+         v = new Variant();
+         assertNull(v.getSignature());
     }
 }
