@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -90,10 +90,16 @@ public class Variant {
     /** Gets the wrapped object. */
     Object getValue() { return value; }
 
-    /** Gets the DBus type signature of the wrapped object. */
-    String getSignature() throws AnnotationBusException {
+    /** 
+     * Gets the DBus type signature of the wrapped object.
+     * 
+     *  @return the signature of the wrapped object.
+     */
+    public String getSignature() throws AnnotationBusException {
         if (value != null) {
             return Signature.typeSig(value.getClass(), signature);
+        } else if( handle != 0) {
+            return MsgArg.getSignature(new long[] { handle });
         } else {
             return null;
         }
