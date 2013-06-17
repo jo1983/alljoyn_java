@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2011, 2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -87,14 +87,63 @@ public class SessionListener {
     private native void destroy();
 
     /**
+     * Invalid SessionLost code.
+     */
+    public static final int ALLJOYN_SESSIONLOST_INVALID                      = 0x00;
+
+    /**
+     * Remote end called LeaveSession.
+     */
+    public static final int ALLJOYN_SESSIONLOST_REMOTE_END_LEFT_SESSION      = 0x01;
+
+    /**
+     * Remote end closed abruptly.
+     */
+    public static final int ALLJOYN_SESSIONLOST_REMOTE_END_CLOSED_ABRUPTLY   = 0x02;
+
+    /**
+     * Session binder removed this endpoint by calling RemoveSessionMember.
+     */
+    public static final int ALLJOYN_SESSIONLOST_REMOVED_BY_BINDER            = 0x03;
+
+    /**
+     * Link was timed-out.
+     */
+    public static final int ALLJOYN_SESSIONLOST_LINK_TIMEOUT                 = 0x04;
+
+    /**
+     * Unspecified reason for session loss.
+     */
+    public static final int ALLJOYN_SESSIONLOST_REASON_OTHER                 = 0x05;
+
+    /**
+     * Called by the bus when a session becomes disconnected.
+     *
+     * Any implementation of this function must be multithread safe.  See the
+     * class documentation for details.
+     *
+     * @deprecated Use {@link #sessionLost(int,int)}.
+     *
+     * @param sessionId     Id of session that was lost.
+     */
+    @Deprecated
+    public void sessionLost(int sessionId) {}
+
+    /**
      * Called by the bus when a session becomes disconnected.
      *
      * Any implementation of this function must be multithread safe.  See the
      * class documentation for details.
      *
      * @param sessionId     Id of session that was lost.
+     * @param reason        Reason for the session being lost. One of:
+     *                      ALLJOYN_SESSIONLOST_REMOTE_END_LEFT_SESSION
+     *                      ALLJOYN_SESSIONLOST_REMOTE_END_CLOSED_ABRUPTLY
+     *                      ALLJOYN_SESSIONLOST_REMOVED_BY_BINDER
+     *                      ALLJOYN_SESSIONLOST_LINK_TIMEOUT
+     *                      ALLJOYN_SESSIONLOST_REASON_OTHER
      */
-    public void sessionLost(int sessionId) {}
+    public void sessionLost(int sessionId, int reason) {}
 
     /**
      * Called by the bus for multipoint sessions when another node joins the session.

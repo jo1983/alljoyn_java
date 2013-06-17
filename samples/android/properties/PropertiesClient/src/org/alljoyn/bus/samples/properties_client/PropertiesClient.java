@@ -3,7 +3,7 @@
  * This client will get/set two properties from the properties service:
  *    background color (as a string) and text size in dip (as an int)
  *
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011,2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -412,9 +412,9 @@ public class PropertiesClient extends Activity {
                 
                 Status status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener(){
                     @Override
-                    public void sessionLost(int sessionId) {
+                    public void sessionLost(int sessionId, int reason) {
                         mIsConnected = false;
-                        logInfo(String.format("MyBusListener.sessionLost(%d)", sessionId));
+                        logInfo(String.format("MyBusListener.sessionLost(sessionId = %d, reason = %d)", sessionId,reason));
                         mHandler.sendEmptyMessage(MESSAGE_START_PROGRESS_DIALOG);
                     }
                 });

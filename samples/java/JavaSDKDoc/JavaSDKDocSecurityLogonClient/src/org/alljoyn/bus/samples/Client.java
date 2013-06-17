@@ -54,8 +54,8 @@ public class Client {
             mBus.enableConcurrentCallbacks();
 
             Status status = mBus.joinSession(name, contactPort, sessionId, sessionOpts,    new SessionListener(){
-                public void sessionLost(int sessionId) {
-                    System.out.println("Session Lost : " + sessionId);
+                public void sessionLost(int sessionId, int reason) {
+                    System.out.println("Session Lost : " + sessionId + "reason: "+reason);
                 }
             });
             if (status != Status.OK) {

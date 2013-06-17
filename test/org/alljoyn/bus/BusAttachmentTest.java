@@ -1218,6 +1218,7 @@ public class BusAttachmentTest extends TestCase {
     }
 
     private boolean sessionLost;
+    private int sessionLostReason;
 
     public class LeaveSessionSessionListener extends SessionListener {
         public LeaveSessionSessionListener(BusAttachment bus) {
@@ -1225,7 +1226,8 @@ public class BusAttachmentTest extends TestCase {
         }
 
         @Override
-        public void sessionLost(int sessionId) {
+        public void sessionLost(int sessionId, int reason) {
+            sessionLostReason = reason;
             sessionLost = true;
         }
 
@@ -1237,7 +1239,7 @@ public class BusAttachmentTest extends TestCase {
         sessionAccepted = false;
         sessionJoined = false;
         sessionLost = false;
-
+        sessionLostReason = SessionListener.ALLJOYN_SESSIONLOST_INVALID;
         // create new BusAttachment
         bus = new BusAttachment(getClass().getName(), BusAttachment.RemoteMessage.Receive);
         /*
@@ -1367,6 +1369,7 @@ public class BusAttachmentTest extends TestCase {
         assertEquals(true, waitForLambda(4 * 1000, new Lambda() {
                 public boolean func() { return sessionLost; }
             }));
+        assertEquals(SessionListener.ALLJOYN_SESSIONLOST_REMOTE_END_LEFT_SESSION, sessionLostReason);
     }
 
     /* ALLJOYN-958 */

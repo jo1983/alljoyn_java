@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2011,2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -1100,8 +1100,8 @@ public class AllJoynService extends Service implements Observer {
              * exemplified by the synchronized attribute of the removeFoundChannel
              * method there.
              */
-            public void sessionLost(int sessionId) {
-                Log.i(TAG, "BusListener.sessionLost(" + sessionId + ")");
+            public void sessionLost(int sessionId, int reason) {
+                Log.i(TAG, "BusListener.sessionLost(sessionId=" + sessionId + ",reason=" + reason + ")");
         		mChatApplication.alljoynError(ChatApplication.Module.USE, "The chat session has been lost");
              	mUseChannelState = UseChannelState.IDLE;
               	mChatApplication.useSetChannelState(mUseChannelState);

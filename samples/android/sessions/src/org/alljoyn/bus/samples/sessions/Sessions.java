@@ -1,5 +1,5 @@
 /*
- * Copyright 2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2012-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -528,8 +528,8 @@ private static final String TAG = "Sessions";
                             });
                             connectID = id;
                             mBus.setSessionListener(id, new SessionListener() {
-                            	public void sessionLost(final int sessionId) {
-                                    Log.i(TAG, "BusListener.sessionLost(" + sessionId + ")");
+                                public void sessionLost(final int sessionId, int reason) {
+                                    Log.i(TAG, "BusListener.sessionLost(sessionId=" + sessionId + ",reason=" + reason + ")");
                                     runOnUiThread (new Runnable() {
                         	            public void run() {
                                             ToggleButton mRemoteConnect = (ToggleButton)findViewById(R.id.RemoteConnect);
@@ -657,12 +657,12 @@ private static final String TAG = "Sessions";
                     Log.d(TAG, "Join Session initiated over the "+sessionOpts.transports+" transport.");
                     
                     final Status status = mBus.joinSession(connectTo, CONTACT_PORT, sessionId, sessionOpts, new SessionListener() {
-                        public void sessionLost(final int sessionId) {
+                        public void sessionLost(final int sessionId, int reason) {
                         	runOnUiThread (new Runnable() {
                 	            public void run() {
                 	            	final ToggleButton mRemoteConnect = (ToggleButton)findViewById(R.id.RemoteConnect);
                                     mRemoteConnect.setChecked(false);
-                                    logStatus(String.format("MyBusListener.sessionLost(" + sessionId + ")"), null);
+                                    logStatus(String.format("MyBusListener.sessionLost(sessionId=" + sessionId + ",reason=" + reason + ")"), null);
                                     makeAToast("###  SUCCESS  ###\n\n"+"Session Lost (ID = "+sessionId+")", "High");
                 	            }
                             });
