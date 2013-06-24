@@ -1387,6 +1387,125 @@ public class BusAttachmentTest extends TestCase {
         assertTrue(bus.isConnected());
     }
 
+    public class RemoveSessionMemberSessionPortListener extends SessionPortListener {
+        public RemoveSessionMemberSessionPortListener(BusAttachment bus) { this.bus = bus; }
+
+        @Override
+        public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
+            if (sessionPort == 42) {
+                sessionAccepted = true;
+                return true;
+            } else {
+                sessionAccepted = false;
+                return false;
+            }
+        }
+        @Override
+        public void sessionJoined(short sessionPort, int id, String joiner) {
+                sessionJoinedFlag = true;
+                bus.setSessionListener(id,  new SessionListener() {
+                    public void sessionLost(final int sessionId) {
+                        sessionLostFlagA = true;
+                    }
+                    public void sessionMemberAdded(int sessionId, String uniqueName) {
+                        sessionMemberAddedFlagA = true;
+                    }
+                    public void sessionMemberRemoved(int sessionId, String uniqueName) {
+                        sessionMemberRemovedFlagA = true;
+                    }
+            });
+        }
+        private BusAttachment bus;
+    }
+
+    public class RemoveSessionMemberSessionListener extends SessionListener {
+            public void sessionLost(final int sessionId) {
+                sessionLostFlagB = true;
+            }
+            public void sessionMemberAdded(int sessionId, String uniqueName) {
+                sessionMemberAddedFlagB = true;
+            }
+            public void sessionMemberRemoved(int sessionId, String uniqueName) {
+                sessionMemberRemovedFlagB = true;
+            }
+    }
+    private boolean sessionJoinedFlag = false;
+    private boolean sessionLostFlagA = false;
+    private boolean sessionMemberAddedFlagA = false;
+    private boolean sessionMemberRemovedFlagA = false;
+    private boolean sessionLostFlagB = false;
+    private boolean sessionMemberAddedFlagB = false;
+    private boolean sessionMemberRemovedFlagB = false;
+
+    public void testRemoveSessionMember() throws Exception {
+
+        /* make sure global flags are initialized */
+        sessionJoinedFlag = false;
+        sessionLostFlagA = false;
+        sessionMemberAddedFlagA = false;
+        sessionMemberRemovedFlagA = false;
+        sessionLostFlagB = false;
+        sessionMemberAddedFlagB = false;
+        sessionMemberRemovedFlagB = false;
+
+        BusAttachment busA = new BusAttachment("bus.Aa");
+        BusAttachment busB = new BusAttachment("bus.Bb");
+
+        Status status = busA.connect();
+        if (Status.OK != status) {
+            throw new Exception("BusAttachment.connect() failed with " + status.toString());
+        }
+
+        status = busB.connect();
+        if (Status.OK != status) {
+            throw new Exception("BusAttachment.connect() failed with " + status.toString());
+        }
+
+        /* Multi-point session */
+        SessionOpts sessionOpts = new SessionOpts();
+        sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
+        sessionOpts.isMultipoint = true;
+        sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
+        sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
+
+        RemoveSessionMemberSessionPortListener sessionPortListener = new RemoveSessionMemberSessionPortListener(busA);
+        Mutable.ShortValue port = new Mutable.ShortValue((short) 42);
+
+        assertEquals(Status.OK, busA.bindSessionPort(port, sessionOpts, sessionPortListener));
+
+        RemoveSessionMemberSessionListener sessionListener = new RemoveSessionMemberSessionListener();
+        Mutable.IntegerValue sessionId = new Mutable.IntegerValue(0);
+
+        assertEquals(Status.OK, busB.joinSession(busA.getUniqueName(), (short)42, sessionId, sessionOpts, sessionListener));
+
+        //Wait upto 4 seconds all callbacks and listeners to be called.
+        assertEquals(true, waitForLambda(4 * 1000, new Lambda() {
+                public boolean func() { return sessionJoinedFlag && sessionMemberAddedFlagA && sessionMemberAddedFlagB; }
+            }));
+
+	assertEquals(true, sessionJoinedFlag);
+	assertEquals(true, sessionMemberAddedFlagA);
+	assertEquals(true, sessionMemberAddedFlagB);
+
+        assertEquals(Status.ALLJOYN_REMOVESESSIONMEMBER_NOT_BINDER, busB.removeSessionMember(sessionId.value, busA.getUniqueName()));
+
+        assertEquals(Status.ALLJOYN_REMOVESESSIONMEMBER_REPLY_FAILED, busA.removeSessionMember(sessionId.value, busA.getUniqueName()));
+
+        assertEquals(Status.ALLJOYN_REMOVESESSIONMEMBER_NOT_FOUND, busA.removeSessionMember(sessionId.value, ":Invalid"));
+
+        assertEquals(Status.OK, busA.removeSessionMember(sessionId.value, busB.getUniqueName()));
+
+        //Wait upto 2 seconds all callbacks and listeners to be called.
+        assertEquals(true, waitForLambda(2 * 1000, new Lambda() {
+                public boolean func() { return sessionLostFlagA && sessionLostFlagB && sessionMemberRemovedFlagA && sessionMemberRemovedFlagB; }
+            }));
+
+        assertEquals(true,sessionLostFlagA);
+        assertEquals(true,sessionLostFlagB);
+        assertEquals(true,sessionMemberRemovedFlagA);
+        assertEquals(true,sessionMemberRemovedFlagB);
+
+    }
     /*
      *  TODO
      *  Verify that all of the BusAttachment methods are tested

@@ -6108,6 +6108,69 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession(JNIEnv
 }
 
 /**
+ * Remove a session member from an existing multipoint session.
+ *
+ * @param env  The environment pointer used to get access to the JNI helper
+ *             functions.
+ * @param thiz The Java object reference back to the BusAttachment.  Like a
+ *             "this" pointer in C++.
+ * @param jsessionId The SessionId value of the session to remove the member from.
+ * @param jsessionMemberName The session member to remove.
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeSessionMember(JNIEnv* env, jobject thiz,
+                                                                                 jint jsessionId, jstring jsessionMemberName)
+{
+    QCC_DbgPrintf(("BusAttachment_removeSessionMember()"));
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeSessionMember(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
+    /*
+     * Load the C++ session host string from the java parameter
+     */
+    JString sessionMemberName(jsessionMemberName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeSessionMember(): Exception"));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("BusAttachment_removeSessionMember(): Refcount on busPtr is %d", busPtr->GetRef()));
+
+    /*
+     * Make the AllJoyn call.
+     */
+    QCC_DbgPrintf(("BusAttachment_removeSessionMember(): Call RemoveSessionMember(%d, %s)", jsessionId, sessionMemberName.c_str()));
+
+    QStatus status = busPtr->RemoveSessionMember(jsessionId, sessionMemberName.c_str());
+
+    /*
+     * If we get an exception down in the AllJoyn code, it's hard to know what
+     * to do.  The good part is that the C++ code down in AllJoyn hasn't got a
+     * clue that we're up here and won't throw any Java exceptions, so we should
+     * be in good shape and never see this.  Famous last words, I know.  To be
+     * safe, we'll keep the global reference(s) in place (leaking temporarily),
+     * log the exception and let it propagate on up the stack to the client.
+     */
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("BusAttachment_removeSessionMember(): Exception"));
+        return NULL;
+    }
+
+    return JStatus(status);
+}
+/**
  * Explicitly set a session listener for a given session ID.
  *
  * Clients provide session listeners when they join sessions since it makes

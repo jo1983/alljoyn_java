@@ -229,6 +229,15 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_leaveSession
    jint);
 
 /*
+ * Class:     org_alljoyn_bus_BusAttachment
+ * Method:    removeSessionMember
+ * Signature: (I;Ljava/lang/String)Lorg/alljoyn/bus/Status;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_removeSessionMember
+  (JNIEnv *, jobject,
+   jint,jstring);
+
+/*
  * Class:     org_alljoyn_bus_SessionListener
  * Method:    create
  * Signature: (Lorg/alljoyn/bus/SessionListener;)V;

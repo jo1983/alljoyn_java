@@ -154,7 +154,7 @@ public class BusAttachment {
     /**
      * Advertise the existence of a well-known name to other (possibly disconnected) AllJoyn daemons.
      *
-     * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.AdvertisedName method call to the local daemon
+     * This method is a shortcut/helper that issues an org.allJoyn.Bus.AdvertisedName method call to the local daemon
      * and interprets the response.
      *
      * @param name        The well-known name to advertise. (Must be owned by the caller via RequestName).
@@ -173,7 +173,7 @@ public class BusAttachment {
      * Stop advertising the existence of a well-known name to other AllJoyn daemons.
      *
      * This method is a shortcut/helper that issues an
-     * org.codeauora.AllJoyn.Bus.CancelAdvertiseName method call to the local
+     * org.allJoyn.Bus.CancelAdvertiseName method call to the local
      * daemon and interprets the response.
      *
      * @param name        A well-known name that was previously advertised via AdvertiseName.
@@ -190,7 +190,7 @@ public class BusAttachment {
 
     /**
      * Register interest in a well-known name prefix for the purpose of discovery over transports included in TRANSPORT_ANY.
-     * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.FindAdvertisedName method call to the local daemon
+     * This method is a shortcut/helper that issues an org.allJoyn.Bus.FindAdvertisedName method call to the local daemon
      * and interprets the response.
      *
      * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
@@ -207,7 +207,7 @@ public class BusAttachment {
 
     /**
      * Register interest in a well-known name prefix for the purpose of discovery over specified transports.
-     * This method is a shortcut/helper that issues an org.codeauora.AllJoyn.Bus.FindAdvertisedName method call to the local daemon
+     * This method is a shortcut/helper that issues an org.allJoyn.Bus.FindAdvertisedName method call to the local daemon
      * and interprets the response.
      *
      * @param namePrefix  Well-known name prefix that application is interested in receiving BusListener::FoundAdvertisedName
@@ -227,7 +227,7 @@ public class BusAttachment {
      * Cancel interest in a well-known name prefix that was previously
      * registered with FindAdvertisedName. This cancels well-known name discovery
      * over transports included in TRANSPORT_ANY.  This method is a shortcut/helper
-     * that issues an org.codeauora.AllJoyn.Bus.CancelFindAdvertisedName method
+     * that issues an org.allJoyn.Bus.CancelFindAdvertisedName method
      * call to the local daemon and interprets the response.
      *
      * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
@@ -246,7 +246,7 @@ public class BusAttachment {
      * Cancel interest in a well-known name prefix that was previously
      * registered with FindAdvertisedName. This cancels well-known name discovery
      * over the specified transports.  This method is a shortcut/helper
-     * that issues an org.codeauora.AllJoyn.Bus.CancelFindAdvertisedName method
+     * that issues an org.allJoyn.Bus.CancelFindAdvertisedName method
      * call to the local daemon and interprets the response.
      *
      * @param namePrefix  Well-known name prefix that application is no longer interested in receiving
@@ -329,7 +329,7 @@ public class BusAttachment {
      * Join a session.
      *
      * This method is a shortcut/helper that issues an
-     * org.codeauora.AllJoyn.Bus.JoinSession method call to the local daemon and
+     * org.allJoyn.Bus.JoinSession method call to the local daemon and
      * interprets the response.
      *
      * @param sessionHost   Bus name of attachment that is hosting the session to be joined.
@@ -396,7 +396,7 @@ public class BusAttachment {
      * Leave an existing session.
      *
      * This method is a shortcut/helper that issues an
-     * org.codeauora.AllJoyn.Bus.LeaveSession method call to the local daemon
+     * org.alljoyn.Bus.LeaveSession method call to the local daemon
      * and interprets the response.
      *
      * @param sessionId     Session id.
@@ -409,6 +409,25 @@ public class BusAttachment {
      * </ul>
      */
     public native Status leaveSession(int sessionId);
+
+    /**
+     * Remove a session member from an existing multipoint session.
+     *
+     * This method is a shortcut/helper that issues an
+     * org.alljoyn.Bus.RemoveSessionMember method call to the local daemon
+     * and interprets the response.
+     *
+     * @param sessionId             Session id.
+     * @param sessionMemberName     Name of member to remove from session.
+     *
+     * @return
+     * <ul>
+     * <li>OK if daemon response was left.</li>
+     * <li>BUS_NOT_CONNECTED if a connection has not been made with a local bus</li>
+     * <li>other error status codes indicating failures.</li>
+     * </ul>
+     */
+    public native Status removeSessionMember(int sessionId, String sessionMemberName);
 
     /**
      * Set the SessionListener for an existing session.
