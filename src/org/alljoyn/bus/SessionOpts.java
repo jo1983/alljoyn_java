@@ -134,6 +134,11 @@ public class SessionOpts {
     public static final short TRANSPORT_WLAN      = 0x0004;
 
     /**
+     * Transport using TCP (same as TRANSPORT_WLAN)
+     */
+    public static final short TRANSPORT_TCP       = TRANSPORT_WLAN;
+    
+    /**
      * Use only a wireless wide area network to communicate with a given session.
      */
     public static final short TRANSPORT_WWAN      = 0x0008;
