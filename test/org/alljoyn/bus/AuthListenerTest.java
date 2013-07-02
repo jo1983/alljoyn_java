@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.security.auth.x500.X500Principal;
 
 import static junit.framework.Assert.*;
@@ -587,19 +588,31 @@ public class AuthListenerTest extends TestCase {
     public void abortClient(String mechanism) throws Exception {
         serviceAuthListener = new BusAuthListener("service");
         authListener = new AbortAuthListener("client");
+        boolean thrown = false;
         try {
             doPing(mechanism);
         } catch (BusException ex) {
+            /*
+             * we expect a BusException cause by org.alljoyn.Bus.ErStatus
+             */
+            thrown = true;
         }
+        assertTrue(thrown);
     }
 
     public void abortService(String mechanism) throws Exception {
         serviceAuthListener = new AbortAuthListener("service");
         authListener = new BusAuthListener("client");
+        boolean thrown = false;
         try {
             doPing(mechanism);
         } catch (BusException ex) {
+            /*
+             * we expect a BusException cause by org.alljoyn.Bus.ErStatus
+             */
+            thrown = true;
         }
+        assertTrue(thrown);
     }
 
     public void testSrpListener() throws Exception {
@@ -841,10 +854,16 @@ public class AuthListenerTest extends TestCase {
         serviceAuthListener = new BusAuthListener("service");
         serviceAuthListener.privKey.clear();
         authListener = new BusAuthListener("client");
+        boolean thrown = false;
         try {
             doPing("ALLJOYN_RSA_KEYX");
         } catch (BusException ex) {
+            /*
+             * we expect a BusException cause by org.alljoyn.Bus.ErStatus
+             */
+            thrown = true;
         }
+        assertTrue(thrown);
 
     }
     public void testRsaServiceNoPrivateKeyNoPassword() throws Exception {
@@ -853,10 +872,16 @@ public class AuthListenerTest extends TestCase {
         serviceAuthListener.privKey.clear();
         servicePasswordCount = 1;
         authListener = new BusAuthListener("client");
+        boolean thrown = false;
         try {
             doPing("ALLJOYN_RSA_KEYX");
         } catch (BusException ex) {
+            /*
+             * we expect a BusException cause by org.alljoyn.Bus.ErStatus
+             */
+            thrown = true;
         }
+        assertTrue(thrown);
     }
     /* Client doesn't use password, so no client retry test */
     public void testRsaRetryService() throws Exception {
@@ -899,10 +924,18 @@ public class AuthListenerTest extends TestCase {
         authListener = new AbortFirstMechanismAuthListener("client");
         assertEquals(Status.OK, serviceBus.registerAuthListener(authMechanisms, serviceAuthListener));
         assertEquals(Status.OK, bus.registerAuthListener(authMechanisms, authListener));
+        boolean thrown = false;
         try {
             proxy.Ping("hello");
         } catch (BusException ex) {
+            /*
+             * We don't expect to see a BusExpection for this test if the bus
+             * exception  print a stacktrace to aid debugging.
+             */
+            ex.printStackTrace();
+            thrown = true;
         }
+        assertFalse(thrown);
         assertEquals(1, authListener.count);
         assertEquals(1, serviceAuthListener.count);
         assertEquals(1, authListener.completed);
@@ -1238,11 +1271,16 @@ public class AuthListenerTest extends TestCase {
             "-----END CERTIFICATE-----");
         assertEquals(Status.OK, serviceBus.registerAuthListener("ALLJOYN_RSA_KEYX", serviceAuthListener));
         assertEquals(Status.OK, bus.registerAuthListener("ALLJOYN_RSA_KEYX", authListener));
-        
+        boolean thrown = false;
         try {
             proxy.Ping("hello");
         } catch (BusException ex) {
+            /*
+             * we expect a BusException cause by org.alljoyn.Bus.ErStatus
+             */
+            thrown = true;
         }
+        assertTrue(thrown);
         assertEquals("user2", authListener.rejected);
         assertEquals("user1", serviceAuthListener.verified);
     }

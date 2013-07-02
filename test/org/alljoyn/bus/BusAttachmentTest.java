@@ -598,10 +598,13 @@ public class BusAttachmentTest extends TestCase {
                 BusAttachment.SESSION_ID_ANY,
                 new Class[] { SimpleInterface.class });
         SimpleInterface proxy = proxyObj.getInterface(SimpleInterface.class);
+        boolean thrown = false;
         try {
             proxy.Ping("hello");
         } catch (BusException ex) {
+            thrown = true;
         }
+        assertTrue(thrown);
     }
 
     private boolean found;

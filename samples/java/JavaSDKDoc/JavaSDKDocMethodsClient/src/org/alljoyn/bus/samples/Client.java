@@ -135,6 +135,11 @@ public class Client {
             thread2.join();
             thread1.join();
         } catch (InterruptedException ex) {
+            /*
+             * we don't expect an InterrupdedExpection however just incase print
+             * a stack trace to aid with debugging.
+             */
+            ex.printStackTrace();
         }
 
 	}

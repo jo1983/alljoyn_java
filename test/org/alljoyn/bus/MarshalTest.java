@@ -1513,11 +1513,14 @@ public class MarshalTest extends TestCase {
         AnnotatedTypesInterface proxy = remoteObj.getInterface(AnnotatedTypesInterface.class);
         proxy.String("");
         proxy.Signature("");
+        boolean thrown = false;
         try {
             proxy.ObjectPath("");
         } catch (BusException ex) {
             // null is not a valid object path
+            thrown = true;
         }
+        assertTrue(thrown);
     }
 
     public void testAnnotatedTypes() throws Exception {

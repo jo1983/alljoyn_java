@@ -71,10 +71,16 @@ public class ProxyBusObjectTest extends TestCase {
     public class DelayReply implements SimpleInterface,
                                        BusObject {
         public String Ping(String str) {
+            boolean thrown = false;
             try {
                 Thread.currentThread().sleep(100);
             } catch (InterruptedException ex) {
+                // we don't expect the sleep to be interrupted. If it is print
+                // the stacktrace to aid with debugging.
+                ex.printStackTrace();
+                thrown = true;
             }
+            assertFalse(thrown);
             return str;
         }
     }
