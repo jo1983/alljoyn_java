@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2011, 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -20,5 +20,3 @@ env = SConscript(['../build_core/SConscript'])
 
 # Add/remove projects from build
 env.SConscript(['SConscript'])
-
-

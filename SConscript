@@ -16,10 +16,13 @@
 import os
 import sys
 
-# The return value is the collection of files installed in the build destination.
-returnValue = []
-
 Import('env')
+
+# Dependent Projects
+if not env.has_key('_ALLJOYNCORE_'):
+    env.SConscript('../alljoyn_core/SConscript')
+
+javaenv = env.Clone()
 
 vars = Variables();
 
@@ -27,61 +30,69 @@ vars.Add(EnumVariable('JAVAVERSION', '''The version of Java pointed to by the JA
     environment variable. This is not used to select one version of
     the Java comiler vs. another.''', '1.6', allowed_values=('1.5', '1.6')))
 
-vars.Update(env)
+vars.Update(javaenv)
 
-Help(vars.GenerateHelpText(env))
+Help(vars.GenerateHelpText(javaenv))
 
-sys.path.append('../build_core/tools/scons')
+
+# Java requires a couple of header files in alljoyn_core/src
+javaenv.Append(CPPPATH = [javaenv.Dir('../alljoyn_core/src').srcnode()])
+
+sys.path.append(str(javaenv.Dir('../build_core/tools/scons').srcnode()))
 from configurejni import ConfigureJNI
 
-if not ConfigureJNI(env):
+if not ConfigureJNI(javaenv):
     if not GetOption('help'):
         Exit()
 
-if not os.environ.get('CLASSPATH'):
-    print "CLASSPATH not set"
-    if not GetOption('help'):
-        Exit()
 
-# Dependent Projects
-if not env.has_key('_ALLJOYNCORE_'):
-    env.SConscript('../alljoyn_core/SConscript')
+classpath = os.environ.get('CLASSPATH')
+if not classpath:
+    if javaenv['OS'] == 'linux' and os.path.exists('/usr/share/java/junit4.jar'):
+        classpath = '/usr/share/java/junit4.jar'
+    else:
+        print "CLASSPATH not set"
+        if not GetOption('help'):
+            Exit()
+
+# Set JAVACLASSPATH to contents of CLASSPATH env variable
+javaenv.AppendENVPath("JAVACLASSPATH", classpath)
+javaenv['JAVACLASSPATH'] = javaenv['ENV']['JAVACLASSPATH']
+
 
 # Make alljoyn_java dist a sub-directory of the alljoyn dist.  This avoids any conflicts with alljoyn dist targets.
-env['JAVA_DISTDIR'] = env['DISTDIR'] + '/java'
-env['JAVA_TESTDIR'] = env['TESTDIR'] + '/java'
+javaenv['JAVA_DISTDIR'] = javaenv['DISTDIR'] + '/java'
+javaenv['JAVA_TESTDIR'] = javaenv['TESTDIR'] + '/java'
 
 # Tell dependent dirs where to stick classes
-env.Append(CLASSDIR='$OBJDIR/classes')
+javaenv.Append(CLASSDIR='$OBJDIR/classes')
 
 # Tell dependent dirs where jar files are located. ("#" doesn't work here for some reason)
-env.Append(JARDIR='$JAVA_DISTDIR/jar')
+javaenv.Append(JARDIR='$JAVA_DISTDIR/jar')
 
 # Add support for mulitiple build targets in the same workset
-env.VariantDir('$OBJDIR', '.', duplicate = 0)
+javaenv.VariantDir('$OBJDIR', '.', duplicate = 0)
 
 
 # AllJoyn Java binding
-alljoyn_jar = env.SConscript('src/SConscript')
+alljoyn_jar = javaenv.SConscript('src/SConscript', exports = {'env':javaenv})
 
 # AllJoyn JNI library
-libs = env.SConscript('$OBJDIR/jni/SConscript')
-returnValue += env.Install('$JAVA_DISTDIR/lib', libs)
+libs = javaenv.SConscript('$OBJDIR/jni/SConscript', exports = {'env':javaenv})
+javaenv.Install('$JAVA_DISTDIR/lib', libs)
 # Also install a copy of liballjoyn_java, and junit.jar, alljoyn.jar into 
 # the bin folder so it can be found by the alljoyn_java eclipse project 
-env.Install('bin/libs', libs)
-env.Install('bin/jar', alljoyn_jar)
+javaenv.Install('bin/libs', libs)
+javaenv.Install('bin/jar', alljoyn_jar)
 
 # AllJoyn Java binding tests
-env.SConscript('test/SConscript')
+javaenv.SConscript('test/SConscript', exports = {'env':javaenv})
 
 # AllJoyn Java binding docs
-env['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
-env['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
-env['PROJECT_NUMBER'] = 'Version 0.0.1'
-env.JavaDoc('$JAVA_DISTDIR/docs/html', 'src', JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+javaenv['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
+javaenv['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
+javaenv['PROJECT_NUMBER'] = 'Version 0.0.1'
+javaenv.JavaDoc('$JAVA_DISTDIR/docs/html', 'src', JAVACLASSPATH=javaenv.subst('$JAVACLASSPATH'))
 
 # AllJoyn samples
-returnValue += env.SConscript('samples/SConscript')
-
-Return('returnValue')
+javaenv.SConscript('samples/SConscript', exports = {'env':javaenv})

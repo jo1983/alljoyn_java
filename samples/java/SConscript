@@ -18,6 +18,6 @@ Import('env')
 # The return value is the collection of files installed in the build destination.
 returnValue = env.Install('$JAVA_DISTDIR/samples', 'README.txt')
 
-returnValue += env.SConscript('JavaSDKDoc/SConscript')
+returnValue += env.SConscript('JavaSDKDoc/SConscript', exports = ['env'])
 
 Return('returnValue')

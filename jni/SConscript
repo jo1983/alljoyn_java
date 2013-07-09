@@ -1,4 +1,4 @@
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -25,8 +25,11 @@ objs = env.SharedObject(srcs)
 
 # JNI library
 bdenv = env.Clone()
-bdenv.Prepend(LIBS = env['bdlib'])
-bdenv.Prepend(LIBS = env['bdobj'])
+if bdenv['BD'] == 'off':
+    # The JNI code must link in the bundled daemon even if BD is set to 'off'
+    bdenv.Prepend(LIBS = ['ajdaemon'])
+    bdenv.Prepend(LIBS = env['bdobj'])
+
 
 liballjoyn_java = bdenv.SharedLibrary('alljoyn_java', objs)
 
