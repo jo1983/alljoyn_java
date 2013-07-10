@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Sessionless Chat</string>
+    <string name="app_name">Connectionless Chat</string>
 
     <string name="enterMessageHint">Enter message</string>
 
