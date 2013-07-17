@@ -39,6 +39,7 @@ for sample in ['simple/client',
                'properties/PropertiesService',
                'contacts/ContactsClient',
                'contacts/ContactsService',
+               'sessionless/chat',
                'sessionless/client',
                'sessionless/service']:
     returnValue += env.Install('$JAVA_DISTDIR/samples/%s' % sample, 
