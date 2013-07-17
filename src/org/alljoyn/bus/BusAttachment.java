@@ -735,10 +735,10 @@ public class BusAttachment {
         executor = Executors.newSingleThreadExecutor();
     }
     /* Set of all the connected BusAttachments. Maintain a weakreference so we dont delay garbage collection */
-    static HashSet<WeakReference<BusAttachment>> busAttachmentSet = new HashSet<WeakReference<BusAttachment>>();
+    private static HashSet<WeakReference<BusAttachment>> busAttachmentSet = new HashSet<WeakReference<BusAttachment>>();
 
     /* Shutdown hook used to release any connected BusAttachments when the VM exits */
-    public static class ShutdownHookThread extends Thread{
+    private static class ShutdownHookThread extends Thread{
 	public void run(){
 
 		/* Iterate through the busAttachmentSet and release any BusAttachments that havent been released yet.*/
