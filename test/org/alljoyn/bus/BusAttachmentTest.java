@@ -1089,13 +1089,13 @@ public class BusAttachmentTest extends TestCase {
         // find the AdvertisedName
         assertEquals(Status.OK, otherBus.findAdvertisedName(name));
 
-        this.wait(4 * 1000);
+        this.wait(5 * 1000);
 
         assertEquals(true, found);
 
-        this.wait(4 * 1000);
+        this.wait(5 * 1000);
         if(!sessionAccepted || !sessionJoined) {
-            this.wait(4 * 1000);
+            this.wait(5 * 1000);
         }
 
         assertEquals(Status.OK, joinSessionStatus);
@@ -1144,7 +1144,7 @@ public class BusAttachmentTest extends TestCase {
 
         found = false;
         assertEquals(Status.OK, otherBus.findAdvertisedName(name));
-        this.wait(4 * 1000);
+        this.wait(5 * 1000);
         assertEquals(true, found);
 
         /*
@@ -1165,7 +1165,7 @@ public class BusAttachmentTest extends TestCase {
                 stopWait();
             }
         }, context));
-        this.wait(4 * 1000);
+        this.wait(5 * 1000);
         assertEquals(true, onJoined);
     }
 
