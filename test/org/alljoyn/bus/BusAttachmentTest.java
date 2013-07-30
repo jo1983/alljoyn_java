@@ -62,7 +62,20 @@ public class BusAttachmentTest extends TestCase {
     }
 
     public class ExceptionService implements SimpleInterface, BusObject {
-        public String Ping(String str) throws BusException { throw new BusException("ExceptionService"); }
+        private int i;
+        public String Ping(String str) throws BusException {
+            switch (i++) {
+            case 0:
+                throw new ErrorReplyBusException(Status.OS_ERROR);
+            case 1:
+                throw new ErrorReplyBusException("org.alljoyn.bus.ExceptionService.Error1");
+            case 2:
+                throw new ErrorReplyBusException("org.alljoyn.bus.ExceptionService.Error2", "Message");
+            case 3:
+                throw new BusException("BusException");
+            }
+            return str;
+        }
     }
 
     public class AnnotationService implements AnnotationInterface,
@@ -130,7 +143,7 @@ public class BusAttachmentTest extends TestCase {
     public class Lambda {
         public boolean func() { return false; }
     }
-    
+
     public boolean waitForLambda(long waitMs, Lambda expression) throws Exception {
         boolean ret = expression.func();
         long endMs = System.currentTimeMillis() + waitMs;
@@ -598,11 +611,46 @@ public class BusAttachmentTest extends TestCase {
                 BusAttachment.SESSION_ID_ANY,
                 new Class[] { SimpleInterface.class });
         SimpleInterface proxy = proxyObj.getInterface(SimpleInterface.class);
+
         boolean thrown = false;
+        try {
+            proxy.Ping("hello");
+        } catch (ErrorReplyBusException ex) {
+            thrown = true;
+            assertEquals(Status.BUS_REPLY_IS_ERROR_MESSAGE, ex.getErrorStatus());
+            assertEquals("org.alljoyn.Bus.ErStatus", ex.getErrorName());
+            assertEquals("ER_OS_ERROR", ex.getErrorMessage());
+        }
+        assertTrue(thrown);
+
+        thrown = false;
+        try {
+            proxy.Ping("hello");
+        } catch (ErrorReplyBusException ex) {
+            thrown = true;
+            assertEquals(Status.BUS_REPLY_IS_ERROR_MESSAGE, ex.getErrorStatus());
+            assertEquals("org.alljoyn.bus.ExceptionService.Error1", ex.getErrorName());
+            assertEquals("", ex.getErrorMessage());
+        }
+        assertTrue(thrown);
+
+        thrown = false;
+        try {
+            proxy.Ping("hello");
+        } catch (ErrorReplyBusException ex) {
+            thrown = true;
+            assertEquals(Status.BUS_REPLY_IS_ERROR_MESSAGE, ex.getErrorStatus());
+            assertEquals("org.alljoyn.bus.ExceptionService.Error2", ex.getErrorName());
+            assertEquals("Message", ex.getErrorMessage());
+        }
+        assertTrue(thrown);
+
+        thrown = false;
         try {
             proxy.Ping("hello");
         } catch (BusException ex) {
             thrown = true;
+            assertEquals("org.alljoyn.Bus.ErStatus", ex.getMessage());
         }
         assertTrue(thrown);
     }

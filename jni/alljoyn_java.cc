@@ -1804,6 +1804,7 @@ class JBusObject : public BusObject {
     QStatus AddInterfaces(jobjectArray jbusInterfaces);
     void MethodHandler(const InterfaceDescription::Member* member, Message& msg);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, QStatus status);
+    QStatus MethodReply(const InterfaceDescription::Member* member, const Message& msg, const char* error, const char* errorMessage = NULL);
     QStatus MethodReply(const InterfaceDescription::Member* member, Message& msg, jobject jreply);
     QStatus Signal(const char* destination, SessionId sessionId, const char* ifaceName, const char* signalName,
                    const MsgArg* args, size_t numArgs, uint32_t timeToLive, uint8_t flags, Message& msg);
@@ -7726,8 +7727,85 @@ void JBusObject::MethodHandler(const InterfaceDescription::Member* member, Messa
     mapLock.Unlock();
 
     JLocalRef<jobject> jreply = env->CallObjectMethod(method->second, mid, jo, (jobjectArray)jargs);
-    if (env->ExceptionCheck()) {
-        MethodReply(member, msg, ER_FAIL);
+    JLocalRef<jthrowable> ex = env->ExceptionOccurred();
+    if (ex) {
+        env->ExceptionClear();
+        JLocalRef<jclass> clazz = env->GetObjectClass(ex);
+        jmethodID mid = env->GetMethodID(clazz, "getCause", "()Ljava/lang/Throwable;");
+        if (!mid) {
+            MethodReply(member, msg, ER_FAIL);
+            return;
+        }
+        ex = (jthrowable)env->CallObjectMethod(ex, mid);
+        if (env->ExceptionCheck()) {
+            MethodReply(member, msg, ER_FAIL);
+            return;
+        }
+
+        clazz = env->GetObjectClass(ex);
+        if (env->IsInstanceOf(ex, CLS_ErrorReplyBusException)) {
+            mid = env->GetMethodID(clazz, "getErrorStatus", "()Lorg/alljoyn/bus/Status;");
+            if (!mid) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            JLocalRef<jobject> jstatus = env->CallObjectMethod(ex, mid);
+            if (env->ExceptionCheck()) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            JLocalRef<jclass> statusClazz = env->GetObjectClass(jstatus);
+            mid = env->GetMethodID(statusClazz, "getErrorCode", "()I");
+            if (!mid) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            QStatus errorCode = (QStatus)env->CallIntMethod(jstatus, mid);
+            if (env->ExceptionCheck()) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+
+            mid = env->GetMethodID(clazz, "getErrorName", "()Ljava/lang/String;");
+            if (!mid) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            JLocalRef<jstring> jerrorName = (jstring)env->CallObjectMethod(ex, mid);
+            if (env->ExceptionCheck()) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            JString errorName(jerrorName);
+            if (env->ExceptionCheck()) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+
+            mid = env->GetMethodID(clazz, "getErrorMessage", "()Ljava/lang/String;");
+            if (!mid) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            JLocalRef<jstring> jerrorMessage = (jstring)env->CallObjectMethod(ex, mid);
+            if (env->ExceptionCheck()) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+            JString errorMessage(jerrorMessage);
+            if (env->ExceptionCheck()) {
+                MethodReply(member, msg, ER_FAIL);
+                return;
+            }
+
+            if (errorName.c_str()) {
+                MethodReply(member, msg, errorName.c_str(), errorMessage.c_str());
+            } else {
+                MethodReply(member, msg, errorCode);
+            }
+        } else {
+            MethodReply(member, msg, ER_FAIL);
+        }
         return;
     }
 
@@ -7743,6 +7821,18 @@ QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, Mess
         return ER_OK;
     } else {
         return BusObject::MethodReply(msg, status);
+    }
+}
+
+QStatus JBusObject::MethodReply(const InterfaceDescription::Member* member, const Message& msg, const char* error, const char* errorMessage)
+{
+    QCC_DbgPrintf(("JBusObject::MethodReply()"));
+
+    qcc::String val;
+    if (member->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val) && val == "true") {
+        return ER_OK;
+    } else {
+        return BusObject::MethodReply(msg, error, errorMessage);
     }
 }
 

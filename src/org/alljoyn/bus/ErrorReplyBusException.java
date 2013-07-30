@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -23,22 +23,58 @@ package org.alljoyn.bus;
  */
 public class ErrorReplyBusException extends BusException {
 
+    private final Status status;
+
     private final String name;
 
     private final String message;
 
     /**
      * Constructs an ErrorReplyBusException with an error name and message from
+     * a status code.
+     *
+     * @param status the status code for the error
+     */
+    public ErrorReplyBusException(Status status) {
+        super("org.alljoyn.Bus.ErStatus");
+        this.status = status;
+        this.name = null;
+        this.message = null;
+    }
+
+    /**
+     * Constructs an ErrorReplyBusException with an error name from
      * an error reply message.
      *
      * @param name the error name header field
-     * @param message the (optional) error message
+     */
+    public ErrorReplyBusException(String name) {
+        super(name);
+	this.status = Status.BUS_REPLY_IS_ERROR_MESSAGE;
+        this.name = name;
+        this.message = null;
+    }
+
+    /**
+     * Constructs an ErrorReplyBusException with an error name and message from
+     * an error reply message.
+     *
+     * @param name the error name header field
+     * @param message the error message
      */
     public ErrorReplyBusException(String name, String message) {
         super(name);
+	this.status = Status.BUS_REPLY_IS_ERROR_MESSAGE;
         this.name = name;
         this.message = message;
     }
+
+    /**
+     * Gets the error status.
+     *
+     * @return the status
+     */
+    public Status getErrorStatus() { return status; }
 
     /**
      * Gets the error name.
