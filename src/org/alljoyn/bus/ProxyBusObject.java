@@ -68,10 +68,25 @@ public class ProxyBusObject {
      */
     protected ProxyBusObject(BusAttachment busAttachment, String busName, String objPath, int sessionId,
                              Class[] busInterfaces) {
+        this(busAttachment, busName, objPath, sessionId, busInterfaces, false);
+    }
+
+    /**
+     * Construct a ProxyBusObject.
+     *
+     * @param busAttachment  The connection the remote object is on.
+     * @param busName        Well-known or unique bus name of remote object.
+     * @param objPath        Object path of remote object.
+     * @param sessionId      The session ID corresponding to the connection to the object.
+     * @param busInterfaces  A list of BusInterfaces that this proxy should respond to.
+     * @param secure         the security mode for the remote object
+     */
+    protected ProxyBusObject(BusAttachment busAttachment, String busName, String objPath, int sessionId,
+                             Class[] busInterfaces, boolean secure) {
         this.bus = busAttachment;
         this.busName = busName;
         this.objPath = objPath;
-        create(busAttachment, busName, objPath, sessionId);
+        create(busAttachment, busName, objPath, sessionId, secure);
         replyTimeoutMsecs = 25000;
         proxy = Proxy.newProxyInstance(busInterfaces[0].getClassLoader(), busInterfaces, new Handler());
         try {
@@ -84,7 +99,7 @@ public class ProxyBusObject {
     }
 
     /** Allocate native resources. */
-    private native void create(BusAttachment busAttachment, String busName, String objPath, int sessionId);
+    private native void create(BusAttachment busAttachment, String busName, String objPath, int sessionId, boolean secure);
 
     /** Release native resources. */
     private synchronized native void destroy();
@@ -113,6 +128,9 @@ public class ProxyBusObject {
     /** Set a property of the remote object. */
     private native void setProperty(BusAttachment busAttachment, String interfaceName,
             String propertyName, String signature, Object value) throws BusException;
+
+    /** Is the remote object for this proxy bus object secure. */
+    private native boolean isProxyBusObjectSecure();
 
     /** The invocation handler for the bus interfaces. */
     private class Handler implements InvocationHandler {
@@ -357,6 +375,15 @@ public class ProxyBusObject {
      */
     public void setAutoStart(boolean autoStart) {
         this.flags = autoStart ? this.flags | AUTO_START : this.flags & ~AUTO_START;
+    }
+
+    /**
+     * Indicates if the remote object for this proxy bus object is secure.
+     *
+     * @return  true if the object is secure
+     */
+    public boolean isSecure() {
+        return isProxyBusObjectSecure();
     }
 }
 

@@ -1232,7 +1232,7 @@ class JBusAttachment : public BusAttachment {
                     jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
     void Disconnect(const char* connectArgs);
     QStatus EnablePeerSecurity(const char* authMechanisms, jobject jauthListener, const char* keyStoreFileName, jboolean isShared);
-    QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces);
+    QStatus RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces, jboolean jsecure);
     void UnregisterBusObject(jobject jbusObject);
     QStatus RegisterSignalHandler(const char* ifaceName, const char* signalName,
                                   jobject jsignalHandler, jobject jmethod, const char* srcPath);
@@ -2076,7 +2076,7 @@ jobject GetGlobalRefForObject(jobject jbusObject)
  */
 class JProxyBusObject : public ProxyBusObject {
   public:
-    JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId);
+    JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId, bool secure);
     ~JProxyBusObject();
     JBusAttachment* busPtr;
   private:
@@ -4354,7 +4354,8 @@ void JBusAttachment::ForgetLocalBusObject(jobject jbusObject)
     }
 }
 
-QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObject, jobjectArray jbusInterfaces)
+QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObject,
+                                          jobjectArray jbusInterfaces, jboolean jsecure)
 {
     QCC_DbgPrintf(("JBusAttachment::RegisterBusObject(%p)", jbusObject));
 
@@ -4455,7 +4456,7 @@ QStatus JBusAttachment::RegisterBusObject(const char* objPath, jobject jbusObjec
      * After we enter this call, AllJoyn has its hands on the bus object and
      * calls in can start flowing.
      */
-    QStatus status = BusAttachment::RegisterBusObject(*busObject);
+    QStatus status = BusAttachment::RegisterBusObject(*busObject, jsecure);
     if (status != ER_OK) {
         /*
          * AllJoyn balked at us for some reason.  As a result we really don't
@@ -8196,7 +8197,8 @@ void JBusObject::ObjectUnregistered()
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(JNIEnv* env, jobject thiz, jstring jobjPath,
-                                                                               jobject jbusObject, jobjectArray jbusInterfaces)
+                                                                               jobject jbusObject, jobjectArray jbusInterfaces,
+                                                                               jboolean jsecure)
 {
     QCC_DbgPrintf(("BusAttachment_registerBusObject()"));
 
@@ -8223,13 +8225,31 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_BusAttachment_registerBusObject(J
 
     QCC_DbgPrintf(("BusAttachment_registerBusObject(): Refcount on busPtr is %d", busPtr->GetRef()));
 
-    QStatus status = busPtr->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces);
+    QStatus status = busPtr->RegisterBusObject(objPath.c_str(), jbusObject, jbusInterfaces, jsecure);
     if (env->ExceptionCheck()) {
         QCC_LogError(ER_FAIL, ("BusAttachment_registerBusObject(): Exception"));
         return NULL;
     }
 
     return JStatus(status);
+}
+
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_BusAttachment_isSecureBusObject(JNIEnv* env, jobject thiz, jobject jbusObject)
+{
+    QCC_DbgPrintf(("BusAttachment_isSecureBusObjectt()"));
+    gBusObjectMapLock.Lock();
+    JBusObject* busObject = GetBackingObject(jbusObject);
+
+    if (!busObject) {
+        QCC_DbgPrintf(("BusAttachment_isSecureBusObject(): Releasing global Bus Object map lock"));
+        gBusObjectMapLock.Unlock();
+        QCC_LogError(ER_FAIL, ("BusAttachment_isSecureBusObject(): Exception"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_BUS_NO_SUCH_OBJECT));
+        return false;
+    }
+    bool result = busObject->IsSecure();
+    gBusObjectMapLock.Unlock();
+    return result;
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_unregisterBusObject(JNIEnv* env, jobject thiz, jobject jbusObject)
@@ -8770,7 +8790,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_BusAttachment_enableConcurrentCallba
 }
 
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEnv* env, jobject thiz, jobject jbus, jstring jname,
-                                                                           jboolean secure, jint numProps, jint numMembers)
+                                                                           jint securePolicy, jint numProps, jint numMembers)
 {
     QCC_DbgPrintf(("InterfaceDescription_create()"));
 
@@ -8798,7 +8818,7 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
     QCC_DbgPrintf(("InterfaceDescription_create(): Refcount on busPtr is %d", busPtr->GetRef()));
 
     InterfaceDescription* intf;
-    QStatus status = busPtr->CreateInterface(name.c_str(), intf, secure);
+    QStatus status = busPtr->CreateInterface(name.c_str(), intf, static_cast<InterfaceSecurityPolicy>(securePolicy));
     if (ER_BUS_IFACE_ALREADY_EXISTS == status) {
         /*
          * We know that an interface exists with the same name, but it may differ in other parameters,
@@ -8809,9 +8829,20 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
          */
         intf = (InterfaceDescription*)busPtr->GetInterface(name.c_str());
         assert(intf);
-        if ((intf->IsSecure() == static_cast<bool>(secure)) &&
+        if ((intf->GetSecurityPolicy() == static_cast<InterfaceSecurityPolicy>(securePolicy)) &&
             (intf->GetProperties() == (size_t)numProps) &&
             (intf->GetMembers() == (size_t)numMembers)) {
+            status = ER_OK;
+        }
+        /*
+         * The org.freedesktop.DBus.Introspectable interface is a special case to
+         * remain backwards compatable it can not add the 'off' security annotation
+         * however to work with object security it must still report that its interface
+         * security as not applicable.
+         */
+        if ((status != ER_OK) &&
+            (strcmp("org.freedesktop.DBus.Introspectable", name.c_str()) == 0) &&
+            (intf->GetSecurityPolicy() == static_cast<InterfaceSecurityPolicy>(org_alljoyn_bus_InterfaceDescription_AJ_IFC_SECURITY_OFF))) {
             status = ER_OK;
         }
     }
@@ -9053,8 +9084,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_InterfaceDescription_activate(JNIEnv
     intf->Activate();
 }
 
-JProxyBusObject::JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId)
-    : ProxyBusObject(*jbap, endpoint, path, sessionId)
+JProxyBusObject::JProxyBusObject(JBusAttachment* jbap, const char* endpoint, const char* path, SessionId sessionId, bool secure)
+    : ProxyBusObject(*jbap, endpoint, path, sessionId, secure)
 {
     QCC_DbgPrintf(("JProxyBusObject::JProxyBusObject()"));
 
@@ -9085,7 +9116,8 @@ JProxyBusObject::~JProxyBusObject()
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, jobject thiz, jobject jbus,
-                                                                  jstring jbusName, jstring jobjPath, jint sessionId)
+                                                                  jstring jbusName, jstring jobjPath,
+                                                                  jint sessionId, jboolean secure)
 {
     QCC_DbgPrintf(("ProxyBusObject_create()"));
 
@@ -9120,7 +9152,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_create(JNIEnv* env, j
      * pointer to it in our "handle"  Note that we are giving the busPtr to the
      * new JProxyBusObject, so it must bump the reference count
      */
-    JProxyBusObject* jpbo = new JProxyBusObject(busPtr, busName.c_str(), objPath.c_str(), sessionId);
+    JProxyBusObject* jpbo = new JProxyBusObject(busPtr, busName.c_str(), objPath.c_str(), sessionId, secure);
     if (!jpbo) {
         Throw("java/lang/OutOfMemoryError", NULL);
         return;
@@ -9553,6 +9585,23 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_ProxyBusObject_setProperty(JNIEnv* e
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
     }
     busPtr->baProxyLock.Unlock();
+}
+
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_ProxyBusObject_isProxyBusObjectSecure(JNIEnv* env, jobject thiz)
+{
+    QCC_DbgPrintf(("ProxyBusObject_isSecure()"));
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_isSecure(): Exception"));
+        return false;
+    }
+
+    if (proxyBusObj == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObject_isSecure(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return false;
+    }
+    return proxyBusObj->IsSecure();
 }
 
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_SignalEmitter_signal(JNIEnv* env, jobject thiz, jobject jbusObject, jstring jdestination,

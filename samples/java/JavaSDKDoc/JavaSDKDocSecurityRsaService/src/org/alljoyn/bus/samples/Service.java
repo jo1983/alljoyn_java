@@ -56,7 +56,7 @@ public class Service {
     }
 
     /* The RSA Key eXchange listener uses X.509 certificates to authenticate. */
-    private static class RsaKeyXListener implements AuthListener {        
+    private static class RsaKeyXListener implements AuthListener {
         public boolean requested(String mechanism, String peerName, int count,
                 String userName, AuthRequest[] requests) {
             System.out.println(String.format("AuthListener.requested(%s, %s, %d, %s, %s);", 

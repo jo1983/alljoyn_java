@@ -802,7 +802,9 @@ public class BusAttachment {
             AuthListenerInternal busAuthListener, String keyStoreFileName, Boolean isShared);
 
     private native Status registerBusObject(String objPath, BusObject busObj,
-            InterfaceDescription[] busInterfaces);
+            InterfaceDescription[] busInterfaces, boolean secure);
+
+    private native boolean isSecureBusObject(BusObject busObj);
 
     private native Status registerNativeSignalHandler(String ifaceName, String signalName,
             Object obj, Method handlerMethod, String source);
@@ -975,6 +977,23 @@ public class BusAttachment {
      * @see org.alljoyn.bus.annotation.BusInterface
      */
     public Status registerBusObject(BusObject busObj, String objPath) {
+        return registerBusObject(busObj, objPath, false);
+    }
+
+    /**
+     * Registers a bus object.
+     * Once registered, the bus object may communicate to and from other
+     * objects via its implemented bus interfaces.
+     * <p>
+     * The same object may not be registered on multiple bus connections.
+     *
+     * @param busObj the BusObject to register
+     * @param objPath the object path of the BusObject
+     * @param secure true if authentication is required to access this object
+     * @return OK if successful
+     * @see org.alljoyn.bus.annotation.BusInterface
+     */
+    public Status registerBusObject(BusObject busObj, String objPath, boolean secure) {
         try {
             List<InterfaceDescription> descs = new ArrayList<InterfaceDescription>();
             Status status = InterfaceDescription.create(this, busObj.getClass().getInterfaces(),
@@ -982,13 +1001,22 @@ public class BusAttachment {
             if (status != Status.OK) {
                 return status;
             }
-            return registerBusObject(objPath, busObj, descs.toArray(new InterfaceDescription[0]));
+            return registerBusObject(objPath, busObj, descs.toArray(new InterfaceDescription[0]), secure);
         } catch (AnnotationBusException ex) {
             BusException.log(ex);
             return Status.BAD_ANNOTATION;
         }
     }
 
+    /**
+     * Indicates if the BusObject is secure.
+     *
+     * @return Return true if authentication is required to emit signals or call
+     *         methods on this object.
+     */
+    public boolean isBusObjectSecure(BusObject busObj) {
+        return isSecureBusObject(busObj);
+    }
     /**
      * Unregisters a bus object.
      *
@@ -1023,6 +1051,39 @@ public class BusAttachment {
             int sessionId,
             Class[] busInterfaces) {
         return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces);
+    }
+
+    /**
+     * Creates a proxy bus object for a remote bus object.
+     * Methods on the remote object can be invoked through the proxy object.
+     * <p>
+     * There is no guarantee that the remote object referred to by the proxy
+     * acutally exists.  If the remote object does not exist, proxy method
+     * calls will fail.
+     * <p>
+     * Java proxy classes do not allow methods from two different interfaces to
+     * have the same name and calling parameters. If two AllJoyn methods from two
+     * different interfaces are implemented by the same remote object, one (or
+     * both) of the method names must be modified. You may then use an
+     * annotation for the renamed method to cause AllJoyn to use the originally
+     * expected method name in any "wire" operations.
+     *
+     * @param busName        the remote endpoint name (well-known or unique)
+     * @param objPath        the absolute (non-relative) object path for the object
+     * @param sessionId      the session corresponding to the connection to the the object
+     * @param busInterfaces  an array of BusInterfaces that this proxy should respond to
+     * @param secure         the security mode for the remote object
+     *
+     * @return a ProxyBusObject for an object that implements all interfaces listed in busInterfaces
+     *
+     * @see org.alljoyn.bus.annotation.BusMethod
+     */
+    public ProxyBusObject getProxyBusObject(String busName,
+            String objPath,
+            int sessionId,
+            Class[] busInterfaces,
+            boolean isSecure) {
+        return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces, isSecure);
     }
 
     /**

@@ -1,12 +1,12 @@
 /*
  * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
- * 
+ *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
- * 
+ *
  *        http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -47,6 +47,10 @@ class InterfaceDescription {
     private static final int READ        = 1;              /**< Read access type. */
     private static final int WRITE       = 2;              /**< Write access type. */
     private static final int RW          = READ | WRITE;   /**< Read-write access type. */
+
+    private static final int AJ_IFC_SECURITY_INHERIT   = 0; /**< Inherit the security of the object that implements the interface */
+    private static final int AJ_IFC_SECURITY_REQUIRED  = 1; /**< Security is required for an interface */
+    private static final int AJ_IFC_SECURITY_OFF       = 2; /**< Security does not apply to this interface */
 
     private class Property {
 
@@ -91,8 +95,8 @@ class InterfaceDescription {
     }
 
     /** Allocate native resources. */
-    private native Status create(BusAttachment busAttachment, String name, boolean secure,
-            int numProps, int numMembers);
+    private native Status create(BusAttachment busAttachment, String name, 
+            int securePolicy, int numProps, int numMembers);
 
     /** Add a member to the native interface description. */
     private native Status addMember(int type, String name, String inputSig, String outSig,
@@ -155,8 +159,26 @@ class InterfaceDescription {
         if (status != Status.OK) {
             return status;
         }
-        boolean secure = busInterface.getAnnotation(Secure.class) != null;
-        status = create(busAttachment, getName(busInterface), secure, properties.size(),
+
+        int securePolicy = AJ_IFC_SECURITY_INHERIT;
+        Secure secureAnnotation = busInterface.getAnnotation(Secure.class);
+        if (secureAnnotation != null) {
+            if (secureAnnotation.value().equals("required")) {
+                securePolicy = AJ_IFC_SECURITY_REQUIRED;
+            } else if (secureAnnotation.value().equals("off")) {
+                securePolicy = AJ_IFC_SECURITY_OFF;
+            } else {
+                /*
+                 * In C++ if an interface provides an unknown security annotation
+                 * it automatically defaults to the inherit for security. For
+                 * that reason the Java code will do the same.
+                 */
+                securePolicy = AJ_IFC_SECURITY_INHERIT;
+            }
+        } else {
+            securePolicy = AJ_IFC_SECURITY_INHERIT;
+        }
+        status = create(busAttachment, getName(busInterface), securePolicy, properties.size(),
                 members.size());
         if (status != Status.OK) {
             return status;

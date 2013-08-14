@@ -16,12 +16,12 @@
 
 package org.alljoyn.bus.ifaces;
 
+import java.util.Map;
+
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
-
-import java.util.Map;
 
 /**
  * The standard org.freedesktop.DBus.Properties interface that can be
