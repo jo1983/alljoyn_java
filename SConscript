@@ -22,6 +22,9 @@ Import('env')
 if not env.has_key('_ALLJOYNCORE_'):
     env.SConscript('../alljoyn_core/SConscript')
 
+# Indicate that this SConscript file has been loaded already
+env['_ALLJOYN_JAVA_'] = True
+
 javaenv = env.Clone()
 
 vars = Variables();
