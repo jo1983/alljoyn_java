@@ -619,7 +619,11 @@ public class BusAttachmentTest extends TestCase {
             thrown = true;
             assertEquals(Status.BUS_REPLY_IS_ERROR_MESSAGE, ex.getErrorStatus());
             assertEquals("org.alljoyn.Bus.ErStatus", ex.getErrorName());
-            assertEquals("ER_OS_ERROR", ex.getErrorMessage());
+            /*
+             * in release mode the error code is returned in debug mode the
+             * actual text for the error is returned.
+             */
+            assertTrue("ER_OS_ERROR".equals(ex.getErrorMessage()) || "0x0004".equals(ex.getErrorMessage()));
         }
         assertTrue(thrown);
 
