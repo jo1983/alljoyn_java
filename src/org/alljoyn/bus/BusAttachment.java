@@ -1082,8 +1082,8 @@ public class BusAttachment {
             String objPath,
             int sessionId,
             Class[] busInterfaces,
-            boolean isSecure) {
-        return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces, isSecure);
+            boolean secure) {
+        return new ProxyBusObject(this, busName, objPath, sessionId, busInterfaces, secure);
     }
 
     /**
