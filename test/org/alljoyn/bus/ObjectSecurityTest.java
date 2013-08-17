@@ -69,6 +69,21 @@ public class ObjectSecurityTest extends TestCase{
     SrpAuthListener serviceAuthListener;
     SrpAuthListener clientAuthListener;
 
+    private TestKeyStoreListener serviceKeyStoreListener;
+    private TestKeyStoreListener clientKeyStoreListener;
+
+    public class TestKeyStoreListener implements KeyStoreListener {
+        private byte[] keys;
+        public boolean saveKeys;
+        public byte[] getKeys() { return keys; }
+        public char[] getPassword() { return "password".toCharArray(); }
+        public void putKeys(byte[] keys) {
+            if (saveKeys) {
+                this.keys = keys;
+            }
+        }
+    }
+
     //static private String INTERFACE_NAME = "org.alljoyn.test.objectSecurity.interface";
     //static private String WELLKNOWN_NAME = "org.alljoyn.test.objectSecurity";
     static private String OBJECT_PATH    = "/org/alljoyn/test/objectSecurity";
@@ -76,12 +91,18 @@ public class ObjectSecurityTest extends TestCase{
 
     public void setUp() throws Exception {
         serviceBus = new BusAttachment("ObjectSecurityTestClient");
+        serviceKeyStoreListener = new TestKeyStoreListener();
+        serviceBus.registerKeyStoreListener(serviceKeyStoreListener);
+
         serviceAuthListener = new SrpAuthListener();
         assertEquals(Status.OK, serviceBus.registerAuthListener("ALLJOYN_SRP_KEYX", serviceAuthListener));
         assertEquals(Status.OK, serviceBus.connect());
         serviceBus.clearKeyStore();
 
         clientBus = new BusAttachment("ObjectSecurityTestService");
+        clientKeyStoreListener = new TestKeyStoreListener();
+        clientBus.registerKeyStoreListener(clientKeyStoreListener);
+
         clientAuthListener = new SrpAuthListener();
         assertEquals(Status.OK, clientBus.registerAuthListener("ALLJOYN_SRP_KEYX", clientAuthListener));
         assertEquals(Status.OK, clientBus.connect());
