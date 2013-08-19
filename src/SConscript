@@ -1,4 +1,4 @@
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -22,18 +22,20 @@ Import('env')
 # AllJoyn Java status codes
 JavaStatus('org/alljoyn/bus/Status')
 
+
 # AllJoyn Java binding
-#If we are on Linux and Windows
 if env['OS'] == 'android':
-	# Get P2P java files from core
-	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
-    	main_classes += env.Java('$CLASSDIR', source = ['../helper'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+    # Get P2P java files from core
+    main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 
-	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
+    if env['OS'] == 'android' and env['ANDROID_PROXIMITY'] == 'on':
+        main_classes += env.Java('$CLASSDIR', source = ['../helper'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
 
-if (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
-	main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
-	alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
+    alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
+
+elif (env['OS'] == 'linux' or env['OS_GROUP'] == 'windows'):
+    main_classes = env.Java('$CLASSDIR', source = ['.'], JAVACLASSPATH=env.subst('$JAVACLASSPATH'))
+    alljoyn_jar = env.Jar('$JARDIR/alljoyn.jar', source = [main_classes])
 
 if env['VARIANT'] == 'debug' :
     # get a listing of the sources
