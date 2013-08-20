@@ -22,6 +22,7 @@ import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.annotation.BusInterface;
 import org.alljoyn.bus.annotation.BusMethod;
+import org.alljoyn.bus.annotation.Secure;
 
 /**
  * The standard org.freedesktop.DBus.Properties interface that can be
@@ -29,6 +30,7 @@ import org.alljoyn.bus.annotation.BusMethod;
  * user-defined properties on DBus.
  */
 @BusInterface(name = "org.freedesktop.DBus.Properties")
+@Secure(value="off")
 public interface Properties {
 
     /**
