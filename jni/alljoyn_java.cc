@@ -8835,13 +8835,16 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_InterfaceDescription_create(JNIEn
             status = ER_OK;
         }
         /*
-         * The org.freedesktop.DBus.Introspectable interface is a special case to
-         * remain backwards compatable it can not add the 'off' security annotation
-         * however to work with object security it must still report that its interface
-         * security as not applicable.
+         * When using org.freedesktop.DBus interfaces, we treat them as a special
+         * case to remain backwards compatible. It cannot add the 'off' security
+         * annotation. However, to work properly with object security, it must
+         * still report its interface security as 'off'.
          */
+        bool isDBusStandardIfac = (strcmp(org::freedesktop::DBus::Introspectable::InterfaceName, name.c_str()) == 0) ||
+                                  (strcmp(org::freedesktop::DBus::Peer::InterfaceName, name.c_str()) == 0) ||
+                                  (strcmp(org::freedesktop::DBus::Properties::InterfaceName, name.c_str()) == 0);
         if ((status != ER_OK) &&
-            (strcmp("org.freedesktop.DBus.Introspectable", name.c_str()) == 0) &&
+            isDBusStandardIfac &&
             (intf->GetSecurityPolicy() == static_cast<InterfaceSecurityPolicy>(org_alljoyn_bus_InterfaceDescription_AJ_IFC_SECURITY_OFF))) {
             status = ER_OK;
         }
