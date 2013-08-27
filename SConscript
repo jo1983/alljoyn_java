@@ -94,7 +94,7 @@ javaenv.SConscript('test/SConscript', exports = {'env':javaenv})
 # AllJoyn Java binding docs
 javaenv['PROJECT_SHORT_NAME'] = 'AllJoyn Java API<br/>Reference Manual'
 javaenv['PROJECT_LONG_NAME'] = 'AllJoyn Java API Reference Manual'
-javaenv['PROJECT_NUMBER'] = 'Version 0.0.1'
+javaenv['PROJECT_NUMBER'] = 'Version 3.4.0'
 javaenv.JavaDoc('$JAVA_DISTDIR/docs/html', 'src', JAVACLASSPATH=javaenv.subst('$JAVACLASSPATH'))
 
 # AllJoyn samples
