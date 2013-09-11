@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2011, 2013 Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -16,18 +16,12 @@
 
 package org.alljoyn.bus;
 
-import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.BusException;
-import org.alljoyn.bus.BusObject;
-import org.alljoyn.bus.ProxyBusObject;
-import org.alljoyn.bus.Status;
-import org.alljoyn.bus.Variant;
+import java.util.Map;
+
+import junit.framework.TestCase;
+
 import org.alljoyn.bus.ifaces.DBusProxyObj;
 import org.alljoyn.bus.ifaces.Properties;
-
-import java.util.Map;
-import java.util.TreeMap;
-import junit.framework.TestCase;
 
 public class PropsTest extends TestCase {
 
@@ -54,22 +48,30 @@ public class PropsTest extends TestCase {
         public void setIntProp(int intProperty) { this.intProperty = intProperty; }
     }
 
-    public void testProps() throws Exception {
- 
-        /* Create a bus connection and connect to the bus */
-        BusAttachment bus = new BusAttachment(getClass().getName());
-        Status status = bus.connect();
-        if (Status.OK != status) {
-            throw new BusException("BusAttachment.connect() failed with " + status.toString());
-        }
-        
+    BusAttachment bus;
+    BusAttachment clientBus;
+
+    public void setUp() throws Exception {
+        bus = new BusAttachment(getClass().getName());
+        assertEquals(Status.OK, bus.connect());
+
         /* Register the service */
         Service service = new Service();
-        status = bus.registerBusObject(service, "/testProperties");
+        Status status = bus.registerBusObject(service, "/testProperties");
         if (Status.OK != status) {
             throw new BusException("BusAttachment.registerBusObject() failed: " + status.toString());
         }
-            
+    }
+
+    public void tearDown() throws Exception {
+        if (bus != null) {
+            bus.disconnect();
+            bus.release();
+            bus = null;
+        }
+    }
+
+    public void testProps() throws Exception {
         /* Request a well-known name */
         DBusProxyObj control = bus.getDBusProxyObj();
         DBusProxyObj.RequestNameResult res = control.RequestName("org.alljoyn.bus.samples.props", 
@@ -102,4 +104,30 @@ public class PropsTest extends TestCase {
         assertEquals("MyNewValue", map.get("StringProp").getObject(String.class));
         assertEquals(6, (int)map.get("IntProp").getObject(Integer.class));
    }
+
+    public void testGetProperty() throws Exception {
+        ProxyBusObject remoteObj = bus.getProxyBusObject(bus.getUniqueName(),
+                                                         "/testProperties",  BusAttachment.SESSION_ID_ANY,
+                                                         new Class<?>[] { PropsInterface.class });
+        Variant stringProp = remoteObj.getProperty(PropsInterface.class, "StringProp");
+        assertEquals("Hello", stringProp.getObject(String.class));
+    }
+
+    public void testSetProperty() throws Exception {
+        ProxyBusObject remoteObj = bus.getProxyBusObject(bus.getUniqueName(),
+                                                         "/testProperties",  BusAttachment.SESSION_ID_ANY,
+                                                         new Class<?>[] { PropsInterface.class });
+        remoteObj.setProperty(PropsInterface.class, "StringProp", new Variant("set"));
+        Variant stringProp = remoteObj.getProperty(PropsInterface.class, "StringProp");
+        assertEquals("set", stringProp.getObject(String.class));
+    }
+
+    public void testGetAllProperties() throws Exception {
+        ProxyBusObject remoteObj = bus.getProxyBusObject(bus.getUniqueName(),
+                                                         "/testProperties",  BusAttachment.SESSION_ID_ANY,
+                                                         new Class<?>[] { PropsInterface.class });
+        Map<String, Variant> map = remoteObj.getAllProperties(PropsInterface.class);
+        assertEquals("Hello", map.get("StringProp").getObject(String.class));
+        assertEquals(6, (int)map.get("IntProp").getObject(Integer.class));
+    }
 }
