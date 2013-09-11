@@ -18,6 +18,7 @@ package org.alljoyn.bus;
 
 import org.alljoyn.bus.annotation.BusProperty;
 import org.alljoyn.bus.annotation.BusSignalHandler;
+import org.alljoyn.bus.annotation.Secure;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -35,6 +36,7 @@ import java.util.Map;
 public class ProxyBusObject {
 
     private static final int AUTO_START = 0x02;
+    private static final int ENCRYPTED = 0x80;
 
     /** The bus the remote object is connected to. */
     private BusAttachment bus;
@@ -86,6 +88,7 @@ public class ProxyBusObject {
         this.bus = busAttachment;
         this.busName = busName;
         this.objPath = objPath;
+        this.flags = 0;
         create(busAttachment, busName, objPath, sessionId, secure);
         replyTimeoutMsecs = 25000;
         proxy = Proxy.newProxyInstance(busInterfaces[0].getClassLoader(), busInterfaces, new Handler());
@@ -124,6 +127,8 @@ public class ProxyBusObject {
     /** Get a property of the remote object. */
     private native Variant getProperty(BusAttachment busAttachment, String interfaceName,
             String propertyName) throws BusException;
+
+    private native Map<String, Variant> getAllProperties(BusAttachment busAttachment, Type outType, String interfaceName) throws BusException;
 
     /** Set a property of the remote object. */
     private native void setProperty(BusAttachment busAttachment, String interfaceName,
@@ -384,6 +389,49 @@ public class ProxyBusObject {
      */
     public boolean isSecure() {
         return isProxyBusObjectSecure();
+    }
+
+    /**
+     * Get a property from an interface on the remote object.
+     *
+     * @param iface the interface that the property exists on
+     * @param propertyName the name of the property
+     * @return Variant containing the value of the property
+     * @throws BusException if the named property doesn't exist
+     */
+    public <T> Variant getProperty(Class<T> iface, String propertyName) throws BusException {
+        return getProperty(bus, InterfaceDescription.getName(iface), propertyName);
+    }
+
+    /**
+     * Set a property on an interface on the remote object.
+     *
+     * @param iface the interface that the property exists on
+     * @param propertyName the name of the property
+     * @param value the value for the property
+     * @throws BusException if the named property doesn't exist or cannot be set
+     */
+    public <T> void setProperty(Class<T> iface, String propertyName, Variant value) throws BusException {
+        setProperty(bus, InterfaceDescription.getName(iface), propertyName, value.getSignature(), value.getValue());;
+    }
+
+    /**
+     * Get all properties from an interface on the remote object.
+     *
+     * @param iface the interface
+     * @return a Map of name/value associations
+     * @throws BusException if request cannot be honored
+     */
+    public <T> Map<String, Variant> getAllProperties(Class<T> iface) throws BusException {
+        Map<String, Variant> map = null;
+        try {
+            Type returnType;
+            returnType = org.alljoyn.bus.ifaces.Properties.class.getMethod("GetAll", String.class).getGenericReturnType();
+            map = getAllProperties(bus, returnType, InterfaceDescription.getName(iface));
+        } catch (NoSuchMethodException e) {
+            /* This will not happen */
+        }
+        return map;
     }
 }
 

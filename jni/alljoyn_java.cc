@@ -9260,6 +9260,23 @@ static void AddInterface(jobject thiz, jobject jbus, jstring jinterfaceName)
     }
 }
 
+/*
+ * if the interface security policy is Required return true,
+ * if the interface security policy is off return false
+ * otherwise return the object security.
+ */
+static inline bool SecurityApplies(const JProxyBusObject* obj, const InterfaceDescription* ifc)
+{
+    InterfaceSecurityPolicy ifcSec = ifc->GetSecurityPolicy();
+    if (ifcSec == AJ_IFC_SECURITY_REQUIRED) {
+        return true;
+    } else if (ifcSec == AJ_IFC_SECURITY_OFF) {
+        return false;
+    } else {
+        return obj->IsSecure();
+    }
+}
+
 JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv* env,
                                                                          jobject thiz,
                                                                          jobject jbus,
@@ -9370,6 +9387,44 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_methodCall(JNIEnv*
         return jreplyArg;
     }
 
+    /*
+     * If we call any method on the org.freedesktop.DBus.Properties interface
+     *    - org.freedesktop.DBus.Properties.Get(ssv)
+     *    - org.freedesktop.DBus.Properties.Set(ssv)
+     *    - org.freedesktop.DBus.Properties.GetAll(sa{sv})
+     * If the properties are part of an encrypted interface then the they must
+     * also be encrypted.  The first parameter of Get, Set, and GetAll is the
+     * interface name that the property belongs to.
+     *    - this code reads the interface name from the Properties method call
+     *    - tries to Get the InterfaceDescription from the proxyBusObj based on
+     *      the interface name
+     *    - Checks the InterfaceDescription to see if it has Security Annotation
+     *      or object security
+     *    - if security is set change the security flag to for the property
+     *      method so the properties are encrypted.
+     *    - if it is unable to get the InterfaceDescription it will check the
+     *      security of the ProxyObject.
+     *    - Failure to find a security indication will result the properties
+     *      methods being used without encryption.
+     */
+    if (strcmp(interfaceName.c_str(), org::freedesktop::DBus::Properties::InterfaceName) == 0) {
+        char* interface_name;
+        /* the fist member of the struct is the interface name*/
+        args.v_struct.members[0].Get("s", &interface_name);
+        const InterfaceDescription* ifac_with_property = proxyBusObj->GetInterface(interface_name);
+        /*
+         * If the object or the property interface is secure method call
+         * must be encrypted.
+         */
+        if (ifac_with_property == NULL) {
+            if (proxyBusObj->IsSecure()) {
+                flags |= ALLJOYN_FLAG_ENCRYPTED;
+            }
+        } else
+        if (SecurityApplies(proxyBusObj, ifac_with_property)) {
+            flags |= ALLJOYN_FLAG_ENCRYPTED;
+        }
+    }
     qcc::String val;
     if (member->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val) && val == "true") {
         status = proxyBusObj->MethodCallAsync(*member, NULL, NULL, args.v_struct.members,
@@ -9495,6 +9550,83 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty(JNIEnv
         return obj;
     } else {
         QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getProperty(): Exception"));
+        busPtr->baProxyLock.Unlock();
+        env->ThrowNew(CLS_BusException, QCC_StatusText(status));
+        return NULL;
+    }
+}
+
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getAllProperties(JNIEnv* env, jobject thiz, jobject jbus,
+                                                                               jobject joutType, jstring jinterfaceName)
+{
+    QCC_DbgPrintf(("ProxyBusObject_getAllProperties()"));
+
+    JString interfaceName(jinterfaceName);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getAllProperties(): Exception"));
+        return NULL;
+    }
+
+    JBusAttachment* busPtr = GetHandle<JBusAttachment*>(jbus);
+    if (env->ExceptionCheck()) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getAllProperties(): Exception"));
+        return NULL;
+    }
+
+    /*
+     * We don't want to force the user to constantly check for NULL return
+     * codes, so if we have a problem, we throw an exception.
+     */
+    if (busPtr == NULL) {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getAllProperties(): NULL bus pointer"));
+        env->ThrowNew(CLS_BusException, QCC_StatusText(ER_FAIL));
+        return NULL;
+    }
+
+    QCC_DbgPrintf(("ProxybusObject_getproperty(): Refcount on busPtr is %d\n", busPtr->GetRef()));
+
+    /*
+     * This part of the binding and on down lower is fundamentally single
+     * threaded.  We want to eventually support multiple overlapping synchronous
+     * calls, but we do not support this now.
+     *
+     * It might sound reasonable for a user of the bindings to get around this
+     * limitation by spinning up a bunch of threads to make overlapping get
+     * property calls.  Since these calls will be coming in here to be
+     * dispatched, We have to actively prevent this from happening for now.
+     *
+     * It's a bit of a blunt instrument, but we acquire a common method call lock
+     * in the underlying bus attachment before allowing any method call on a
+     * proxy bus object to proceed.
+     */
+    busPtr->baProxyLock.Lock();
+
+    JProxyBusObject* proxyBusObj = GetHandle<JProxyBusObject*>(thiz);
+    if (env->ExceptionCheck()) {
+        busPtr->baProxyLock.Unlock();
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getAllProperties(): Exception"));
+        return NULL;
+    }
+
+    assert(proxyBusObj);
+
+    if (!proxyBusObj->ImplementsInterface(interfaceName.c_str())) {
+        AddInterface(thiz, jbus, jinterfaceName);
+        if (env->ExceptionCheck()) {
+            busPtr->baProxyLock.Unlock();
+            QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getAllProperties(): Exception"));
+            return NULL;
+        }
+    }
+
+    MsgArg value;
+    QStatus status = proxyBusObj->GetAllProperties(interfaceName.c_str(), value);
+    if (ER_OK == status) {
+        jobject obj = Unmarshal(&value, joutType);
+        busPtr->baProxyLock.Unlock();
+        return obj;
+    } else {
+        QCC_LogError(ER_FAIL, ("ProxyBusObjexct_getAllProperties(): Exception"));
         busPtr->baProxyLock.Unlock();
         env->ThrowNew(CLS_BusException, QCC_StatusText(status));
         return NULL;

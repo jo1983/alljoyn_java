@@ -709,6 +709,13 @@ JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getProperty
 
 /*
  * Class:     org_alljoyn_bus_ProxyBusObject
+ * Method:    getAllProperties
+ * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/reflect/Type;Ljava/lang/String;)Ljava/lang/Object;
+ */
+JNIEXPORT jobject JNICALL Java_org_alljoyn_bus_ProxyBusObject_getAllProperties
+  (JNIEnv *, jobject, jobject, jobject, jstring);
+/*
+ * Class:     org_alljoyn_bus_ProxyBusObject
  * Method:    setProperty
  * Signature: (Lorg/alljoyn/bus/BusAttachment;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)V
  */
