@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2011, 2013 Qualcomm Innovation Center, Inc.
  * 
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.alljoyn.bus;
 
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.annotation.BusInterface;
+import org.alljoyn.bus.annotation.BusMethod;
 import org.alljoyn.bus.annotation.BusProperty;
 
 /** 
@@ -28,7 +29,8 @@ import org.alljoyn.bus.annotation.BusProperty;
  */
 @BusInterface
 public interface PropsInterface {
-
+    @BusMethod
+    public String Ping(String str) throws BusException;
     /**
      * Get the property named 'StringProp'.
      *
