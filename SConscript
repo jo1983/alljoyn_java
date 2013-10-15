@@ -46,7 +46,7 @@ from configurejni import ConfigureJNI
 
 if not ConfigureJNI(javaenv):
     if not GetOption('help'):
-        Exit()
+        Exit(1)
 
 
 classpath = os.environ.get('CLASSPATH')
@@ -56,7 +56,7 @@ if not classpath:
     else:
         print "CLASSPATH not set"
         if not GetOption('help'):
-            Exit()
+            Exit(1)
 
 # Set JAVACLASSPATH to contents of CLASSPATH env variable
 javaenv.AppendENVPath("JAVACLASSPATH", classpath)
